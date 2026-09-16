@@ -42,10 +42,12 @@ class LibraryTests(unittest.TestCase):
         self.bookdir = self.library / "Author" / "A Book"
         self.bookdir.mkdir(parents=True)
         (self.share / "Music").mkdir(parents=True)
+        self.andys_music = self.root / "AndysCollection"
+        self.andys_music.mkdir()
         self.scratch.mkdir()
         self.audio_path = self.bookdir / "book.m4b"
         self.audio_path.write_bytes(self.audio.read_bytes())
-        self.app = yoto.create_app(self.library, self.share, str(self.scratch))
+        self.app = yoto.create_app(self.library, self.share, str(self.scratch), self.andys_music)
         self.app.testing = True
         self.client = self.app.test_client()
 
@@ -178,6 +180,88 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn(b"Download Card A", page.data)
         self.assertNotIn(b"book.tmp", page.data)
+
+    def test_andys_music_searches_artists_albums_and_tracks_separately(self):
+        album = self.andys_music / "Favourite Artist" / "2020 - Rare Album"
+        album.mkdir(parents=True)
+        (album / "01 Hidden Gem.m4a").write_bytes(self.audio.read_bytes())
+        self.assertIn(b"Andy's music", self.client.get("/").data)
+        for query in ("favourite", "rare album", "hidden gem", "rare favourite"):
+            with self.subTest(query=query):
+                result = self.client.get("/AndysMusic/", query_string={"q": query})
+                self.assertIn(b"2020 - Rare Album", result.data)
+                self.assertIn(b'/AndysMusic/Favourite%20Artist/', result.data)
+                self.assertIn(b'action="/AndysMusic/"', result.data)
+        self.assertNotIn(b"Rare Album", self.client.get("/Music/?q=rare").data)
+        self.assertNotIn(b"Rare Album", self.client.get("/Books/?q=rare").data)
+
+    def test_andys_music_converts_opus_preserves_sources_and_orders_discs(self):
+        album = self.andys_music / "Artist" / "Album"
+        album.mkdir(parents=True)
+        for filename, disc, track, title in [
+            ("01 Alpha.opus", 2, 1, "Disc two opener"),
+            ("02 Zulu.opus", 1, 2, "Disc one finale"),
+            ("01 Zulu.opus", 1, 1, "Disc one opener"),
+        ]:
+            subprocess.run(["ffmpeg", "-v", "error", "-i", str(self.audio),
+                            "-c:a", "libopus", "-metadata", f"disc={disc}",
+                            "-metadata", f"track={track}", "-metadata", f"title={title}",
+                            str(album / filename)], check=True, capture_output=True)
+        before = {p.name: p.read_bytes() for p in album.iterdir()}
+        sources = sorted(album.glob("*.opus"))
+        book = yoto.plan_book(album, sources, music=True)
+        page = self.client.get("/AndysMusic/Artist/Album/")
+        self.assertIn(b"Download album", page.data)
+        self.assertIn(b"Disc one opener", page.data)
+        response = self.client.get(f"/andys-music-cards/Artist/Album/0.zip?v={book.version}")
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+            self.assertIsNone(archive.testzip())
+            tracks = [n for n in archive.namelist() if n.endswith(".m4a")]
+            self.assertEqual([Path(n).name for n in tracks], [
+                "001 - Disc one opener.m4a", "002 - Disc one finale.m4a", "003 - Disc two opener.m4a"])
+            for n in tracks:
+                p = self.root / Path(n).name
+                p.write_bytes(archive.read(n))
+                info = yoto.prep.probe(str(p))
+                self.assertEqual(info["streams"][0]["codec_name"], "aac")
+                subprocess.run(["ffmpeg", "-v", "error", "-i", str(p), "-f", "null", "-"],
+                               check=True, capture_output=True)
+        self.assertEqual(before, {p.name: p.read_bytes() for p in album.iterdir()})
+        self.assertEqual(list(self.scratch.iterdir()), [])
+        self.assertEqual(list((self.share / "Music").iterdir()), [])
+
+    def test_andys_music_denies_source_files_symlinks_and_mutations(self):
+        (self.andys_music / "escape").symlink_to(self.library)
+        (self.andys_music / "metadata.json").write_text("private")
+        (self.andys_music / "book.m4a").write_bytes(self.audio.read_bytes())
+        for path in ("/AndysMusic/../", "/AndysMusic/escape/", "/AndysMusic/book.m4a",
+                     "/AndysMusic/metadata.json", "/andys-music-cards/../Artist/0.zip?v=x"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+        for method in ("post", "put", "delete"):
+            self.assertEqual(getattr(self.client, method)("/AndysMusic/").status_code, 405)
+        self.assertNotIn(b"Author", self.client.get("/AndysMusic/?q=author").data)
+
+    def test_music_search_refreshes_without_copying_media(self):
+        with patch.object(yoto.time, "monotonic", return_value=1):
+            self.assertNotIn(b"New Artist", self.client.get("/AndysMusic/?q=new").data)
+        album = self.andys_music / "New Artist" / "New Album"
+        album.mkdir(parents=True)
+        (album / "song.m4a").write_bytes(self.audio.read_bytes())
+        with patch.object(yoto.time, "monotonic", return_value=62):
+            self.assertIn(b"New Artist", self.client.get("/AndysMusic/?q=new").data)
+
+    def test_optional_andys_library_is_hidden_when_unconfigured(self):
+        app = yoto.create_app(self.library, self.share, str(self.scratch))
+        client = app.test_client()
+        self.assertNotIn(b"Andy's music", client.get("/").data)
+        self.assertEqual(client.get("/AndysMusic/").status_code, 404)
+
+    def test_health_checks_andys_read_only_mount(self):
+        self.andys_music.rmdir()
+        with self.assertLogs("yoto", level="ERROR"):
+            self.assertEqual(self.client.get("/healthz").status_code, 503)
 
     def test_track_and_card_limits_use_mixed_source_sizes(self):
         # Synthetic long metadata exercises packing without generating hours of audio.

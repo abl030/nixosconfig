@@ -9,6 +9,7 @@
   ...
 }: let
   cfg = config.homelab.services.yotoShare;
+  mediaRoots = [cfg.libraryDir cfg.shareDir] ++ lib.optional (cfg.andysMusicDir != null) cfg.andysMusicDir;
   serverPython = pkgs.python3.withPackages (ps: [ps.flask ps.gunicorn]);
   serverSource = builtins.path {
     path = ./yoto-share;
@@ -71,6 +72,12 @@ in {
       description = "Source audiobooks visible to every peer with access to the Yoto share.";
     };
 
+    andysMusicDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Optional read-only music library for the Andy's music catalogue and generated card ZIPs.";
+    };
+
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/virtio/tailscale-share/yoto";
@@ -118,14 +125,18 @@ in {
       wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
-      unitConfig.RequiresMountsFor = [cfg.libraryDir cfg.shareDir];
+      unitConfig.RequiresMountsFor = mediaRoots;
       path = [pkgs.ffmpeg];
-      environment = {
-        YOTO_LIBRARY = cfg.libraryDir;
-        YOTO_SHARE = cfg.shareDir;
-        TMPDIR = "/tmp";
-        PYTHONDONTWRITEBYTECODE = "1";
-      };
+      environment =
+        {
+          YOTO_LIBRARY = cfg.libraryDir;
+          YOTO_SHARE = cfg.shareDir;
+          TMPDIR = "/tmp";
+          PYTHONDONTWRITEBYTECODE = "1";
+        }
+        // lib.optionalAttrs (cfg.andysMusicDir != null) {
+          YOTO_ANDYS_MUSIC = cfg.andysMusicDir;
+        };
       serviceConfig = {
         ExecStart = "${serverPython}/bin/gunicorn --chdir ${serverSource} --bind 10.88.0.1:${toString cfg.port} --workers 1 --threads 8 --timeout 240 --no-control-socket --access-logfile - server:app";
         Restart = "on-failure";
@@ -148,7 +159,7 @@ in {
         # Source and publication mounts are read-only; no ABS credentials or
         # other /mnt trees are visible. Only bridge clients can reach the app.
         TemporaryFileSystem = ["/mnt" "/tmp:size=512M,mode=1777" "/var/tmp:size=1M,mode=1777"];
-        BindReadOnlyPaths = [cfg.libraryDir cfg.shareDir];
+        BindReadOnlyPaths = mediaRoots;
         IPAddressDeny = "any";
         IPAddressAllow = ["localhost" "10.88.0.0/16"];
         # Two downloads, one <=100 MB track each, no persistent ZIP cache.

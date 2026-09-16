@@ -504,6 +504,10 @@
     assert service.ProtectSystem == "strict";
     assert service.IPAddressDeny == "any";
     assert lib.elem host.homelab.services.yotoShare.libraryDir service.BindReadOnlyPaths;
+    assert lib.elem "/mnt/virtio/Music/Beets" service.BindReadOnlyPaths;
+    assert lib.elem "/mnt/virtio/Music/Beets" host.systemd.services.yoto-library.unitConfig.RequiresMountsFor;
+    assert host.systemd.services.yoto-library.environment.YOTO_ANDYS_MUSIC == "/mnt/virtio/Music/Beets";
+    assert !(lib.elem "/mnt/virtio/Music/Beets" (service.ReadWritePaths or []));
     assert share.serveDir == null && share.tags == ["tag:share"];
     assert share.monitorPath == "/healthz";
       pkgs.runCommand "yoto-library" {

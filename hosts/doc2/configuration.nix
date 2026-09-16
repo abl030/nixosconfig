@@ -327,7 +327,10 @@
       readmeabook.enable = true;
       # Browse the source audiobook library and stream card ZIPs on demand.
       # Splits long files for Yoto without storing prepared copies on NFS.
-      yotoShare.enable = true;
+      yotoShare = {
+        enable = true;
+        andysMusicDir = "/mnt/virtio/Music/Beets";
+      };
       atuin = {
         enable = true;
         dataDir = "/mnt/virtio/atuin";

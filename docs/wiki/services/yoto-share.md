@@ -25,6 +25,35 @@ per card instead. Albums use the same on-demand generation and cleanup as
 audiobooks. The old `ali-yoto-zip` timer and stored album ZIPs are retired;
 acquisition remains described in [Ali Cratedigger](ali-cratedigger.md).
 
+## Andy's music
+
+The third section, **Andy's music** at `/AndysMusic/`, offers the canonical
+Beets collection as a read-only source for quick Yoto downloads. It is separate
+from Ali's `/Music/` library: searching or downloading here does not import an
+album into her library or start an acquisition request.
+
+`homelab.services.yotoShare.andysMusicDir` is optional and enabled on doc2 as
+`/mnt/virtio/Music/Beets`. This is the current library from the system Beets
+configuration; `/mnt/data/Media/Music` is an older collection, not that source.
+The initial inventory found 8,576 album folders and 94,515 audio files, mostly
+Opus. The mount is listed in `BindReadOnlyPaths` and `RequiresMountsFor`, and
+`/healthz` checks it. No Beets database, credentials or write path is granted.
+All existing Yoto share recipients can browse this newly shared collection.
+
+Search matches words across artist/album paths and track filenames. Each
+music section has its own search. A metadata-only in-memory index refreshes
+on searches after 60 seconds, so new imports appear within a minute of the
+next search; normal folder browsing reads the current filesystem directly.
+Broad searches show the first 200 matches and ask for a narrower query.
+Symlinks, hidden files and incomplete import siblings are excluded.
+
+Album ZIPs use the same bounded streaming workspace as other downloads.
+MP3/AAC are copied; Opus, FLAC, WMA and other supported source codecs are
+converted to AAC for Yoto. Opus/Vorbis stream tags are read as well as format
+tags, and albums are ordered by disc and track tags before packing cards.
+Original audio remains unchanged. Only generated ZIPs are downloadable from
+this section, avoiding raw Opus links that Yoto cannot use.
+
 ## Storage and generation
 
 The old workflow ran `yoto-prep` manually and retained both split tracks and
@@ -70,6 +99,7 @@ current Yoto page does not list five hours as a hard per-card limit.
 |---|---|
 | Host | doc2 |
 | Source library (read-only) | `/mnt/data/Media/Books/Audiobooks` |
+| Andy's music (read-only) | `/mnt/virtio/Music/Beets` |
 | Existing music/publication tree (read-only) | `/mnt/data/Media/Yoto` |
 | Application | `yoto-library.service`, private bridge `10.88.0.1:13381` |
 | HTTPS | `https://yoto.ablz.au`, existing `yoto` Tailscale node |
@@ -85,7 +115,7 @@ The existing `tag:share`, DNS records, node identity and recipient grants are
 retained. The service binds only the podman bridge gateway and its firewall
 port is admitted on `podman0`. It runs as a dynamic user without credentials,
 capabilities or source write access. `/mnt` is blanked and only the audiobook
-and publication roots are rebound read-only. IP egress is restricted to the
+and publication roots, plus the configured Andy's music root, are rebound read-only. IP egress is restricted to the
 private bridge and localhost; FFmpeg is restricted to file/pipe protocols.
 Path traversal, dotfiles and symlinks outside the allowed roots are denied.
 

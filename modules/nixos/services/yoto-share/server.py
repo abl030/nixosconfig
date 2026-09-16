@@ -36,7 +36,8 @@ spec = importlib.util.spec_from_file_location(
 prep = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prep)
 
-AUDIO_EXTS = {*prep.AUDIO_EXTS, ".mp4", ".aac", ".flac", ".ogg", ".opus", ".wav"}
+AUDIO_EXTS = {*prep.AUDIO_EXTS, ".mp4", ".aac", ".flac", ".ogg", ".opus", ".wav",
+              ".wma", ".aif", ".aiff", ".ape", ".wv"}
 # Decimal MB, with room for container overhead and packet-boundary rounding.
 TRACK_BYTES = 95_000_000
 CARD_BYTES = 490_000_000
@@ -83,11 +84,37 @@ def children(root: Path, directory: Path) -> list[Path]:
                    and p.resolve().is_relative_to(root)), key=natural_key)
 
 
-def is_audio(path: Path) -> bool:
+def audio_filename(name: str) -> bool:
     # ABS/import tools can leave an unfinished sibling such as book.tmp.m4b.
     # It is not an additional track, even though it has an audio extension.
-    return (path.is_file() and path.suffix.lower() in AUDIO_EXTS
-            and not any(marker in path.name.lower() for marker in (".tmp.", ".partial.")))
+    return (Path(name).suffix.lower() in AUDIO_EXTS
+            and not any(marker in name.lower() for marker in (".tmp.", ".partial.")))
+
+
+def is_audio(path: Path) -> bool:
+    return audio_filename(path.name) and path.is_file()
+
+
+def scan_catalogue(root: Path) -> list[tuple[str, str]]:
+    catalogue = []
+    pending = [root]
+    while pending:
+        parent = pending.pop()
+        names = []
+        # DirEntry uses directory-read file types, avoiding an extra stat of
+        # every track across the large virtiofs library. Never follow symlinks.
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                if entry.name.startswith("."):
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(Path(entry.path))
+                elif entry.is_file(follow_symlinks=False) and audio_filename(entry.name):
+                    names.append(entry.name)
+        if names:
+            relative = str(parent.relative_to(root))
+            catalogue.append((relative, (relative + " " + " ".join(names)).casefold()))
+    return catalogue
 
 
 def source_stamp(path: Path) -> tuple[str, int, int]:
@@ -122,27 +149,48 @@ class Book:
     version: str
 
 
-def plan_book(directory: Path, sources: list[Path]) -> Book:
+def audio_tags(info: dict) -> dict:
+    # Vorbis/Opus put their tags on the audio stream, MP3 often on the format.
+    audio = next(s for s in info["streams"] if s["codec_type"] == "audio")
+    return {k.lower(): v for tags in (info["format"].get("tags", {}), audio.get("tags", {}))
+            for k, v in tags.items()}
+
+
+def music_order(source: Path, info: dict) -> tuple:
+    tags = audio_tags(info)
+
+    def number(*names):
+        value = next((str(tags[n]) for n in names if n in tags), "")
+        match = re.match(r"\d+", value)
+        return int(match[0]) if match else 0
+
+    return number("disc", "discnumber"), number("track", "tracknumber"), natural_key(source.name)
+
+
+def plan_book(directory: Path, sources: list[Path], music: bool = False) -> Book:
     stamps = tuple(source_stamp(p) for p in sources)
     # Multi-file books must be one ordered book, never competing writes to the
     # same Card A directory. Probe concurrently, then restore source order.
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         infos = list(pool.map(source_info, stamps))
+    ordered = list(zip(sources, stamps, infos))
+    if music:
+        ordered.sort(key=lambda item: music_order(item[0], item[2]))
     tracks = []
     author = ""
-    for src, stamp, raw in zip(sources, stamps, infos):
+    for src, stamp, raw in ordered:
         audio = next(s for s in raw["streams"] if s["codec_type"] == "audio")
         duration = float(raw["format"]["duration"])
         if not math.isfinite(duration) or duration <= 0:
             raise ValueError("Audio duration is missing or invalid")
-        tags = {k.lower(): v for k, v in raw["format"].get("tags", {}).items()}
+        tags = audio_tags(raw)
         author = author or tags.get("artist", "")
         codec = audio["codec_name"]
         passthrough = codec in prep.PASSTHROUGH_CODECS
         rate = stamp[1] / duration if passthrough else 128_000 / 8
         # Use the CLI splitter with a conservative rate to respect decimal MB.
         info = dict(raw, _bytes_per_sec=rate * prep.TRACK_BYTES / TRACK_BYTES)
-        if not info.get("chapters") and len(sources) > 1:
+        if music or (not info.get("chapters") and len(sources) > 1):
             info["chapters"] = [{"start_time": 0, "end_time": duration,
                                  "tags": {"title": tags.get("title", src.stem)}}]
         for segment in prep.build_segments(info, duration):
@@ -241,18 +289,51 @@ def card_zip(book: Book, index: int, scratch: str | None = None):
         archive.close()
 
 
-def create_app(library=None, published=None, scratch=None):
+def create_app(library=None, published=None, scratch=None, andys_music=None):
     app = Flask(__name__)
     library = Path(library or os.environ.get("YOTO_LIBRARY",
                    "/mnt/data/Media/Books/Audiobooks")).resolve()
     published = Path(published or os.environ.get("YOTO_SHARE", "/mnt/data/Media/Yoto")).resolve()
+    andys_music = andys_music or os.environ.get("YOTO_ANDYS_MUSIC")
+    andys_music = Path(andys_music).resolve() if andys_music else None
     downloads = threading.BoundedSemaphore(2)
     planners = threading.BoundedSemaphore(2)
+    catalogue_cache = {}
+    catalogue_lock = threading.Lock()
 
-    def page(title, entries=(), book=None, relative="", message="", status=200, music=False):
+    def page(title, entries=(), book=None, relative="", message="", status=200, section="books"):
+        music = section != "books"
+        endpoint, download_endpoint = {
+            "books": ("books", "download"), "music": ("music", "music_download"),
+            "andys": ("andys_music_page", "andys_download"),
+        }[section]
         return render_template("browse.html", title=title, entries=entries,
                                book=book, relative=relative, message=message,
-                               card_label=prep.card_label, music=music), status
+                               card_label=prep.card_label, music=music,
+                               search_endpoint=endpoint, download_endpoint=download_endpoint,
+                               andys_enabled=andys_music is not None,
+                               query=request.args.get("q", "")[:100]), status
+
+    def search_entries(root, endpoint, query, max_age=60):
+        # Only paths and filenames are cached. No database credentials, media
+        # copying or whole-library ffprobe work is needed for a fast search.
+        cached = catalogue_cache.get(root)
+        if cached is None or time.monotonic() - cached[0] >= max_age:
+            if catalogue_lock.acquire(blocking=False):
+                try:
+                    catalogue = scan_catalogue(root)
+                    cached = (time.monotonic(), catalogue)
+                    catalogue_cache[root] = cached
+                finally:
+                    catalogue_lock.release()
+            elif cached is None:
+                abort(503, "The library search is loading. Please try again in a moment.")
+        words = query.casefold().split()
+        matches = sorted((relative for relative, haystack in cached[1]
+                          if all(word in haystack for word in words)), key=natural_key)
+        entries = [(rel, url_for(endpoint, relative=rel) + "/", "") for rel in matches[:200]]
+        message = f"Showing 200 of {len(matches)} matches. Add another word to narrow the search." if len(matches) > 200 else ""
+        return entries, message
 
     @app.after_request
     def headers(response):
@@ -281,18 +362,24 @@ def create_app(library=None, published=None, scratch=None):
         # ephemeral write path, rather than only reporting a living process.
         next(library.iterdir(), None)
         next(published.iterdir(), None)
+        if andys_music is not None:
+            next(andys_music.iterdir(), None)
         with tempfile.TemporaryFile(dir=scratch) as test:
             test.write(b"yoto")
         return {"status": "ok"}
 
     @app.get("/")
     def home():
-        return page("Yoto library", entries=[
+        entries = [
             ("Audiobooks", url_for("books"), "Browse all books and download cards"),
             ("Music", "/Music/", "Albums for your cards"),
-        ])
+        ]
+        if andys_music is not None:
+            entries.append(("Andy's music", url_for("andys_music_page"),
+                            "Search Andy's collection and download an album for Yoto"))
+        return page("Yoto library", entries=entries)
 
-    def get_book(relative, root=library):
+    def get_book(relative, root=library, music=False):
         directory = beneath(root, relative)
         if not directory.is_dir():
             abort(404)
@@ -302,7 +389,7 @@ def create_app(library=None, published=None, scratch=None):
         if not planners.acquire(blocking=False):
             abort(503, "Other books are being opened. Please try again in a moment.")
         try:
-            return plan_book(directory, sources)
+            return plan_book(directory, sources, music=music)
         finally:
             planners.release()
 
@@ -317,23 +404,16 @@ def create_app(library=None, published=None, scratch=None):
                    for p in items if p.is_dir()]
         query = request.args.get("q", "").strip().casefold()[:100]
         if query:
-            entries = []
-            for parent, dirs, files in os.walk(library, followlinks=False):
-                dirs[:] = [d for d in dirs if not d.startswith(".")
-                           and not (Path(parent) / d).is_symlink()]
-                rel = str(Path(parent).relative_to(library))
-                if query in rel.casefold() and any(is_audio(Path(parent) / f) for f in files):
-                    entries.append((rel, url_for("books", relative=rel) + "/", ""))
-            return page(f"Search: {request.args['q'][:100]}", entries=sorted(entries, key=lambda e: natural_key(e[0])))
+            entries, message = search_entries(library, "books", query, max_age=0)
+            return page(f"Search: {request.args['q'][:100]}", entries=entries, message=message)
         book = get_book(relative) if any(is_audio(p) for p in items) else None
         return page(directory.name if relative else "Audiobooks", entries=entries,
                     book=book, relative=relative.rstrip("/"))
 
-    @app.get("/cards/<path:relative>/<int:index>.zip")
-    def download(relative, index, music=False):
+    def download_card(relative, index, root, music=False):
         if request.headers.get("Range"):
             abort(416, "Generated ZIPs cannot resume. Start a new download from the book page.")
-        book = get_book(relative, published / "Music" if music else library)
+        book = get_book(relative, root, music=music)
         if index >= len(book.cards):
             abort(404)
         if request.args.get("v") != book.version:
@@ -359,24 +439,53 @@ def create_app(library=None, published=None, scratch=None):
 
         return Response(stream(), headers=headers, mimetype="application/zip")
 
+    @app.get("/cards/<path:relative>/<int:index>.zip")
+    def download(relative, index):
+        return download_card(relative, index, library)
+
     @app.get("/music-cards/<path:relative>/<int:index>.zip")
     def music_download(relative, index):
-        return download(relative, index, music=True)
+        return download_card(relative, index, published / "Music", music=True)
+
+    @app.get("/andys-music-cards/<path:relative>/<int:index>.zip")
+    def andys_download(relative, index):
+        if andys_music is None:
+            abort(404)
+        return download_card(relative, index, andys_music, music=True)
 
     # Preserve existing Music links. Never expose
     # source metadata, scripts, sidecars or arbitrary files from the library.
     @app.get("/Music/", defaults={"relative": ""})
     @app.get("/Music/<path:relative>")
     def music(relative):
-        root = published / "Music"
+        return music_page(published / "Music", relative, "music", "music")
+
+    @app.get("/AndysMusic/", defaults={"relative": ""})
+    @app.get("/AndysMusic/<path:relative>")
+    def andys_music_page(relative):
+        if andys_music is None:
+            abort(404)
+        return music_page(andys_music, relative, "andys_music_page", "andys")
+
+    def music_page(root, relative, endpoint, section):
         path = beneath(root, relative)
         if path.is_dir():
+            query = request.args.get("q", "").strip()[:100]
+            if query:
+                entries, message = search_entries(root, endpoint, query)
+                return page(f"Search: {query}", entries=entries, message=message, section=section)
             items = children(root, path)
-            book = get_book(relative, root) if any(is_audio(p) for p in items) else None
-            entries = [(p.name, "/Music/" + quote(str(p.relative_to(root))) + ("/" if p.is_dir() else ""), "")
-                       for p in items if p.is_dir() or is_audio(p) or p.suffix.lower() in {".jpg", ".jpeg", ".png"}]
-            return page(path.name, entries=entries, book=book,
-                        relative=relative.rstrip("/"), music=True)
+            book = get_book(relative, root, music=True) if any(is_audio(p) for p in items) else None
+            entries = [(p.name, url_for(endpoint, relative=str(p.relative_to(root))) + ("/" if p.is_dir() else ""), "")
+                       for p in items if p.is_dir() or (section == "music" and (
+                           is_audio(p) or p.suffix.lower() in {".jpg", ".jpeg", ".png"}))]
+            title = path.name if relative else ("Andy's music" if section == "andys" else "Music")
+            return page(title, entries=entries, book=book,
+                        relative=relative.rstrip("/"), section=section)
+        # Andy's section delivers Yoto-compatible ZIPs rather than links to
+        # Opus/FLAC originals that the uploader cannot use.
+        if section == "andys":
+            abort(404)
         if not path.is_file() or path.suffix.lower() not in AUDIO_EXTS | {".zip", ".jpg", ".jpeg", ".png", ".txt"}:
             abort(404)
         return send_file(path, as_attachment=True)

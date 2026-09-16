@@ -8,11 +8,11 @@
 </head>
 <body>
   <main>
-    <nav aria-label="Library"><a href="/">Yoto library</a> <a href="/Books/">Audiobooks</a> <a href="/Music/">Music</a></nav>
+    <nav aria-label="Library"><a href="/">Yoto library</a> <a href="/Books/">Audiobooks</a> <a href="/Music/">Music</a>{% if andys_enabled %} <a href="/AndysMusic/">Andy's music</a>{% endif %}</nav>
     <h1>{{ title }}</h1>
-    <form action="/Books/" method="get" role="search">
-      <label for="search">Find an audiobook</label>
-      <div class="search"><input id="search" name="q" type="search" placeholder="Book, author or series" maxlength="100"><button>Search</button></div>
+    <form action="{{ url_for(search_endpoint) }}" method="get" role="search">
+      <label for="search">{{ 'Find music' if music else 'Find an audiobook' }}</label>
+      <div class="search"><input id="search" name="q" type="search" value="{{ query }}" placeholder="{{ 'Artist, album or song' if music else 'Book, author or series' }}" maxlength="100"><button>Search</button></div>
     </form>
     {% if message %}<p role="alert">{{ message }}</p>{% endif %}
     {% if book %}
@@ -20,7 +20,7 @@
       <p class="muted">Keep the download open while your tracks are prepared. If it is interrupted, tap the download again.</p>
       <ol class="cards">
       {% for card in book.cards %}
-        <li><a class="download" href="{{ url_for('music_download' if music else 'download', relative=relative, index=loop.index0, v=book.version) }}">Download {{ 'album' if music and book.cards|length == 1 else card_label(loop.index0) }} · ZIP</a>
+        <li><a class="download" href="{{ url_for(download_endpoint, relative=relative, index=loop.index0, v=book.version) }}">Download {{ 'album' if music and book.cards|length == 1 else card_label(loop.index0) }} · ZIP</a>
           <p>{{ card|length }} tracks · {{ '%.1f'|format((card|sum(attribute='duration')) / 3600) }} hours</p>
           <details><summary>Show tracks</summary><ol>{% for track in card %}<li>{{ track.segment.title }}</li>{% endfor %}</ol></details>
         </li>
@@ -29,7 +29,7 @@
     {% endif %}
     {% if entries %}<ul class="listing">
       {% for name, href, description in entries %}<li><a href="{{ href }}">{{ name }}</a>{% if description %}<p>{{ description }}</p>{% endif %}</li>{% endfor %}
-    </ul>{% elif not book and not message %}<p>No books found here.</p>{% endif %}
+    </ul>{% elif not book and not message %}<p>{{ 'No music found here.' if music else 'No books found here.' }}</p>{% endif %}
   </main>
 </body>
 </html>
