@@ -158,14 +158,23 @@ delete only known generated output. Never delete originals or Ali's music.
   4 KiB README pointing to the catalogue; the original library remains 86 GiB.
 - Reconstruction inventory, including every original manifest and the old
   README, is root-only at
-  `/var/lib/yoto-migration/prepared-books-2026-09-16.json` on doc2. No originals
-  or music files were removed.
+  `/var/lib/yoto-migration/prepared-books-2026-09-16.json` on doc2. No canonical
+  audio or artwork was removed.
 - Gunicorn 26 enables a control socket by default and tried to create
   `/.gunicorn` under the dynamic user. Disable it with `--no-control-socket`;
   systemd owns process control and the app needs no writable control state.
 - The complete catalogue scan opened 215 of 216 books initially. The remaining
   book had a valid source plus a zero-byte `*.tmp.m4b` left by an import.
-  Ignore unfinished `.tmp.`/`.partial.` siblings; preserve the source files.
+  Ignoring unfinished `.tmp.`/`.partial.` siblings restored its card links;
+  all 216 book pages have now been checked. The source files were preserved.
+- All four real music albums streamed successfully (Dolly Parton and three
+  Taylor Swift albums); all 66 tracks fully decoded and the artwork was
+  present. The album button was visible without overflow at a 390px viewport.
+  Removed the four owned, digest-verified archives after retiring the timer,
+  freeing another **477,039,583 bytes**. All 66 original music tracks remain.
+  The inventory is `/var/lib/yoto-migration/music-zips-2026-09-16.json`.
+  A fresh 20-track Dolly Parton ZIP also passed integrity verification after
+  the stored archives were gone, and service scratch was empty afterward.
 
 Rollback is a signed revert of the catalogue change followed by
 `fleet-deploy doc2`. Recreate any removed prepared book with
