@@ -325,6 +325,7 @@
       booklore.enable = true;
       bookkeep.enable = true;
       readmeabook.enable = true;
+      storyteller.enable = true;
       # Browse the source audiobook library and stream card ZIPs on demand.
       # Splits long files for Yoto without storing prepared copies on NFS.
       yotoShare = {

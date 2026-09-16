@@ -39,6 +39,7 @@
     ./booklore.nix
     ./bookkeep.nix
     ./readmeabook.nix
+    ./storyteller.nix
     ./atuin.nix
     ./beancount.nix
     ./beets.nix
