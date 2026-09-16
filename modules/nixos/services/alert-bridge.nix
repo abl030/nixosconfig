@@ -5,8 +5,9 @@
 #
 # Inserts itself between Grafana/Kuma alerting and Gotify to translate the
 # verbose webhook payloads into a phone-readable push. It re-queries Loki for
-# the actual matching log lines and (for Kuma push monitors) fetches the
-# failing probe's journal, then POSTs that context block to Gotify verbatim.
+# the actual matching log lines and (for Kuma push monitors) fetches the failing
+# probe's journal locally or from Loki, then POSTs that context block to Gotify
+# verbatim.
 #
 # History: this used to pipe the context through `claude -p --model haiku` to
 # collapse it to a 2-3 line summary. Removed 2026-06-22 — the summaries were
@@ -74,7 +75,7 @@
             print(f"[bridge] token read failed: {e}", file=sys.stderr)
         return None
 
-    def query_loki(logql, lookback_secs=600, limit=10):
+    def query_loki(logql, lookback_secs=600, limit=10, prefix_labels=()):
         now_ns = int(time.time() * 1e9)
         start_ns = now_ns - lookback_secs * 10**9
         params = urllib.parse.urlencode({
@@ -92,8 +93,12 @@
             return [f"(loki query failed: {e})"]
         lines = []
         for stream in data.get("data", {}).get("result", []):
+            labels = stream.get("stream", {})
+            prefix = " ".join(
+                f"{label}={labels.get(label, '?')}" for label in prefix_labels
+            )
             for ts, line in stream.get("values", []):
-                lines.append(line)
+                lines.append(f"[{prefix}] {line}" if prefix else line)
         return lines[:limit]
 
     def format_message(context):
@@ -322,12 +327,25 @@
         return s
 
     def fetch_journal(unit, since_minutes=15, limit=30):
-        """Return recent journal lines for a systemd unit. Empty list on
-        error; we still want to push the alert even without journal
-        context."""
+        """Fetch a fleet unit's attributed Loki lines, then try locally."""
+        # Systemd unit names are host-local, so retain the Loki host label when
+        # the same generated probe exists on more than one host during a move.
+        logql = "{unit=" + json.dumps(unit) + "}"
+        loki_lines = query_loki(
+            logql,
+            lookback_secs=since_minutes * 60,
+            limit=limit,
+            prefix_labels=("host",),
+        )
+        loki_failed = loki_lines and loki_lines[0].startswith("(loki query failed:")
+        if loki_lines and not loki_failed:
+            return loki_lines
+
+        # Loki can be temporarily unavailable during a monitoring incident.
+        # Preserve useful context for probes that do run beside the bridge.
         try:
             result = subprocess.run(
-                ["journalctl", "-u", unit, "--no-pager",
+                ["journalctl", "-u", unit, "--no-pager", "--quiet",
                  "--since", f"{since_minutes} min ago",
                  "-n", str(limit), "-o", "short"],
                 capture_output=True, text=True, timeout=15,
@@ -335,12 +353,14 @@
             if result.returncode != 0:
                 print(f"[bridge] journalctl rc={result.returncode} for {unit}: "
                       f"{result.stderr[:200]}", file=sys.stderr, flush=True)
-                return []
-            return [ln for ln in result.stdout.splitlines() if ln.strip()][-limit:]
+            else:
+                lines = [ln for ln in result.stdout.splitlines() if ln.strip()][-limit:]
+                if lines:
+                    return lines
         except Exception as e:
             print(f"[bridge] journalctl exception for {unit}: {e}",
                   file=sys.stderr, flush=True)
-            return []
+        return loki_lines
 
     def handle_kuma_alert(data):
         """Kuma webhook payload — push-monitor or HTTP-monitor down/up.

@@ -142,6 +142,9 @@
           # Photos/backups (immich DB) and Photos/profile are NOT excluded.
           sourceExcludes = {
             "/mnt/data/Life" = [
+              # mbsync removes these ephemeral locks while snapshots walk mail.
+              # Keep messages and persistent .mbsyncstate files backed up.
+              ".mbsyncstate.lock"
               "/Photos/library"
               "/Photos/thumbs"
               "/Photos/encoded-video"

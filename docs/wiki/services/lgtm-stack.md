@@ -348,11 +348,11 @@ Grafana and Kuma both have verbose default webhook payloads. `modules/nixos/serv
 
 `status-only` is for monitored outages where a DOWN/UP signal is useful but automated investigation cannot help. Firing alerts still page Gotify but bypass the RCA queue; resolved alerts send a direct recovery ping. WSL log-ingestion silence uses this mode because the internal work dashboard should remain online, while Windows updates and WSL lifecycle outages cannot be repaired from nixosconfig.
 
-**Kuma flow.** DOWN events page and enter RCA. Push monitors are enriched with the matching `deep-probe-<slug>.service` journal. Real DOWN→UP transitions send a direct `[recovered]` Gotify ping and deliberately bypass RCA.
+**Kuma flow.** DOWN events page and enter RCA. Push monitors are enriched with the matching `deep-probe-<slug>.service` journal. The bridge queries Loki by unit name and prefixes each line with its host, preserving context and attribution when a monitored service moves between fleet hosts; if Loki is unavailable, it falls back to the local journal. Real DOWN→UP transitions send a direct `[recovered]` Gotify ping and deliberately bypass RCA.
 
 **Why `labels.loki_lines` matters:** the alert condition needs aggregation (`sum(count_over_time(...))`) to produce a numeric series, while incident context needs the underlying text stream. `mkLokiAlert` keeps those concerns separate. Prometheus rules can omit both labels and use metadata-only context.
 
-**Journal access for Kuma push enrichment.** The bridge runs with `SupplementaryGroups = ["systemd-journal"]` and a systemd-containing `PATH`, so it can read deep-probe journals without sudo. The service's sops-decrypted Gotify token is owned by the bridge user.
+**Journal access for Kuma push enrichment.** The bridge queries the existing fleet Loki endpoint for the generated unit name and preserves each matching stream's `host` label. It also runs with `SupplementaryGroups = ["systemd-journal"]` and a systemd-containing `PATH`, so a local probe journal remains available as a fallback without sudo. The service's sops-decrypted Gotify token is owned by the bridge user.
 
 **Re-alert cadence:** the bridge itself doesn't dedupe — Grafana's notification policy (`repeat_interval = "24h"`) and Kuma's per-monitor `resendInterval` do that. Effective re-page cadence is documented in the next subsection.
 
