@@ -154,6 +154,31 @@ class LibraryTests(unittest.TestCase):
         self.assertIn("attachment", response.headers["Content-Disposition"])
         response.close()
 
+    def test_music_album_zip_is_generated_without_stored_archive(self):
+        album = self.share / "Music" / "Artist" / "Album"
+        album.mkdir(parents=True)
+        (album / "01 Song.m4a").write_bytes(self.audio.read_bytes())
+        (album / "02 Song.m4a").write_bytes(self.audio.read_bytes())
+        (album / "cratedigger.json").write_text('{"private": true}')
+        page = self.client.get("/Music/Artist/Album/")
+        self.assertIn(b"Download album", page.data)
+        self.assertNotIn(b"cratedigger.json", page.data)
+        book = yoto.plan_book(album, sorted(album.glob("*.m4a")))
+        response = self.client.get(f"/music-cards/Artist/Album/0.zip?v={book.version}")
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+            self.assertIsNone(archive.testzip())
+            self.assertEqual(len([n for n in archive.namelist() if n.endswith('.m4a')]), 2)
+        self.assertEqual(list(album.glob("*.zip")), [])
+        self.assertEqual(list(self.scratch.iterdir()), [])
+
+    def test_unfinished_import_sibling_is_not_a_track(self):
+        (self.bookdir / "book.tmp.m4b").write_bytes(b"")
+        page = self.client.get("/Books/Author/A%20Book/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Download Card A", page.data)
+        self.assertNotIn(b"book.tmp", page.data)
+
     def test_track_and_card_limits_use_mixed_source_sizes(self):
         # Synthetic long metadata exercises packing without generating hours of audio.
         info = {"streams": [{"codec_type": "audio", "codec_name": "aac"}],

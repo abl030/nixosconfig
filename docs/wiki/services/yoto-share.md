@@ -1,7 +1,7 @@
 # Yoto share — audiobook cards on demand
 
 **Last updated:** 2026-09-16
-**Status:** implementation and live migration in progress
+**Status:** live; generated-copy migration completed
 **Owner:** `modules/nixos/services/yoto-share.nix`, `yoto-share/server.py`
 **Issue:** none — family request to remove manual preparation and duplicate storage
 
@@ -19,8 +19,11 @@ Multi-file books are grouped by directory and naturally sorted before packing
 cards. Metadata probes are cached in memory by source path, size and nanosecond
 mtime. Only the book being opened is probed.
 
-The existing `/Music/` URLs still serve Ali's music and album ZIPs. That separate
-acquisition/ZIP timer remains described in [Ali Cratedigger](ali-cratedigger.md).
+The existing `/Music/` URLs serve Ali's music. Open an album for its prominent
+**Download album · ZIP** button; albums that exceed a card's limits get a link
+per card instead. Albums use the same on-demand generation and cleanup as
+audiobooks. The old `ali-yoto-zip` timer and stored album ZIPs are retired;
+acquisition remains described in [Ali Cratedigger](ali-cratedigger.md).
 
 ## Storage and generation
 
@@ -132,6 +135,37 @@ Before deleting any old output, verify real book/card downloads and archive
 decoding through HTTPS. Cleanup must recheck each manifest against its
 canonical source, retain a small manifest inventory for reconstruction, and
 delete only known generated output. Never delete originals or Ali's music.
+
+### Live verification and cleanup, 2026-09-16
+
+- Full `nix flake check`, doc2 toplevel build, twelve behavioral tests, Python
+  lint and the touched Nix format/deadnix/statix checks passed.
+- A Chromium session at a 390px phone viewport searched for The Secret Seven,
+  opened the book, and downloaded its ZIP in 3.3 seconds without overflow or
+  browser errors. The archive contained all 12 AAC tracks and artwork.
+- Both Harry Potter and the Philosopher's Stone cards downloaded through the
+  public share hostname in 4.9 / 4.6 seconds from doc1: 9 + 8 MP3 tracks.
+  All 29 tracks across the three archives fully decoded. Durations matched
+  the source books within packet-rounding tolerance; all actual track/card
+  sizes were below the limits. These are LAN/tailnet test speeds, not a
+  prediction of a recipient's internet download speed.
+- The live service's private scratch directory was empty after the downloads.
+  Kuma independently reached the tailnet health URL. Framework and epimetheus
+  were offline, so a fresh `tag:client` probe was unavailable; the existing
+  share identity and grants were unchanged.
+- Rechecked all 119 source stamps, then removed 3,226 generated files totaling
+  **54,764,619,055 bytes (51.00 GiB)**. The prepared Books directory is now a
+  4 KiB README pointing to the catalogue; the original library remains 86 GiB.
+- Reconstruction inventory, including every original manifest and the old
+  README, is root-only at
+  `/var/lib/yoto-migration/prepared-books-2026-09-16.json` on doc2. No originals
+  or music files were removed.
+- Gunicorn 26 enables a control socket by default and tried to create
+  `/.gunicorn` under the dynamic user. Disable it with `--no-control-socket`;
+  systemd owns process control and the app needs no writable control state.
+- The complete catalogue scan opened 215 of 216 books initially. The remaining
+  book had a valid source plus a zero-byte `*.tmp.m4b` left by an import.
+  Ignore unfinished `.tmp.`/`.partial.` siblings; preserve the source files.
 
 Rollback is a signed revert of the catalogue change followed by
 `fleet-deploy doc2`. Recreate any removed prepared book with

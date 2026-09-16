@@ -127,7 +127,7 @@ in {
         PYTHONDONTWRITEBYTECODE = "1";
       };
       serviceConfig = {
-        ExecStart = "${serverPython}/bin/gunicorn --chdir ${serverSource} --bind 10.88.0.1:${toString cfg.port} --workers 1 --threads 8 --timeout 240 --access-logfile - server:app";
+        ExecStart = "${serverPython}/bin/gunicorn --chdir ${serverSource} --bind 10.88.0.1:${toString cfg.port} --workers 1 --threads 8 --timeout 240 --no-control-socket --access-logfile - server:app";
         Restart = "on-failure";
         RestartSec = 5;
         DynamicUser = true;

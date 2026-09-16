@@ -1,6 +1,6 @@
 # Ali Cratedigger — isolated Yoto music acquisition
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-09-16
 **Status:** deployed; Tailscale node enrolled; external share acceptance still required
 **Owner:** `modules/nixos/services/ali-cratedigger.nix`
 **Application URL:** `https://ali-music.ablz.au`
@@ -69,18 +69,16 @@ Search preference admits lossless sources plus MP3 and AAC, but excludes Opus
 and Ogg. Verified lossless sources are transcoded by Cratedigger to **MP3 V0**.
 Existing MP3 and AAC/M4A sources remain as-is; all are supported by Yoto.
 
-`ali-yoto-zip.timer` scans every five minutes. For each Beets album directory it
-creates `<album>.zip` containing a top-level album folder, supported audio, and
-cover artwork. Archives use `ZIP_STORED`, are written to a same-directory
-partial file, fsynced, and atomically renamed. A content digest in the ZIP
-comment makes unchanged reruns no-ops and refreshes an archive after track or
-artwork changes. If Beets moves every published track out of an old album
-directory, the reconciler removes an orphan only when the ZIP's ownership
-comment proves it created that archive; foreign ZIPs are never deleted. Symlinks
-and unsupported formats are never included.
+As of 2026-09-16, album pages on `yoto.ablz.au/Music/` offer **Download album ·
+ZIP**. The Yoto service generates these directly from the tracks with a bounded
+temporary workspace; no ZIP is stored in the Beets library. Albums beyond one
+card's limits get multiple card links. Artwork is included under `_artwork/`.
+See [Yoto share](yoto-share.md) for the implementation and resource limits.
 
-The ZIP is intentionally inside the Beets album directory. Beets does not track
-it; occasional untracked-file noise on this low-volume instance is accepted.
+The former `ali-yoto-zip.timer` and reconciler are retired. Existing generated
+ZIPs can be removed only after checking their `ali-yoto-sha256:` ownership
+comment, content digest and integrity against the originals. Do not delete
+foreign archives or any canonical music tracks.
 
 ## Access model
 
@@ -151,17 +149,13 @@ machinectl shell ali-cratedigger /run/current-system/sw/bin/journalctl -- \
 # Ali's Beets catalog
 machinectl shell ali-cratedigger /run/current-system/sw/bin/ali-beet -- ls -a
 
-# Force ZIP reconciliation
-machinectl shell ali-cratedigger /run/current-system/sw/bin/systemctl -- \
-  start ali-yoto-zip.service
-
 # Secret rotation: restart the producer; PartOf restarts the container so the
 # slskd single-file bind sees the producer's replacement inode.
 systemctl restart cratedigger-secrets-split.service
 ```
 
 Uptime Kuma monitors `Ali Cratedigger (Tailnet)` at `/healthz`. The current Yoto
-share monitor continues to check the top-level Books/Music listing.
+share monitor checks `/healthz`, including source mounts and temporary storage.
 
 ## Migration and rollback
 

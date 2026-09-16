@@ -151,11 +151,6 @@
             pathlib.Path(temporary).unlink(missing_ok=True)
             raise
   '';
-
-  aliYotoZip = pkgs.writers.writePython3Bin "ali-yoto-zip" {
-    libraries = [];
-    flakeIgnore = ["E501" "W503" "W504"];
-  } (builtins.readFile ./ali-cratedigger/zip-albums.py);
 in {
   options.homelab.services.aliCratedigger.enable =
     lib.mkEnableOption "Ali's isolated Yoto-oriented Cratedigger instance";
@@ -222,11 +217,7 @@ in {
           isReadOnly = true;
         };
       };
-      config = {
-        lib,
-        pkgs,
-        ...
-      }: {
+      config = {pkgs, ...}: {
         imports = [inputs.cratedigger-src.nixosModules.default];
 
         networking = {
@@ -326,42 +317,6 @@ in {
               ReadOnlyPaths = [beetsSecretInclude library];
               RestrictAddressFamilies = ["AF_UNIX"];
             };
-          };
-
-          ali-yoto-zip = {
-            description = "Publish Ali's Beets albums as Yoto-compatible ZIP files";
-            after = ["ali-beets-runtime-ready.service"];
-            requires = ["ali-beets-runtime-ready.service"];
-            unitConfig.RequiresMountsFor = [library];
-            serviceConfig = {
-              Type = "oneshot";
-              User = "cratedigger";
-              Group = "ali-music";
-              ExecStart = "${aliYotoZip}/bin/ali-yoto-zip ${lib.escapeShellArg library}";
-              NoNewPrivileges = true;
-              CapabilityBoundingSet = "";
-              PrivateDevices = true;
-              PrivateTmp = true;
-              ProtectSystem = "strict";
-              ProtectHome = true;
-              ReadWritePaths = [library];
-              RestrictAddressFamilies = ["AF_UNIX"];
-              RestrictNamespaces = true;
-              RestrictSUIDSGID = true;
-              LockPersonality = true;
-              SystemCallArchitectures = "native";
-              SystemCallFilter = ["@system-service" "~@privileged" "~@resources"];
-            };
-          };
-        };
-
-        systemd.timers.ali-yoto-zip = {
-          description = "Refresh Ali's Yoto album ZIP files";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnBootSec = "10min";
-            OnUnitInactiveSec = "5min";
-            Persistent = true;
           };
         };
 

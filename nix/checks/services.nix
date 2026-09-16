@@ -495,15 +495,6 @@
       touch "$out"
     '';
 
-  aliYotoZipCheck =
-    pkgs.runCommand "ali-yoto-zip" {
-      nativeBuildInputs = [pkgs.python3];
-    } ''
-      ALI_YOTO_ZIP=${../../modules/nixos/services/ali-cratedigger/zip-albums.py} \
-        python3 ${./test_ali_yoto_zip.py}
-      touch "$out"
-    '';
-
   yotoLibraryCheck = let
     host = self.nixosConfigurations.doc2.config;
     service = host.systemd.services.yoto-library.serviceConfig;
@@ -556,7 +547,7 @@
       } ''
         test -e ${container.path}/etc/systemd/system/cratedigger.service
         test -e ${container.path}/etc/systemd/system/cratedigger-web.service
-        test -e ${container.path}/etc/systemd/system/ali-yoto-zip.service
+        test ! -e ${container.path}/etc/systemd/system/ali-yoto-zip.service
         beets_dir=$(grep -o '/nix/store/[^" ]*-ali-beets-config' ${container.path}/etc/systemd/system/ali-beets-catalog-ready.service)
         test -n "$beets_dir"
         grep -q '^library: /mnt/virtio/ali-cratedigger/beets-db/beets-library.db' "$beets_dir/config.yaml"
@@ -764,7 +755,6 @@ in {
     doc2CrashCaptureCheck
     podman6CutoverCheck
     cratediggerDailySummaryCheck
-    aliYotoZipCheck
     yotoLibraryCheck
     aliCratediggerIntegrationCheck
     cratediggerTipCanaryCheck

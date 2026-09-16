@@ -83,6 +83,13 @@ def children(root: Path, directory: Path) -> list[Path]:
                    and p.resolve().is_relative_to(root)), key=natural_key)
 
 
+def is_audio(path: Path) -> bool:
+    # ABS/import tools can leave an unfinished sibling such as book.tmp.m4b.
+    # It is not an additional track, even though it has an audio extension.
+    return (path.is_file() and path.suffix.lower() in AUDIO_EXTS
+            and not any(marker in path.name.lower() for marker in (".tmp.", ".partial.")))
+
+
 def source_stamp(path: Path) -> tuple[str, int, int]:
     stat = path.stat()
     return str(path), stat.st_size, stat.st_mtime_ns
@@ -242,10 +249,10 @@ def create_app(library=None, published=None, scratch=None):
     downloads = threading.BoundedSemaphore(2)
     planners = threading.BoundedSemaphore(2)
 
-    def page(title, entries=(), book=None, relative="", message="", status=200):
+    def page(title, entries=(), book=None, relative="", message="", status=200, music=False):
         return render_template("browse.html", title=title, entries=entries,
                                book=book, relative=relative, message=message,
-                               card_label=prep.card_label), status
+                               card_label=prep.card_label, music=music), status
 
     @app.after_request
     def headers(response):
@@ -285,12 +292,11 @@ def create_app(library=None, published=None, scratch=None):
             ("Music", "/Music/", "Albums for your cards"),
         ])
 
-    def get_book(relative):
-        directory = beneath(library, relative)
+    def get_book(relative, root=library):
+        directory = beneath(root, relative)
         if not directory.is_dir():
             abort(404)
-        sources = [p for p in children(library, directory)
-                   if p.is_file() and p.suffix.lower() in AUDIO_EXTS]
+        sources = [p for p in children(root, directory) if is_audio(p)]
         if not sources:
             abort(404)
         if not planners.acquire(blocking=False):
@@ -316,18 +322,18 @@ def create_app(library=None, published=None, scratch=None):
                 dirs[:] = [d for d in dirs if not d.startswith(".")
                            and not (Path(parent) / d).is_symlink()]
                 rel = str(Path(parent).relative_to(library))
-                if query in rel.casefold() and any(Path(f).suffix.lower() in AUDIO_EXTS for f in files):
+                if query in rel.casefold() and any(is_audio(Path(parent) / f) for f in files):
                     entries.append((rel, url_for("books", relative=rel) + "/", ""))
             return page(f"Search: {request.args['q'][:100]}", entries=sorted(entries, key=lambda e: natural_key(e[0])))
-        book = get_book(relative) if any(p.suffix.lower() in AUDIO_EXTS for p in items if p.is_file()) else None
+        book = get_book(relative) if any(is_audio(p) for p in items) else None
         return page(directory.name if relative else "Audiobooks", entries=entries,
                     book=book, relative=relative.rstrip("/"))
 
     @app.get("/cards/<path:relative>/<int:index>.zip")
-    def download(relative, index):
+    def download(relative, index, music=False):
         if request.headers.get("Range"):
             abort(416, "Generated ZIPs cannot resume. Start a new download from the book page.")
-        book = get_book(relative)
+        book = get_book(relative, published / "Music" if music else library)
         if index >= len(book.cards):
             abort(404)
         if request.args.get("v") != book.version:
@@ -353,6 +359,10 @@ def create_app(library=None, published=None, scratch=None):
 
         return Response(stream(), headers=headers, mimetype="application/zip")
 
+    @app.get("/music-cards/<path:relative>/<int:index>.zip")
+    def music_download(relative, index):
+        return download(relative, index, music=True)
+
     # Preserve existing Music links. Never expose
     # source metadata, scripts, sidecars or arbitrary files from the library.
     @app.get("/Music/", defaults={"relative": ""})
@@ -361,9 +371,12 @@ def create_app(library=None, published=None, scratch=None):
         root = published / "Music"
         path = beneath(root, relative)
         if path.is_dir():
+            items = children(root, path)
+            book = get_book(relative, root) if any(is_audio(p) for p in items) else None
             entries = [(p.name, "/Music/" + quote(str(p.relative_to(root))) + ("/" if p.is_dir() else ""), "")
-                       for p in children(root, path)]
-            return page(path.name, entries=entries)
+                       for p in items if p.is_dir() or is_audio(p) or p.suffix.lower() in {".jpg", ".jpeg", ".png"}]
+            return page(path.name, entries=entries, book=book,
+                        relative=relative.rstrip("/"), music=True)
         if not path.is_file() or path.suffix.lower() not in AUDIO_EXTS | {".zip", ".jpg", ".jpeg", ".png", ".txt"}:
             abort(404)
         return send_file(path, as_attachment=True)

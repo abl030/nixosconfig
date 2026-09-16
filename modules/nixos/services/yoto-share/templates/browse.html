@@ -20,7 +20,7 @@
       <p class="muted">Keep the download open while your tracks are prepared. If it is interrupted, tap the download again.</p>
       <ol class="cards">
       {% for card in book.cards %}
-        <li><a class="download" href="{{ url_for('download', relative=relative, index=loop.index0, v=book.version) }}">Download {{ card_label(loop.index0) }} · ZIP</a>
+        <li><a class="download" href="{{ url_for('music_download' if music else 'download', relative=relative, index=loop.index0, v=book.version) }}">Download {{ 'album' if music and book.cards|length == 1 else card_label(loop.index0) }} · ZIP</a>
           <p>{{ card|length }} tracks · {{ '%.1f'|format((card|sum(attribute='duration')) / 3600) }} hours</p>
           <details><summary>Show tracks</summary><ol>{% for track in card %}<li>{{ track.segment.title }}</li>{% endfor %}</ol></details>
         </li>
