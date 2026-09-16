@@ -1,6 +1,7 @@
 # Storyteller readaloud trial
 
-Date: 2026-09-16. Status: live; first full-book alignment completed and inspected.
+Date: 2026-09-16. Status: live; alignment completed, but phone playback and
+format-switching smoke tests failed. Not yet accepted for everyday use.
 Related: [book platform evaluation](book-platform-exploration.md).
 
 Storyteller pairs a DRM-free EPUB with its audiobook and creates a readaloud
@@ -118,6 +119,57 @@ pre-restart run (`.next/cache/images`). It did not prevent completion; investiga
 if cover caching becomes a visible problem. Do not confuse the systemd wrapper's
 small memory figure with the Podman container's real cgroup memory peak.
 
+### Phone playback investigation, 17:43 onward
+
+The Android client downloaded the complete 669,808,985-byte readaloud at 17:38:43
+and again at 17:55:35 AWST. An intervening download at 17:44:22 ended after only
+132,037,681 bytes. HTTP 200, `ALIGNED`, and successful position POSTs do not prove
+that the client has usable playback metadata or can play the book.
+
+Live position checks observed an unchanged table-of-contents locator while the
+standalone audiobook played. After pause and foregrounding, the server received
+an MP3 locator at 834.815 seconds (13:54.8), timestamped 17:54:01. The next saved
+locator was the EPUB cover, timestamped 17:55:04. Positions are shared per
+user/book, not independent per format. The mobile source saves standalone audio
+position on pause and uploads local positions every three seconds only while
+foregrounded. Uploading an unchanged position also returns 204.
+
+Source inspection found a strong matching Android failure path in upstream tag
+`web-v2.14.21` (its mobile source version is 2.11.6; the phone's installed version
+has not been verified):
+
+- `applications/mobile/modules/readium/android/src/main/java/expo/modules/readium/BookService.kt`
+  caches publications by book UUID. `openPublication` returns an existing entry
+  without checking the requested format/path.
+- The observed ebook-first download order can therefore make the readaloud
+  download reuse a publication with no media overlays.
+- `applications/mobile/store/listeners/downloadListener.ts` then persists an
+  empty audio manifest/clips; `applications/mobile/store/tracks.ts` produces no
+  tracks. Restarting alone does not reconstruct that persisted metadata.
+
+Phone recovery to test: in the book's Downloads menu, remove **readaloud from
+device**, then Android **Force stop** Storyteller. Reopen to book details and
+download Readaloud before opening/downloading Ebook. This format-specific removal
+preserves the server copy and the local book/position record. Use Readaloud for
+both reading and listening during the retest. This is source-backed recovery
+guidance, not a verified phone fix; device logs should distinguish `Generated 0
+tracks` from a populated queue.
+
+The captured audio position maps to `OEBPS/Text/chapter001.xhtml#chapter001-s113`
+in the aligned EPUB, audio `OEBPS/Audio/00001-00001.mp3`, clip 831.47–836.46 seconds.
+No user position was rewritten during diagnosis.
+
+Completed-output browser testing also reproduced a separate failure: starting at
+the cover requests `~readium/guided-navigation.json?ref=OEBPS%2FText%2Fcover.xhtml`,
+which returns 404 because that page has no narration. The reader then shows
+`Error Loading Book` and `Unknown Track`; selecting a chapter afterward did not
+recover it. An isolated fresh start at Chapter 1 loaded the first MP3 with HTTP
+206 and advanced playback from 28.356 to 33.356 seconds in five seconds, with no
+console errors. The manifest contained all 31 audio resources. Browser position
+writes were intercepted locally, preserving the user's saved server position.
+This proves playable generated audio at the sampled location, not phone playback
+or a complete listening/highlight audit.
+
 ### Smoke-test defects and narrow workarounds
 
 1. **ReadMeABook 1.2.3 / qBittorrent path mismatch.** ReadMeABook configures its
@@ -165,13 +217,13 @@ deep probe passes. Flake evaluation, doc2 toplevel build, Alejandra, deadnix,
 statix, and the network, host-bind, unit-hardening, secret-argv, SOPS-recipient and
 error-pattern audit checks passed.
 
-Browser verification also passed: login as `abl030`, one paired book visible,
+Initial browser verification during alignment passed: login as `abl030`, one paired book visible,
 the direct `/books/110ea8c3-7f10-48c1-80cc-10ca5cd28126/read` route renders the
 ebook, and both download endpoints return HTTP 200 plus HTTP 206 for byte-range
 requests. During processing the reader reported no synchronized track; an initial
-reading-position 404 represented an unset progress record. Completed output has
-since been inspected as described above; a full listening accuracy audit has not
-been performed.
+reading-position 404 represented an unset progress record. Completed-output
+testing subsequently exposed the cover-start failure described above; playback
+was verified only with an isolated Chapter 1 start. The trial is not yet accepted.
 
 Rollback: set `homelab.services.storyteller.enable = false` on doc2, land the
 signed change and run `fleet-deploy doc2` from doc1. This removes the service and
