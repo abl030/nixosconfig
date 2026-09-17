@@ -22,6 +22,8 @@ This is the durable workflow for a physical CD that is rare, private-label, or a
 
 Photograph or scan at least the front, back, disc face and hub, full track list, booklet, lyrics, and all credits/catalog/barcode/copyright panels. If the user identifies Paperless documents or Immich assets as evidence, fetch the exact originals read-only rather than screenshots or thumbnails. Keep those source files unchanged; put losslessly rotated, deskewed, and tightly cropped upload derivatives in a separate directory.
 
+Do not rescan a long booklet merely to duplicate good Cover Art Archive evidence. Download the existing CAA original, compare its cover, catalogue number, track list, credits and page count with the physical copy, and retain that comparison in the bundle. A PDF may store two printed pages per PDF page, so a 16-page file can legitimately represent a 31-page booklet plus its cover. Prefer the matched public booklet plus new scans of missing or materially better package panels. If the PDF has a searchable text layer, use it to seed credits and lyric transcription, but still proofread lyrics against the rendered pages and audio.
+
 Before creating anything, inventory what already exists. Check the current Beets library and any active CrateDigger request for the artist/album, then compare public metadata and evidence by exact identifiers. Record why the package is a known release, a new pressing of an existing release group, or genuinely absent. If multiple editions share a TOC, do not choose between them on durations alone.
 
 Once the exact pressing is confirmed, ask the user whether this physical rip should replace the album currently in the library. A yes authorizes CrateDigger's guarded replacement workflow after the source and preservation bundle have been copied and verified; it does not authorize direct deletion with `rm`. A no keeps the preservation bundle without changing the existing library copy.
@@ -72,14 +74,15 @@ nix shell nixpkgs#whipper --command whipper drive list
 nix shell nixpkgs#whipper --command whipper drive analyze -d /dev/sr0
 ```
 
-Use an explicit, private staging root with ample space. If MusicBrainz already has the exact release, pass `--release-id`. If it does not, rip with `--unknown`, simple deterministic filenames, and tag after the MusicBrainz edit exists.
+Use an explicit, private, operator-visible staging root beneath `~/Downloads` with ample space. Keep the handoff HTML, evidence, metadata, lyrics, rip output, and working files together in that album directory; do not use `/var/tmp` for preservation-session state because it hides the evidence from the operator and is not durable. If MusicBrainz already has the exact release, pass `--release-id`. If it does not, rip with `--unknown`, simple deterministic filenames, and tag after the MusicBrainz edit exists.
 
 ```bash
-install -d -m 0700 /var/tmp/cd-archive-<slug>/output /var/tmp/cd-archive-<slug>/work
+install -d -m 0700 "$HOME/Downloads/cd-archive-<slug>/output" \
+  "$HOME/Downloads/cd-archive-<slug>/work"
 nix shell nixpkgs#whipper --command whipper cd rip \
   --unknown --offset <OFFSET> --max-retries 20 --keep-going \
-  --output-directory /var/tmp/cd-archive-<slug>/output \
-  --working-directory /var/tmp/cd-archive-<slug>/work \
+  --output-directory "$HOME/Downloads/cd-archive-<slug>/output" \
+  --working-directory "$HOME/Downloads/cd-archive-<slug>/work" \
   --track-template '<Title>/%t - Track %t' \
   --disc-template '<Title>/<Title>'
 ```
@@ -87,9 +90,9 @@ nix shell nixpkgs#whipper --command whipper cd rip \
 Do not accept a merely completed command as proof. Review the log for every track, suspicious positions, cache defeat, read offset, test/copy agreement, and AccurateRip/CTDB result. Then verify FLAC integrity and write a preservation manifest:
 
 ```bash
-flac -t /var/tmp/cd-archive-<slug>/output/<Title>/*.flac
-sha256sum /var/tmp/cd-archive-<slug>/output/<Title>/* \
-  > /var/tmp/cd-archive-<slug>/output/<Title>/SHA256SUMS
+flac -t "$HOME/Downloads/cd-archive-<slug>/output/<Title>/"*.flac
+sha256sum "$HOME/Downloads/cd-archive-<slug>/output/<Title>/"* \
+  > "$HOME/Downloads/cd-archive-<slug>/output/<Title>/SHA256SUMS"
 ```
 
 If the disc is absent from AccurateRip and CTDB, Whipper cannot provide third-party verification; its secure rereads and log are the local evidence. Record that honestly.
@@ -102,7 +105,7 @@ If the release does not exist, create a JSON spec from the physical evidence and
 
 ```bash
 python3 scripts/musicbrainz-release-seed.py /path/to/release.json \
-  "$HOME/Downloads/<slug>-musicbrainz.html"
+  "$HOME/Downloads/cd-archive-<slug>/<slug>-musicbrainz.html"
 ```
 
 Copy `.claude/skills/physical-cd-archive/references/release-spec.example.json` as the starting schema. Omit unknown optional fields rather than retaining example values. An artist credit takes either a verified `mbid` plus optional `credited_name`, or an `artist_name` that the editor will require the operator to resolve or create.
@@ -115,10 +118,11 @@ For several genuinely missing artists, research identity evidence first and use 
 
 ```bash
 cp .claude/skills/physical-cd-archive/references/artist-spec.example.json \
-  /var/tmp/<slug>-artists.json
-$EDITOR /var/tmp/<slug>-artists.json
-python3 scripts/musicbrainz-artist-seeds.py /var/tmp/<slug>-artists.json \
-  "$HOME/Downloads/<slug>-musicbrainz-artists.html"
+  "$HOME/Downloads/cd-archive-<slug>/<slug>-artists.json"
+$EDITOR "$HOME/Downloads/cd-archive-<slug>/<slug>-artists.json"
+python3 scripts/musicbrainz-artist-seeds.py \
+  "$HOME/Downloads/cd-archive-<slug>/<slug>-artists.json" \
+  "$HOME/Downloads/cd-archive-<slug>/<slug>-musicbrainz-artists.html"
 ```
 
 Each button opens one pre-filled artist editor in a new tab. The helper seeds the required name, person sort name, disambiguation, type, area search, evidence-based edit note, and any `external_links`. Each external link requires both its URL and the current numeric MusicBrainz artist-URL `link_type_id`; for example, official homepage is `183` and Bandcamp is `718`. Verify current IDs on MusicBrainz's relationship-type documentation instead of guessing. Evidence URLs are displayed for review but are not external artist links unless they are also listed under `external_links`. The helper does not enter the edit. Submit and close each artist tab, then use the magnifying glass in the still-open release editor to select the new entity. Keep disambiguations short and identity-specific; put fuller sourcing in the edit note. Add only facts supported by the physical package, an official artist page, or another reliable source.
@@ -133,7 +137,11 @@ CD TOC read from /dev/sr0 with libdiscid; secure rip retained with log/cue.
 
 MusicBrainz's seeding fields are documented at `Development/Seeding/Release_Editor`; the repository helper deliberately uses its POST interface rather than browser automation. The resulting release editor is still authoritative—correct anything the physical package disproves.
 
+An ordinary link to an existing release's `/edit` page does not carry proposed changes and will correctly finish with “no changes” if the operator only reviews it. For an existing release, a handoff may POST release-level seed fields such as `events.0.*` and `edit_note` to `/release/<MBID>/edit`. Do not seed a partial `mediums.*` structure merely to change one track: the editor treats a supplied media array as the seeded tracklist rather than loading the existing one. Seed the safe release-level fields and have the operator make isolated track-title corrections in the loaded tracklist, or provide a complete, verified edit workflow.
+
 After submission, record the release MBID and confirm the public API returns the new release with the expected Disc ID. The local MusicBrainz mirror replicates daily and is normally up to 24 hours behind public MusicBrainz. Do not poll it after a new edit and do not wait for it: CrateDigger supports both request creation and local import against public MusicBrainz on a per-operation basis. Never change the service-wide metadata source merely to ingest a fresh release.
+
+Votable metadata edits and newly uploaded cover art can remain unapplied or unapproved for days. Record the edit/upload identity and pending state, keep the physical evidence and intended values in the bundle, and continue secure ripping, lyric preservation, and staging. Pending community review is not a reason to stop the preservation session. Before final CrateDigger import, account for the distinction explicitly: use the currently applied MusicBrainz identity for strict matching and retain evidenced pending corrections locally; do not create duplicate edits or uploads merely because the public API still exposes the old applied value.
 
 For request creation, run the repository helper on doc2. It makes an ephemeral copy of the installed CrateDigger runtime config, changes only `[MusicBrainz] api_base` to public MusicBrainz, and calls the installed `pipeline-cli add`; the production config remains immutable and all ordinary requests keep using the local mirror:
 
@@ -161,6 +169,8 @@ Treat lyrics as preservation material rather than optional enrichment:
 2. If lyrics are absent and the user has explicitly requested public contribution, transcribe them from the package. OCR may accelerate transcription but its output is never a reviewed lyric. Check every line, punctuation-sensitive word, repeated section, and continuation across scan pages against the source, using the audio where the print is ambiguous.
 3. Publish plain lyrics with the exact release track identity and disc-derived duration through LRCLIB's documented challenge API. Use `null` for synchronized lyrics unless real timestamps have been authored and checked; do not fabricate timing.
 4. Retain the source scans, raw OCR, reviewed plain-text files, publish request metadata, response receipts, and post-publication lookups. LRCLIB retains revisions, so a later correction is a new documented revision rather than a reason to discard the original evidence.
+
+For multilingual booklet layouts, publish the words actually sung as `plainLyrics`; keep facing translations in the preservation bundle rather than interleaving them into the lyric text. When the booklet supplies a selectable text layer, preserve both the original PDF and extracted text, and treat the extraction as transcription assistance rather than a substitute for page and audio review.
 
 Do not reproduce copyrighted lyrics publicly merely because scans exist. Public contribution requires the user's explicit instruction and must follow the destination service's policy; local preservation may continue independently.
 
