@@ -2,14 +2,17 @@
 
 **Status:** operational runbook
 **Last verified:** 2026-09-17
-**Scope:** secure FLAC rip → MusicBrainz Disc ID/release → CTDB contribution → CrateDigger local import → Beets
+**Scope:** evidence and duplicate audit → secure FLAC rip → MusicBrainz/CAA/LRCLIB preservation → CTDB verification or contribution → CrateDigger local import → Beets
 
 This is the durable workflow for a physical CD that is rare, private-label, or absent from public metadata. It preserves the audio, the physical evidence, the exact pressing identity, and CrateDigger's import/provenance trail.
 
 ## Invariants
 
-- Treat the disc, packaging photos, TOC, rip log, cue sheet, FLACs, checksums, and external database responses as one preservation bundle.
+- Treat the disc, original packaging scans, processed upload art, reviewed lyrics and credits, TOC, rip log, cue sheet, FLACs, checksums, and external database request/response receipts as one preservation bundle.
+- Physical-CD preservation means lossless FLAC unless the user explicitly requests another output. Set CrateDigger's lossless intent before import.
+- Start with a duplicate audit across the current library, MusicBrainz Disc ID and release search, Discogs versions, Cover Art Archive image types, AccurateRip/CTDB, and LRCLIB. Fill evidenced gaps instead of creating duplicate releases, art, verification records, or lyric entries.
 - A MusicBrainz title search and a Disc ID lookup answer different questions. Check both. Different pressings can have different Disc IDs; a Disc ID can also collide.
+- A matching TOC identifies the audio layout, not necessarily the physical pressing. Resolve the exact edition with the package barcode, catalog number, label, country/date and disc matrix or hub where available.
 - Correct the drive read offset during extraction. For `HL-DT-ST DVDRAM GP65NB60`, AccurateRip's drive table lists `+6`; verify the current drive model and table rather than copying that value to another drive.
 - CTDB confidence is independent corroboration recorded by CTDB. A local secure reread proves consistency but does not let us claim a made-up confidence of two.
 - CrateDigger owns the final Beets import. Do not bypass its request, validation, evidence, and audit trail with an ad-hoc `beet import`.
@@ -17,7 +20,11 @@ This is the durable workflow for a physical CD that is rare, private-label, or a
 
 ## 1. Capture evidence and identify the disc
 
-Photograph at least the front, back, disc face, full track list, and all credits/catalog/barcode/copyright panels. If the user says the latest Immich assets are the evidence, query the latest non-deleted `IMAGE` assets read-only, then inspect the originals rather than thumbnails.
+Photograph or scan at least the front, back, disc face and hub, full track list, booklet, lyrics, and all credits/catalog/barcode/copyright panels. If the user identifies Paperless documents or Immich assets as evidence, fetch the exact originals read-only rather than screenshots or thumbnails. Keep those source files unchanged; put losslessly rotated, deskewed, and tightly cropped upload derivatives in a separate directory.
+
+Before creating anything, inventory what already exists. Check the current Beets library and any active CrateDigger request for the artist/album, then compare public metadata and evidence by exact identifiers. Record why the package is a known release, a new pressing of an existing release group, or genuinely absent. If multiple editions share a TOC, do not choose between them on durations alone.
+
+Once the exact pressing is confirmed, ask the user whether this physical rip should replace the album currently in the library. A yes authorizes CrateDigger's guarded replacement workflow after the source and preservation bundle have been copied and verified; it does not authorize direct deletion with `rm`. A no keeps the preservation bundle without changing the existing library copy.
 
 Inspect the inserted medium without mounting it:
 
@@ -53,6 +60,8 @@ curl -fsS -A 'nixosconfig-disc-archive/1.0 (https://git.ablz.au/abl030/nixosconf
 ```
 
 Respect MusicBrainz's one-request-per-second public API limit. Prefer the local mirror for bulk work, but confirm the public site before concluding a new edit is needed.
+
+Also inspect AccurateRip/CTDB before extraction. An existing matching CTDB entry is verification evidence, not an invitation to submit a duplicate. Preserve its entry ID, CRC, confidence, normalized TOC, provider URL, and response body.
 
 ## 2. Secure-rip to FLAC
 
@@ -124,9 +133,51 @@ CD TOC read from /dev/sr0 with libdiscid; secure rip retained with log/cue.
 
 MusicBrainz's seeding fields are documented at `Development/Seeding/Release_Editor`; the repository helper deliberately uses its POST interface rather than browser automation. The resulting release editor is still authoritative—correct anything the physical package disproves.
 
-After submission, record the release MBID and confirm the public API returns the new release with the expected Disc ID. Public MusicBrainz and the local mirror may lag each other. For an ordinary import, wait until the configured mirror resolves the MBID. When preservation work must continue immediately, use CrateDigger's per-job live-MusicBrainz opt-in described below; do not change the service-wide mirror.
+After submission, record the release MBID and confirm the public API returns the new release with the expected Disc ID. The local MusicBrainz mirror replicates daily and is normally up to 24 hours behind public MusicBrainz. Do not poll it after a new edit and do not wait for it: CrateDigger supports both request creation and local import against public MusicBrainz on a per-operation basis. Never change the service-wide metadata source merely to ingest a fresh release.
 
-## 4. Contribute the secure rip to CTDB
+For request creation, run the repository helper on doc2. It makes an ephemeral copy of the installed CrateDigger runtime config, changes only `[MusicBrainz] api_base` to public MusicBrainz, and calls the installed `pipeline-cli add`; the production config remains immutable and all ordinary requests keep using the local mirror:
+
+```bash
+sudo -n bash -c '
+  set -a
+  source /run/secrets/cratedigger-pgpass
+  set +a
+  /path/to/nixosconfig/scripts/cratedigger-add-upstream-musicbrainz.sh \
+    <MUSICBRAINZ_RELEASE_MBID>
+'
+```
+
+For the actual import, pass `--upstream-musicbrainz` to `pipeline-cli import-local`. That choice is persisted with the immutable job and applies to preview, strict pressing validation, final Beets import, and retries. A newly seeded release therefore has no dependency on the next daily mirror replication.
+
+## 4. Preserve artwork, credits, and lyrics
+
+Audit both the release and release-group Cover Art Archive inventory before uploading. For a new physical release, upload only evidence from that exact package, with accurate image types such as Front, Back, Booklet, Medium, and Spine. Keep the unmodified source scan, the processed upload file, its checksum, and the resulting CAA URL or response together. Do not attach one pressing's package art to another release merely because the audio layout matches.
+
+Transcribe package credits into MusicBrainz relationships only when the named person, group, work, label, or place has been identified reliably. Preserve the literal package credit locally even when its corresponding MusicBrainz entity is still unknown; never choose a namesake just to complete the form.
+
+Treat lyrics as preservation material rather than optional enrichment:
+
+1. Search both the configured local LRCLIB mirror and public LRCLIB using the release artist, album, track title, and duration. Compare returned text with the physical booklet and audio; a search hit is not proof that it belongs to this version.
+2. If lyrics are absent and the user has explicitly requested public contribution, transcribe them from the package. OCR may accelerate transcription but its output is never a reviewed lyric. Check every line, punctuation-sensitive word, repeated section, and continuation across scan pages against the source, using the audio where the print is ambiguous.
+3. Publish plain lyrics with the exact release track identity and disc-derived duration through LRCLIB's documented challenge API. Use `null` for synchronized lyrics unless real timestamps have been authored and checked; do not fabricate timing.
+4. Retain the source scans, raw OCR, reviewed plain-text files, publish request metadata, response receipts, and post-publication lookups. LRCLIB retains revisions, so a later correction is a new documented revision rather than a reason to discard the original evidence.
+
+Do not reproduce copyrighted lyrics publicly merely because scans exist. Public contribution requires the user's explicit instruction and must follow the destination service's policy; local preservation may continue independently.
+
+The local LRCLIB mirror may lag public contributions until its next data refresh. This is non-gating: keep the reviewed text in the preservation bundle and do not hold the audio import open merely for mirror freshness. When lyrics must be available to Beets during the same preservation import, publish the reviewed entries to the local instance as well, retain a separate local receipt set, and confirm the next mirror refresh contains the public revisions.
+
+LRCLIB publication and lookup visibility are separate checks. HTTP `201` from `/api/publish` is the accepted-write receipt; an exact `/api/get` called immediately after a preflight miss may still return the cached miss, and `/api/search` may wait for its indexer. Record verification as pending and retry the read later. Never resubmit solely because immediate read-after-write verification is stale.
+
+Use the repository helper for an auditable dry run and explicit publication. Its manifest is a JSON array containing `trackName`, `artistName`, `albumName`, `duration`, and a manifest-relative `lyricsFile` for each track. It refuses to overwrite differing lyrics unless a reviewed correction explicitly adds `--replace-existing`:
+
+```bash
+python3 scripts/lrclib-publish.py /path/to/lyrics-manifest.json \
+  /path/to/receipts
+python3 scripts/lrclib-publish.py /path/to/lyrics-manifest.json \
+  /path/to/receipts --publish
+```
+
+## 5. Contribute the secure rip to CTDB
 
 CrateDigger's `CD bit-verified · CTDB confidence N` is a verifier display: it reads CTDB and compares whole-disc PCM. It does not submit library albums to CTDB.
 
@@ -157,7 +208,7 @@ One accepted submission usually begins at confidence one. Confidence two require
 
 Verified example (2026-09-17): the first accepted Winesong submission returned token `blokBmSfz6482Kddw08mggWvxq4-`; the immediate public lookup returned entry `13063896`, CRC32 `af764d8f`, parity present, confidence `1`. This is the expected first-contribution result and is the pattern to preserve as a receipt.
 
-## 5. Tag and stage for CrateDigger
+## 6. Tag and stage for CrateDigger
 
 Once the MusicBrainz release exists, give the staging FLACs evidence-based basic tags (`ALBUM`, `ALBUMARTIST`, `TITLE`, `ARTIST`, `TRACKNUMBER`, `TRACKTOTAL`) so CrateDigger's strict candidate comparison has useful source metadata. `metaflac` is sufficient. Do not run an ad-hoc `beet import`: CrateDigger's exact request supplies the release MBID and its importer owns the authoritative Beets tagging and library move. Picard may be used against the exact release, but is optional.
 
@@ -171,15 +222,15 @@ metaflac --show-tag=ALBUM --show-tag=ALBUMARTIST \
 
 Copy the complete album directory to a dedicated operator-owned staging path visible to doc2, for example `/mnt/virtio/cd-import/<slug>`. Do not use `/tmp`, `/home`, the Beets library, CrateDigger processing, slskd downloads, or the Beets DB tree. Copy first, then compare manifests at both ends before importing.
 
-The local-import folder is disposable transport, not the long-term preservation bundle. Store the physical photos, corrected upload art, MusicBrainz/CAA responses, Whipper FLAC/cue/log/TOC and pre/post-tag hashes, CUETools image/cue/log, CTDB submit receipt and post-submit lookup beneath:
+The local-import folder is disposable transport, not the long-term preservation bundle. Store the physical source scans, processed upload art, reviewed lyrics and OCR provenance, MusicBrainz/CAA/LRCLIB responses, Whipper FLAC/cue/log/TOC and pre/post-tag hashes, CUETools image/cue/log, and CTDB lookup or submission receipts beneath:
 
 ```text
 /mnt/virtio/Music/Preservation/<slug>--<MUSICBRAINZ_RELEASE_MBID>/
 ```
 
-Use separate `evidence/`, `whipper-secure-rip/`, and `cuetools-ctdb-submit/` directories. After copying, use an `rsync -acn --delete --itemize-changes` dry run from the source to the durable path; any output means the archive is not yet byte-for-byte complete. Do not remove the local source until the durable path is covered by a completed backup.
+Use separate `evidence/source-scans/`, `evidence/processed-art/`, `metadata/`, `lyrics/`, `whipper-secure-rip/`, and `cuetools-ctdb-submit/` directories as applicable. After copying, use an `rsync -acn --delete --itemize-changes` dry run from the source to the durable path; any output means the archive is not yet byte-for-byte complete. Do not remove the local source until the durable path is covered by a completed backup.
 
-## 6. Import through CrateDigger and verify Beets
+## 7. Import through CrateDigger and verify Beets
 
 On doc2, create or resume the exact MusicBrainz request and note its request ID:
 
@@ -222,6 +273,9 @@ journalctl -u cratedigger-import-preview-worker -u cratedigger-importer \
 
 Completion means all of the following are true:
 
+- the exact physical pressing is supported by package identifiers, with any unresolved matrix/hub evidence recorded honestly;
+- the duplicate audit accounts for the previous library album and all relevant public entries;
+- expected CAA art types, package credits, and lyrics are either preserved/contributed with receipts or have a recorded evidence gap;
 - request terminal state is imported/done, with the local-source audit row;
 - one exact Beets album row carries the intended MusicBrainz release MBID;
 - every expected FLAC exists beneath `/mnt/virtio/Music/Beets` and passes `flac -t`;
@@ -229,9 +283,9 @@ Completion means all of the following are true:
 - media refresh/notification completed or has a recorded retryable failure;
 - the preservation bundle and final library are covered by the normal backup path.
 
-### Optional destructive end-to-end proof
+### Guarded replacement of an existing library copy
 
-Only when the user explicitly asks to prove the newly contributed CTDB entry through the complete pipeline, preserve and verify the independent staging source first, then delete the exact Beets album through CrateDigger's guarded command. Never remove library files with `rm`:
+When the user confirms that the proven physical pressing should replace the album already in the library, preserve and verify the independent staging source first, identify the exact existing Beets album and owning CrateDigger request, then delete it through CrateDigger's guarded command. Never remove library files with `rm`, and never infer the target from title text alone:
 
 ```bash
 pipeline-cli library-delete <BEETS_ALBUM_ID> --confirm DELETE \
@@ -255,6 +309,8 @@ Only after those checks may the disposable `/mnt/virtio/cd-import/<slug>` stagin
 
 - **MusicBrainz metadata wrong before submit:** go back in the release editor; the HTML only seeds a draft.
 - **MusicBrainz metadata wrong after submit:** edit the same release and document the correction; do not create a duplicate release.
+- **CAA art attached to the wrong release:** request removal or correction on that release, retain the mistaken upload receipt, and upload the evidenced file only to the correct pressing.
+- **LRCLIB lyrics wrong after publish:** publish a reviewed correction, retain both revision receipts, and verify the public lookup returns the intended current text.
 - **Rip has suspicious positions or mismatched reads:** keep the evidence, clean/inspect the disc, and rerip. Do not submit it to CTDB or import it as preserved lossless audio.
 - **CTDB says insufficient quality:** retain the log and stop the contribution step; never bypass the quality gate.
 - **CUERipper console says zero errors but CTDB still returns 404:** the audio read succeeded but no submission occurred. Confirm the frontend actually called `CTDB.Submit`; do not describe the rip as uploaded.
