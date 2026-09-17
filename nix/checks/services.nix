@@ -5,6 +5,19 @@
   pkgs,
   system,
 }: let
+  oauth2RotationCheck = let
+    helper = import ../pkgs/oauth2-helper.nix {inherit pkgs;};
+    services = self.nixosConfigurations.doc2.config.systemd.services;
+  in
+    assert services.mailarchive-work.environment.OAUTH_TOKEN_STATE_FILE == "/var/lib/mailarchive/oauth-work/token.json";
+    assert !(services.mailarchive-gmail.environment ? OAUTH_TOKEN_STATE_FILE);
+      pkgs.runCommand "oauth2-rotation" {
+        nativeBuildInputs = [pkgs.python3];
+        OAUTH_HELPER = "${helper}/bin/oauth2-helper";
+      } ''
+        python3 ${./test_oauth2_rotation.py} -v
+        touch "$out"
+      '';
   wineryHistoryCheck = pkgs.runCommand "winery-history" {nativeBuildInputs = [pkgs.python3];} ''
     cp ${../../scripts/winery-history.py} winery-history.py
     cp ${../../scripts/test_winery_history.py} test_winery_history.py
@@ -747,6 +760,7 @@
       '';
 in {
   inherit
+    oauth2RotationCheck
     wineryHistoryCheck
     kopiaBackupProbeCheck
     kopiaVerificationCheck

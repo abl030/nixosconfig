@@ -25,11 +25,14 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
 
   import argparse
   import base64
+  import contextlib
+  import fcntl
   import hashlib
   import http.server
   import json
   import os
   import sys
+  import tempfile
   import time
   import urllib.error
   import urllib.parse
@@ -75,7 +78,48 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       )
 
 
+  @contextlib.contextmanager
+  def token_state(path):
+      """Serialize the entire exchange; the parent directory must be private."""
+      if not path:
+          yield
+          return
+      fd = os.open(path + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+      with os.fdopen(fd, "w") as lock:
+          fcntl.flock(lock, fcntl.LOCK_EX)
+          yield
+
+
+  def save_token(path, seed_id, refresh):
+      directory = os.path.dirname(path)
+      fd, temporary = tempfile.mkstemp(prefix=".oauth-", dir=directory)
+      try:
+          with os.fdopen(fd, "w") as out:
+              json.dump({"seed_id": seed_id, "refresh_token": refresh}, out)
+              out.flush()
+              os.fsync(out.fileno())
+          os.replace(temporary, path)
+          directory_fd = os.open(directory, os.O_DIRECTORY)
+          try:
+              os.fsync(directory_fd)
+          finally:
+              os.close(directory_fd)
+      finally:
+          if os.path.exists(temporary):
+              os.unlink(temporary)
+
+
   def cmd_refresh(args):
+      path = os.environ.get("OAUTH_TOKEN_STATE_FILE")
+      try:
+          with token_state(path):
+              refresh_locked(args, path)
+      except (OSError, ValueError, TypeError):
+          # Never include state contents or endpoint response bodies in logs.
+          die("refresh-token state could not be read or persisted")
+
+
+  def refresh_locked(args, path):
       provider = os.environ.get("OAUTH_PROVIDER") or args.provider
       if provider not in ("o365", "gmail"):
           die("provider must be set via --provider or OAUTH_PROVIDER (o365|gmail)")
@@ -90,6 +134,24 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
               die("OAUTH_CLIENT_ID not set (required for gmail)")
       client_secret = os.environ.get("OAUTH_CLIENT_SECRET")
       tenant = os.environ.get("OAUTH_TENANT") or "common"
+      # A new bootstrap credential or identity must supersede cached rotation.
+      seed_id = hashlib.sha256(json.dumps(
+          [provider, client_id, client_secret, tenant, refresh]
+      ).encode()).hexdigest()
+      if path:
+          try:
+              with open(path) as source:
+                  state = json.load(source)
+          except FileNotFoundError:
+              pass
+          else:
+              if not isinstance(state, dict):
+                  raise ValueError("invalid token state")
+              cached = state.get("refresh_token")
+              if not isinstance(state.get("seed_id"), str) or not isinstance(cached, str) or not cached:
+                  raise ValueError("invalid cached token")
+              if state.get("seed_id") == seed_id:
+                  refresh = cached
 
       if provider == "o365":
           _, token_url = o365_endpoints(tenant)
@@ -113,14 +175,28 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       try:
           result = http_post(token_url, params)
       except urllib.error.HTTPError as e:
-          body = e.read().decode("utf-8", errors="replace")
-          die(f"HTTP {e.code} from token endpoint: {body}")
-      except Exception as e:
-          die(f"refresh failed: {e}")
+          try:
+              body = json.loads(e.read())
+              codes = body.get("error_codes", []) if isinstance(body, dict) else []
+              codes = codes if isinstance(codes, list) else []
+              detail = ", ".join(f"AADSTS{code}" for code in codes if type(code) is int)
+          except (ValueError, TypeError):
+              detail = ""
+          die(f"HTTP {e.code} from token endpoint" + (f": {detail}" if detail else ""))
+      except Exception:
+          die("token endpoint request failed")
 
+      if not isinstance(result, dict):
+          die("invalid token endpoint response")
       access = result.get("access_token")
-      if not access:
-          die(f"no access_token in response: {json.dumps(result)}")
+      if not isinstance(access, str) or not access:
+          die("no valid access_token in response")
+      rotated = result.get("refresh_token", refresh)
+      if not isinstance(rotated, str) or not rotated:
+          die("invalid refresh_token in response")
+      if path:
+          # Persist before handing access to mbsync: failed writes fail the sync.
+          save_token(path, seed_id, rotated)
       print(access)
 
 

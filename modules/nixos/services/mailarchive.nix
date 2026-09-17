@@ -298,11 +298,15 @@ in {
         ++ (lib.mapAttrsToList (
             name: _: "d ${cfg.dataDir}/${name} 0700 mailarchive mailarchive - -"
           )
-          cfg.accounts);
+          cfg.accounts)
+        ++ (lib.mapAttrsToList (
+            name: _: "d /var/lib/mailarchive/oauth-${name} 0700 mailarchive mailarchive - -"
+          )
+          (lib.filterAttrs (_: acct: acct.provider == "o365") cfg.accounts));
 
       services =
         (lib.mapAttrs' (
-            name: _:
+            name: acct:
               lib.nameValuePair "mailarchive-${name}" {
                 description = "Mail archival fetcher (${name})";
                 after = ["network-online.target" "mnt-data.mount"];
@@ -317,6 +321,11 @@ in {
                 restartIfChanged = false;
 
                 path = with pkgs; [isync coreutils];
+                # Runtime rotation stays local; SOPS remains the bootstrap seed.
+                # See docs/wiki/services/mailarchive.md, refresh-token rotation.
+                environment = lib.optionalAttrs (acct.provider == "o365") {
+                  OAUTH_TOKEN_STATE_FILE = "/var/lib/mailarchive/oauth-${name}/token.json";
+                };
                 serviceConfig = {
                   Type = "oneshot";
                   # Backstop only — restartIfChanged=false already decouples

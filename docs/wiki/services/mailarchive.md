@@ -241,6 +241,34 @@ contains every message exactly once — the canonical backup target.
 
 ## Operational recovery
 
+### Refresh-token rotation (2026-09-17)
+
+The O365 helper persists replacement refresh tokens in
+`/var/lib/mailarchive/oauth-work/token.json` (0600, `mailarchive`, in a 0700
+directory). SOPS holds the bootstrap seed; it is not rewritten at runtime.
+Each exchange locks the account state, reads the latest token, and atomically
+saves the replacement before returning the access token. A hash of the seed
+and OAuth identity makes a newly deployed bootstrap credential supersede cached
+state. Missing replacement tokens retain the current token. State read/write
+failures fail the sync without logging token contents. Gmail remains stateless.
+
+The September 16 incident was a client rotation defect: the old helper discarded
+replacement tokens and kept using the June 18 seed. Sync finished at 11:12:45
+AWST; AADSTS700082 failures began at 11:12:46, approximately 90 days after
+issuance. A live probe on September 17 confirmed Microsoft returns replacements.
+[Microsoft documents replacement on each use](https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens).
+The rotation check exercises persistence, seed replacement, concurrency, and
+failure handling without contacting Microsoft.
+
+Keep this local state across restarts and deployments. Losing it after the SOPS
+seed expires requires interactive bootstrap again; restoring an old seed alone
+does not recover access. Do not delete state as a routine troubleshooting step.
+Revocations and tenant policy can still require reauthorization. A corrupt state
+file needs explicit recovery: stop the work timer and wait for the current sync
+to finish, re-bootstrap/deploy, remove only the corrupt work token JSON, then
+start the timer. Rollback to a helper without rotation works only while its SOPS
+seed remains valid. Neither rollback nor reauthorization alters archived mail.
+
 ### Refresh-token expiry (AADSTS70008 / AADSTS70043)
 
 Symptoms: `mailarchive-<account>.service` starts failing; journal shows
