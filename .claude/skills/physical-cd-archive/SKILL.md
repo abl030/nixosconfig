@@ -1,6 +1,6 @@
 ---
 name: physical-cd-archive
-description: Preserve a physical audio CD as a secure FLAC rip, add or attach its MusicBrainz disc/release metadata through a pre-filled browser edit, submit an eligible rip to CUETools Database (CTDB), and ingest it through CrateDigger's local-import lane into Beets. Use for "archive this CD", "rip this disc", MusicBrainz CD submission, CTDB contribution, or physical-CD CrateDigger imports.
+description: Preserve a physical audio CD as repeatable CUERipper images and derived FLAC tracks, add or attach its MusicBrainz disc/release metadata through a pre-filled browser edit, submit an eligible rip to CUETools Database (CTDB), and ingest it through CrateDigger's local-import lane into Beets. Use for "archive this CD", "rip this disc", MusicBrainz CD submission, CTDB contribution, or physical-CD CrateDigger imports.
 ---
 
 # Physical CD ingestion
@@ -15,7 +15,8 @@ The durable result is:
 1. the exact pressing identified and de-duplicated;
 2. MusicBrainz Disc ID/release metadata, CAA art, and authorised lyrics corrected
    upstream;
-3. a secure, offset-corrected FLAC rip;
+3. two byte-identical, post-tray-cycle CUERipper Secure/Paranoid images and
+   lossless track FLACs derived from one of them;
 4. honest AccurateRip/CTDB verification or contribution; and
 5. the exact release imported through CrateDigger with lossless intent, verified
    tags/files, and recorded provenance.
@@ -36,11 +37,13 @@ CrateDigger owns the Beets import. Never use ad-hoc `beet import`, and never use
 library swap uses exact guarded `library-delete`, verifies the independent staging
 copy survived, and imports the physical release's own request.
 
-CTDB confidence is independent corroboration. CrateDigger and Whipper verify but
-do not submit. Prefer the runbook's agent-driven, explicitly opt-in patched
-CUERipper console for eligible Secure/Paranoid contributions; upstream CUETools
-2.2.6's GUI also submits, while its stock console does not. Never invent
-confidence or duplicate an existing checksum.
+CUERipper owns the canonical PCM and CTDB submission. Require two byte-identical
+no-submit Secure/Paranoid images separated by a tray cycle before arming a third
+submission read, then derive track FLACs from that image for CrateDigger. Whipper
+is an optional independent diagnostic, not the production source. CTDB confidence
+is independent corroboration; never invent confidence or duplicate an existing
+checksum. Use the runbook's agent-driven, explicitly opt-in patched console;
+upstream CUETools 2.2.6's GUI also submits, while its stock console does not.
 
 Every MusicBrainz artist field must resolve to the correct entity. Never use a
 namesake or Various Artists merely to satisfy validation. The logged-in user must

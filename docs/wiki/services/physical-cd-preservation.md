@@ -2,7 +2,8 @@
 
 **Status:** operational runbook
 **Last verified:** 2026-09-17
-**Scope:** identify and de-duplicate → correct upstream metadata → secure FLAC rip → CrateDigger import and verification
+**Scope:** identify and de-duplicate → correct upstream metadata → repeatable
+CUERipper image → lossless track FLACs → CrateDigger import and verification
 
 The durable result is the exact release described correctly upstream and the
 verified FLAC album imported through CrateDigger. Scans, rip logs, checksums,
@@ -20,6 +21,9 @@ archive. Keep them only until the final library result is verified.
   available.
 - Correct upstream gaps instead of creating duplicate releases, art, lyrics, or
   CTDB entries.
+- The canonical audio source is a CUERipper Secure/Paranoid whole-disc image
+  reproduced byte-for-byte after a tray cycle. Whipper is an optional comparison,
+  not the source selected merely because it emits track FLACs.
 - CrateDigger owns the Beets import and provenance. Never use ad-hoc `beet import`.
 - Do not use `pipeline-cli replace` to swap a library copy for this pressing. Use
   exact guarded deletion followed by the physical release's own request/import.
@@ -87,35 +91,56 @@ Once the exact pressing is confirmed, ask whether it should replace the current
 library copy. A yes authorises the guarded replacement sequence in section 5,
 after an independent staging copy exists and verifies.
 
-## 2. Secure-rip to temporary working space
+## 2. Produce the canonical CUERipper image
 
 Verify the drive and AccurateRip offset. The known offset for
 `HL-DT-ST DVDRAM GP65NB60` is `+6`; do not reuse it for another model without
 checking.
 
 ```bash
-nix shell nixpkgs#whipper --command whipper drive list
-nix shell nixpkgs#whipper --command whipper drive analyze -d /dev/sr0
+lsblk -o NAME,PATH,MODEL,TRAN /dev/sr0
 ```
 
 Keep the active session under `~/Downloads`, not `/var/tmp`, so it is visible to
-the operator. It is temporary working state:
+the operator. Create two private output directories and use the reviewed patched
+CUERipper console in Secure mode without arming submission:
 
 ```bash
-install -d -m 0700 "$HOME/Downloads/cd-archive-<slug>/output" \
-  "$HOME/Downloads/cd-archive-<slug>/work"
-nix shell nixpkgs#whipper --command whipper cd rip \
-  --unknown --offset <OFFSET> --max-retries 20 --keep-going \
-  --output-directory "$HOME/Downloads/cd-archive-<slug>/output" \
-  --working-directory "$HOME/Downloads/cd-archive-<slug>/work" \
-  --track-template '<Title>/%t - Track %t' \
-  --disc-template '<Title>/<Title>'
+archive_root="$HOME/Downloads/cd-archive-<slug>"
+install -d -m 0700 "$archive_root/cueripper-1" "$archive_root/cueripper-2"
+
+cd "$archive_root/cueripper-1"
+WINEPREFIX=<32-bit-prefix> wine \
+  /path/to/CUETools.Ripper.Console.ctdb-submit.exe \
+  --secure --drive D: --offset <OFFSET> --c2mode 0 --no-gaps \
+  --artist '<ARTIST>' --title '<TITLE>'
 ```
 
-Review every track in the log for test/copy agreement, read errors, offset, cache
-behaviour, and AccurateRip/CTDB results. Then run `flac -t` on every output file.
-Do not import a suspicious rip. Keep the log and cue only until CrateDigger has
-verified the imported album.
+Review the log for the selected drive, offset, mode, TOC, and read errors. Eject
+and reinsert the disc before repeating the same no-submit command from
+`cueripper-2`; this prevents the second pass from being only a warm-cache repeat.
+Require zero reported errors, identical semantic TOCs, and byte-identical WAVs:
+
+```bash
+cmp --silent "$archive_root/cueripper-1/<IMAGE>.wav" \
+  "$archive_root/cueripper-2/<IMAGE>.wav"
+sha256sum "$archive_root"/cueripper-{1,2}/<IMAGE>.wav
+
+rg '^(  TRACK|    INDEX)' "$archive_root/cueripper-1/<IMAGE>.cue" \
+  > "$archive_root/cueripper-1/toc.txt"
+rg '^(  TRACK|    INDEX)' "$archive_root/cueripper-2/<IMAGE>.cue" \
+  > "$archive_root/cueripper-2/toc.txt"
+diff -u "$archive_root/cueripper-1/toc.txt" \
+  "$archive_root/cueripper-2/toc.txt"
+```
+
+Do not proceed on a mismatch. Preserve both variants, localise the differing
+sectors, and prefer another physical drive before diagnosing media decay.
+
+Whipper may be run as an independent diagnostic when useful, but it is not part
+of the normal production path. Its test/copy agreement is weak evidence when its
+log says that the drive's audio cache was not defeated. A Whipper disagreement
+does not override two byte-identical post-tray-cycle CUERipper images.
 
 ## 3. Correct MusicBrainz, artwork, and lyrics
 
@@ -206,14 +231,20 @@ does not depend on LRCLIB freshness.
 
 ## 4. AccurateRip and CTDB
 
-Query CTDB before trying to contribute. An existing matching entry is verification
-evidence and must not receive a duplicate submission. CTDB confidence is
-independent accepted corroboration; a second local read does not increase it.
+Query CTDB and compare its CRCs with the repeatable image from section 2 before
+trying to contribute. An existing matching entry is verification evidence and
+must not receive a duplicate submission. CTDB confidence is independent accepted
+corroboration; a second local read does not increase it.
 
-CrateDigger verifies imported PCM against CTDB but does not submit. Whipper also
-does not submit to CTDB. For a genuinely absent checksum, use CUERipper in Secure
-or Paranoid mode; Burst mode is ineligible. Retain its extraction log and the CTDB
-response/query as evidence.
+A different CRC under the same TOC does not by itself prove that the disc or
+drive is failing: it can represent a different extraction path. Do not choose an
+entry merely because it has higher confidence. Prefer the CRC reproduced by the
+canonical post-tray-cycle reads, retain the mismatch as diagnostic evidence, and
+use another drive when a genuinely independent tie-break is needed.
+
+CrateDigger verifies imported PCM against CTDB but does not submit. For a
+genuinely absent checksum, use CUERipper in Secure or Paranoid mode; Burst mode is
+ineligible. Retain its extraction logs and the CTDB response/query as evidence.
 
 Prefer the agent-driven, opt-in console path when its reviewed build is available.
 Do not ask the operator to drive the WinForms GUI merely because upstream's stock
@@ -226,26 +257,25 @@ ctdb.DoVerify();
 var response = ctdb.Submit(confidence, quality, artist, title, barcode);
 ```
 
-Run it from a new private output directory and make submission explicit. Under
-Wine, map the physical drive to `D:` and use the verified drive offset; for the
-`HL-DT-ST DVDRAM GP65NB60` that is `+6`. Gap detection may be skipped when the
-physical TOC has already been captured and Wine's gap scan is unreliable:
+Only after the two no-submit images agree, run a third Secure read from a new
+private output directory and make submission explicit. Under Wine, map the
+physical drive to `D:` and use the verified drive offset; for the `HL-DT-ST DVDRAM
+GP65NB60` that is `+6`. Gap detection may be skipped when the physical TOC has
+already been captured and Wine's gap scan is unreliable:
 
 ```bash
+install -d -m 0700 "$archive_root/ctdb-submit"
+cd "$archive_root/ctdb-submit"
 WINEPREFIX=<32-bit-prefix> wine \
   /path/to/CUETools.Ripper.Console.ctdb-submit.exe \
   --secure --drive D: --offset 6 --c2mode 0 --no-gaps \
   --submit-ctdb --artist '<ARTIST>' --title '<TITLE>'
 ```
 
-When another secure rip engine produces different PCM, do not arm submission on
-the first CUERipper pass. Run the patched console without `--submit-ctdb`, eject
-and reinsert the disc to clear the drive cache, then obtain a second full-image
-read. Require the two CUERipper WAVs to be byte-identical and compare their CTDB
-CRC with the other rip. A test/copy match can be misleading when the rip log says
-the drive's audio cache was not defeated. Preserve all variants and localise the
-differing tracks/sectors; use another physical drive when available before
-deciding that the medium is damaged.
+After submission, require its WAV to be byte-identical to the section 2 image. If
+it differs, treat the submitted entry as suspect, retain all evidence, and stop
+before import. A separate rip engine is diagnostic evidence only; preserve any
+variant and localise its differing tracks/sectors.
 
 The patch must remain mutation-safe: ordinary diagnostic invocations do not
 submit, and `--submit-ctdb` is required. Upstream CUETools 2.2.6's WinForms GUI
@@ -260,14 +290,31 @@ normally begins at confidence one; a second read on the same drive is not an
 independent confidence increment. Never force an ineligible image or invent
 confidence.
 
-Verified example (2026-09-17): the agent-driven Winesong submission returned
-token `blokBmSfz6482Kddw08mggWvxq4-`; the immediate lookup returned entry
-`13063896`, CRC32 `af764d8f`, parity present, confidence `1`.
+Verified example (2026-09-17): two tray-separated Secure reads of *Voices of
+Gondwana* produced byte-identical whole-disc WAVs and CTDB CRC32 `b35fdd32`. The
+agent-driven submission returned token `3lJceaf0kmylfqkkxWOUP6k.inM-`; the
+immediate lookup returned entry `13064313`, parity present, confidence `1`.
 
 ## 5. Import through CrateDigger
 
-Tag an independent copy of the FLACs with useful basic identity and reviewed
-lyrics. Copy that album—not the Beets library or CrateDigger processing tree—to:
+Split one canonical CUERipper image at its CUE boundaries and encode the tracks
+losslessly. `shnsplit` is sector-aligned for a CD CUE; this command has been
+validated against a CUERipper image:
+
+```bash
+install -d -m 0700 "$archive_root/tracks"
+nix shell nixpkgs#shntool nixpkgs#flac --command \
+  shnsplit -f "$archive_root/cueripper-1/<IMAGE>.cue" \
+  -d "$archive_root/tracks" -t '%n' -o flac \
+  "$archive_root/cueripper-1/<IMAGE>.wav"
+nix shell nixpkgs#flac --command \
+  sh -c 'for file do flac -t "$file" || exit; done' sh \
+  "$archive_root"/tracks/*.flac
+```
+
+Require the output count and durations to match the CUE. Tag this derived copy
+with useful basic identity and reviewed lyrics. Copy that album—not the Beets
+library or CrateDigger processing tree—to:
 
 ```text
 /mnt/virtio/cd-import/<slug>/
@@ -325,8 +372,8 @@ The job is complete when:
 - the exact CrateDigger request is `imported` and points to one unique Beets album;
 - every expected library file is FLAC and passes `flac -t`;
 - every file carries the exact release MBID, reviewed lyrics, and intended date;
-- `pipeline-cli quality` reports the real AccurateRip/CTDB provenance and lossless
-  result; and
+- `pipeline-cli quality` reports a lossless result and a CTDB CRC matching the
+  canonical CUERipper image and accepted entry; and
 - media refresh completed or has a recorded retryable warning.
 
 Once those checks pass, remove the disposable `/mnt/virtio/cd-import/<slug>` copy
@@ -338,10 +385,12 @@ create or maintain a second `/mnt/virtio/Music/Preservation` copy.
 - Wrong MusicBrainz data: correct the same release; do not create a duplicate.
 - Wrong CAA upload: request correction/removal and upload only to the exact release.
 - Wrong LRCLIB text: publish a reviewed revision rather than duplicating the entry.
-- Suspicious or mismatched rip: clean/inspect and rerip; do not import it.
+- The two post-tray-cycle CUERipper images differ: clean/inspect and rerip; do not
+  submit or import either image.
 - Different secure-rip engines disagree: reset the drive cache with a tray cycle,
-  repeat each path without submission, compare exact PCM, and prefer a second
-  physical drive before diagnosing media decay.
+  preserve and compare exact PCM, and prefer a second physical drive before
+  diagnosing media decay. Do not replace the repeatable canonical CUERipper image
+  merely because another engine produced track FLACs.
 - CTDB says insufficient quality: stop; do not bypass the gate.
 - CrateDigger rejects identity: correct metadata/tags and retry the guarded workflow;
   never call Beets directly for the import.
