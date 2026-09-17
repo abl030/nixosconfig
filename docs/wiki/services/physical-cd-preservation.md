@@ -238,6 +238,15 @@ WINEPREFIX=<32-bit-prefix> wine \
   --submit-ctdb --artist '<ARTIST>' --title '<TITLE>'
 ```
 
+When another secure rip engine produces different PCM, do not arm submission on
+the first CUERipper pass. Run the patched console without `--submit-ctdb`, eject
+and reinsert the disc to clear the drive cache, then obtain a second full-image
+read. Require the two CUERipper WAVs to be byte-identical and compare their CTDB
+CRC with the other rip. A test/copy match can be misleading when the rip log says
+the drive's audio cache was not defeated. Preserve all variants and localise the
+differing tracks/sectors; use another physical drive when available before
+deciding that the medium is damaged.
+
 The patch must remain mutation-safe: ordinary diagnostic invocations do not
 submit, and `--submit-ctdb` is required. Upstream CUETools 2.2.6's WinForms GUI
 also calls `CTDB.Submit`, but its unmodified console frontend stops after writing
@@ -330,6 +339,9 @@ create or maintain a second `/mnt/virtio/Music/Preservation` copy.
 - Wrong CAA upload: request correction/removal and upload only to the exact release.
 - Wrong LRCLIB text: publish a reviewed revision rather than duplicating the entry.
 - Suspicious or mismatched rip: clean/inspect and rerip; do not import it.
+- Different secure-rip engines disagree: reset the drive cache with a tray cycle,
+  repeat each path without submission, compare exact PCM, and prefer a second
+  physical drive before diagnosing media decay.
 - CTDB says insufficient quality: stop; do not bypass the gate.
 - CrateDigger rejects identity: correct metadata/tags and retry the guarded workflow;
   never call Beets directly for the import.
