@@ -29,10 +29,26 @@ archive. Keep them only until the final library result is verified.
 ## 1. Identify and audit
 
 Capture or fetch enough package evidence to identify the pressing and fill real
-upstream gaps: front/back, track list, credits, disc face, and matrix/hub text.
-Paperless and Immich originals are suitable source evidence. Do not rescan a long
-booklet when the existing Cover Art Archive booklet matches the physical copy;
-compare it and scan only missing or materially better panels.
+upstream gaps: front, back, disc face and hub, full track list, booklet, lyrics,
+and all credits, catalogue, barcode, and copyright panels. When the evidence is
+in Paperless or Immich, fetch the exact original read-only rather than a preview,
+thumbnail, or screenshot.
+
+Keep every source file unchanged. Put upload derivatives in a separate directory
+and prepare them losslessly: apply the correct page rotation, deskew against the
+printed page or artwork edge, and crop tightly to that edge. Do not treat PDF or
+EXIF orientation metadata as proof that the pixels are upright. Render and inspect
+every derivative at useful resolution before handoff, checking readable text,
+page order, all four crop edges, and that no scanner bed, adjacent page, or jewel
+case remains unless it is intentionally part of the image. Do not open the CAA
+upload handoff until that visual review passes.
+
+Do not rescan a long booklet when the existing Cover Art Archive booklet matches
+the physical copy. Download the existing CAA original, compare its cover,
+catalogue number, track list, credits, and page count with the package, and scan
+only missing or materially better panels. A PDF can contain two printed pages per
+PDF page, so compare the rendered content rather than assuming the page count is
+wrong.
 
 Check the existing Beets album and CrateDigger request, then audit public
 MusicBrainz separately by title and Disc ID. The local MusicBrainz mirror is
@@ -158,10 +174,16 @@ lyrics, artwork, and FLAC integrity.
 
 ### Cover Art Archive
 
-Audit release and release-group art, then upload only missing or materially better
-images from this exact pressing with accurate types (`Front`, `Back`, `Booklet`,
-`Medium`, `Spine`). Pending approval is non-gating. Do not upload a duplicate good
-front or an already complete matching booklet.
+Audit both the release and release-group inventories before uploading. Upload only
+missing or materially better images from this exact physical package, with
+accurate types (`Front`, `Back`, `Booklet`, `Medium`, `Spine`). Do not attach one
+pressing's artwork to another release merely because their audio layout matches,
+and do not duplicate a good front or a complete matching booklet.
+
+For every upload, retain the unmodified source, the visually reviewed derivative,
+its checksum, and the resulting CAA URL or response together until final library
+verification. Pending approval is non-gating, but a file that has not passed the
+orientation, deskew, crop, and pressing-identity checks is not ready to upload.
 
 ### Lyrics
 
