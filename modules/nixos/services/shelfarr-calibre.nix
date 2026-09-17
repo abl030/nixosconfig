@@ -97,8 +97,17 @@ in {
         name = "Shelfarr Calibre import failure";
         unit = "shelfarr-calibre.service";
         pattern = "SHELFARR_CALIBRE_FAILED";
+        recoveryPattern = "Calibre bridge checked [0-9]+ acquired ebooks; 0 failed$";
+        # One-minute retries must keep failing for five minutes. A fully
+        # successful run clears pending/firing state on the next evaluation.
+        # See docs/wiki/services/shelfarr.md for the 2026-09-17 restart incident.
+        # Cover the 120s remote-command timeout plus the one-minute retry gap.
+        window = "5m";
+        threshold = 0;
+        forDuration = "5m";
         severity = "warning";
-        summary = "Shelfarr ebook delivery to Calibre or Komga needs attention";
+        summary = "Shelfarr Calibre/Komga bridge has sustained failures";
+        description = "Checks or delivery keep failing despite automatic retries. Brief Calibre restarts are suppressed; a complete successful run clears the condition.";
       }
     ];
   };

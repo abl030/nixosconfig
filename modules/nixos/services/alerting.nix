@@ -554,7 +554,10 @@
       inherit (ep) severity;
       inherit (ep) summary;
       description = desc;
-      logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
+      logql =
+        if ep.recoveryPattern == null
+        then ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))''
+        else ''sum(sum by (host, unit) (count_over_time(${selector} |~ "${pattern}" [${ep.window}])) unless sum by (host, unit) (count_over_time(${selector} |~ "${logqlEscape ep.recoveryPattern}" [${ep.window}]) > 0)) or vector(0)'';
       lokiLines = ''${selector} |~ "${pattern}"'';
       inherit (ep) threshold;
       inherit (ep) forDuration;

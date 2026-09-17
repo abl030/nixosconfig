@@ -1004,6 +1004,16 @@ in {
             '';
             example = "PostgresError|permission denied for table|migration failed";
           };
+          recoveryPattern = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              Optional LogQL regex for a fully successful run. A matching
+              success in `window` suppresses failures from the same host and
+              unit, resetting the pending period. Use only for recurring jobs
+              whose success proves all work covered by the error pattern passed.
+            '';
+          };
           severity = lib.mkOption {
             type = lib.types.enum ["critical" "warning" "info"];
             default = "warning";

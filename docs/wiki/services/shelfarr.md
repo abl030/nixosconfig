@@ -106,6 +106,18 @@ temporary/state directories, no host control socket and no Calibre library mount
 Every run checks authenticated Calibre access even with no pending ebooks.
 Persistent failures log `SHELFARR_CALIBRE_FAILED` and alert through Loki.
 
+Alert tuning (2026-09-17): a Calibre restart caused three failed library checks
+at 05:08–05:10 AWST, triggering the old three-errors-in-five-minutes rule just
+before recovery at 05:11:19. The bridge now alerts only after its error condition
+persists for five minutes, using a five-minute lookback and suppressing errors
+when that window contains a fully successful (`0 failed`) run. Recovery clears
+the condition on the next one-minute evaluation. A continuing outage typically
+notifies about nine to eleven minutes after its first failed check; partial book
+failures and Komga scan failures cannot count as recovery. Individual failures
+remain in the journal and retry normally. No credentials, permissions, network
+exposure, or import behavior change. Roll back the alert tuning by removing the
+bridge's recoveryPattern/window/threshold/forDuration overrides.
+
 Import activity: `journalctl -u shelfarr-calibre.service -n 50`. A Shelfarr request
 becomes Completed when its local acquisition finishes; Calibre delivery follows
 on the next bridge run, then Komga indexing. Shelfarr's Activity page continues to
