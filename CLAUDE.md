@@ -230,8 +230,12 @@ architecture and incident notes live under `docs/wiki/infrastructure/`.
 - Avoid import-order dependencies; use `lib.mkOrder` where list order matters.
 - Isolate generated assets/config sources with `builtins.path` or
   `writeTextFile` to avoid unrelated flake-source churn.
-- Validation is primarily `nix flake check`. The known upstream
-  `proxmox.qemuConf.diskSize` rename warning is safe to ignore.
+- Match validation to the actual diff. Prose-only docs and instruction changes
+  need `git diff --check` and content review, not `nix flake check`, builds, or
+  deployment. Check referenced commands and paths when changed. Markdown that
+  embeds executable/generated inputs is not automatically prose-only.
+- For Nix/configuration changes, validation is primarily `nix flake check`. The
+  known upstream `proxmox.qemuConf.diskSize` rename warning is safe to ignore.
 - Before changing nginx or Cloudflare behavior, verify upstream with `--resolve`.
 - Standard Kuma health conventions are documented in
   `modules/nixos/services/uptime-kuma.nix` and service modules.
@@ -249,3 +253,7 @@ Use Conventional Commit subjects such as `fix(pve): ...`. Commit only explicit
 pathspecs so unrelated staged work is never swept in, and verify the resulting
 commit diff. When work is committed, push it to Forgejo; do not leave local
 commits stranded. Include operational impact and deployment notes in PR text.
+Batch relay inspection into one review of the diff and trusted signatures;
+do not narrate separate security gates or repeat checks without new evidence.
+Preserve trusted commits when they already fast-forward Forgejo master; rebase
+and re-sign only when master has diverged. See the `relay-push` skill.

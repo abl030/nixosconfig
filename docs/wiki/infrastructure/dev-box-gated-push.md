@@ -1,6 +1,6 @@
 # Dev-box gated push (and the FIDO-touch endgame)
 
-- **Date:** 2026-08-05
+- **Date:** 2026-09-17
 - **Status:** relay through doc1 LIVE; WSL interactive-unlock delegation LIVE;
   FIDO-touch model PLANNED (no hardware yet)
 - **Related:** signed-fleet-deploys (#235), sibling lockdown (forgejo#2), `.claude/skills/relay-push/`
@@ -51,8 +51,9 @@ comes only from a **human reading the diff** before it can deploy.
   Git/curl tracing in the authenticated child.
 - To land a dev box's work: on doc1, run the **`relay-push`** skill — it fetches
   the box's commits over SSH, inspects each commit (message-vs-diff), verifies
-  signatures + attribution, security-reviews against least-privilege, rebases onto
-  current master, and publishes. The human gate is the user asking for the change
+  trusted signatures and the diff in one review, then publishes unchanged commits
+  when they fast-forward master. Replay and re-sign only when master diverged.
+  The human gate is the user asking for the change
   to land while present in-session (or the interactive WSL SSH unlock described
   below); the agent does not stop to collect a separate "go" on top of that. It
   does stop when a check actually trips. An unattended or automated relay, with no
@@ -79,6 +80,21 @@ token, and no relay happens without a human driving it. What was dropped
 made — it was pure ceremony during interactive work and trained the user to type
 "go" reflexively, which is worse than useless as a review gate. WSL still requires
 the user to be present to unlock SSH to doc1 once per agent work session.
+
+## Proportionate relay (2026-09-17)
+
+A prose-only CD runbook edit took over five minutes under the old procedure,
+which called for fleet-wide `nix flake check` and replayed already eligible
+commits. Neither step was needed. Prose-only docs and instruction edits now get
+whitespace/content review and checks of changed commands/paths; skip Nix
+evaluation, builds, and deployment. Executable/configuration changes retain
+relevant validation under CLAUDE.md.
+
+Batch fetch and inspection, review the actual diff and trusted signatures once,
+preserve fast-forward commits, push through the auth helper, and verify the
+published SHA. Avoid separate narrated security gates or repeated checks without
+a changed candidate. The doc1-only credential boundary and review remain.
+Revisit if this shorter procedure misses a concrete defect.
 
 ## Endgame (PLANNED): FIDO touch-on-push
 

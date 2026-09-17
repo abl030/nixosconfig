@@ -3,219 +3,97 @@ name: relay-push
 description: Land a dev box's signed nixosconfig commits through the doc1 Forgejo bastion. Use for epi/framework review-gated relays and for an explicitly unlocked WSL-to-doc1 agent relay, including "pull commits from WSL", "land WSL's commits", "push the dev box commits", or "gated push".
 ---
 
-# Relay Push — land a dev box's commits through doc1
+# Relay push
 
-**Why this exists.** Dev boxes sign commits but cannot push to the deploy root.
-If every dev box could push, one popped box = a signed-and-deployed fleet
-takeover overnight (the signing key lives on the same box, so signing is no
-defence). So the write credential lives ONLY on doc1, and the human reviewing a
-diff before approving the push is the real security gate. Full rationale +
-the FIDO-touch endgame: `docs/wiki/infrastructure/dev-box-gated-push.md`.
+Run on doc1 (`hostname` == `proxmox-vm`), locally or over SSH. Dev boxes
+hold no Forgejo push token. Rationale and topology:
+`docs/wiki/infrastructure/dev-box-gated-push.md`.
 
-**Where this runs:** relay commands run on doc1 (`hostname` == `proxmox-vm`).
-An agent on WSL may drive those commands over `ssh doc1` after the user unlocks
-the Windows-backed SSH key. doc1 remains the only host with Forgejo credentials.
+The user's in-session request to land the change is authorization. No extra
+"go". Unattended relays still require explicit human approval. For WSL, require
+the user-unlocked SSH path and successful `ssh -o BatchMode=yes doc1 hostname`
+first. That unlock covers the requested work.
 
-**Authorization modes:**
+## 1. Fetch and review once
 
-- When the user is present in-session and has asked for the change to land, that
-  request is the authorization. Run every check below, report what they found, and
-  push. Do not stop to collect a separate "go" — the human asking for the relay is
-  the human approval. Stop only if a check actually trips (message-vs-diff
-  mismatch, least-privilege red flag, bad or untrusted signature, non-FF, failing
-  `nix flake check`), and surface that specifically.
-- Relays driven by an unattended or automated agent, with no human in the loop,
-  still require explicit human approval before the push.
-- For cellar-manager work from WSL, a user-initiated interactive `ssh doc1`
-  unlock is the human-presence gate when the user has asked the agent to own the
-  deployment. Require a subsequent `ssh -o BatchMode=yes doc1 hostname` to print
-  `proxmox-vm`. Then complete the in-scope PR/merge/deploy workflow without a
-  second routine approval. Still inspect every diff, signature, and check; the
-  unlock does not authorize unrelated changes.
+Use the known working SSH address; discover alternatives only if it fails.
+WSL: `ssh://wsl/home/nixos/nixosconfig`. Other boxes normally:
+`ssh://abl030@<host>/home/abl030/nixosconfig`. epimetheus LAN fallback:
+`192.168.1.5`. Only committed objects relay; leave dirty source files alone.
 
----
-
-## Preconditions
+On doc1, fetch without changing the working tree. Substitute source and host:
 
 ```bash
-hostname                                   # must be proxmox-vm (doc1)
-ls -l /run/secrets/forgejo/nixbot-token    # the push token must exist here
-git -C ~/nixosconfig status -sb | head -1  # doc1 should be on master == origin/master
-```
-If doc1's master is ahead/behind origin/master, reconcile that first (a relay
-assumes doc1's `origin/master` ref is the true, current Forgejo tip).
-
-## 1. Reach the dev box and see what it has
-
-doc1 → sibling SSH. Reachability gotcha (observed 2026-06-21): the SSH alias and
-the Tailscale IP can both time out while the **LAN IP works**. Tailscale status
-may also show stale/duplicate nodes (e.g. an offline `epimetheus-vm` next to the
-live `epimetheus`). Find the live address, prefer LAN.
-
-**wsl is the exception — it is NOT on the tailnet.** `tailscale status` has no
-`wsl` node at all, so the lookup below returns nothing and reads as "doc1 can't
-reach wsl" (mis-diagnosed exactly that way on 2026-08-05). doc1 reaches it as
-the plain SSH-config alias, and the repo lives under the `nixos` user:
-
-```bash
-ssh -o BatchMode=yes wsl hostname                 # prints: wsl
-git fetch "ssh://wsl/home/nixos/nixosconfig" <branch>:refs/incoming/wsl
+git fetch origin master
+git fetch <source-url> <source-branch>:refs/incoming/<host>
+git log --reverse --format=fuller --show-signature -p origin/master..refs/incoming/<host>
+git merge-base --is-ancestor origin/master refs/incoming/<host>
 ```
 
-For every other host, use the Tailscale/LAN lookup:
+In that single review, check each diff matches the request/message and every
+signature is good and trusted by `hosts.nix`. Consider security implications
+of the actual changes (secrets, auth, privileges, exposure, ownership), without
+a separate ceremony for every category. Stop on a real concern or bad signature.
+
+Use those per-commit patches, not a tip-to-tip diff that makes stale source
+history look like deletions. Batch remote inspection; do not add SSH round
+trips for token existence, repeated status banners, or each review category.
+Do not repeat a completed review unless its commits change.
+
+## 2. Preserve commits; replay only when needed
+
+If ancestry succeeds, publish `refs/incoming/<host>` directly. No cherry-pick,
+re-signing, temporary branch, or source reset.
+
+If master diverged, replay only the source's new commits onto `origin/master`
+in an isolated branch/worktree. Preserve unrelated work. Resolve conflicts,
+review the result and verify the new doc1 signatures (`%G?` must be `G`).
+Never force-push master. If master advances during publication, fetch and
+reconcile before retrying, reviewing and validating any changed result.
+
+## 3. Validate the actual change
+
+- Prose-only docs/instructions: whitespace and content review; check changed
+  commands and paths. No `nix flake check`, builds, or deployment.
+- Executable/configuration changes: relevant CLAUDE.md checks, including
+  `nix flake check` for Nix/config changes. A Markdown suffix alone does not
+  make executable/generated inputs prose-only.
+- Reuse checks already completed for the exact candidate. Repeat only if a
+  replay or other change affects their validity.
+
+For the fast-forward candidate:
 
 ```bash
-tailscale status | grep -i <host>          # find the ACTIVE node + its IPs
-# try in order until one answers, e.g. epi: LAN 192.168.1.5 worked when ts timed out
-ssh -o BatchMode=yes -o ConnectTimeout=5 <user>@<addr> \
-  'hostname; git -C ~/nixosconfig log --oneline origin/master..HEAD; git -C ~/nixosconfig status -sb | head'
-```
-- `<user>` is the host's user from hosts.nix (abl030 on epi/framework, nixos on wsl).
-- Only **committed** objects relay. A dirty working tree, `__pycache__`, an
-  uncommitted `.mcp.json`, etc. stay on the dev box — note that, don't chase them.
-
-## 2. Pull the commits into doc1 (no working-tree pollution)
-
-```bash
-cd ~/nixosconfig
-git fetch origin master                                            # refresh TRUE Forgejo tip
-git fetch "ssh://<user>@<addr>/home/<user>/nixosconfig" <branch>:refs/incoming/<host>
-BASE=$(git merge-base origin/master refs/incoming/<host>)
-```
-
-## 3. Identify the real commits — inspect EACH one, not the range diff
-
-The dev box is usually **behind** master (it drifts). So `git diff
-origin/master..incoming` is MISLEADING — it shows every commit the box is behind
-on as a giant block of "deletions" (observed: a 1-file display fix looked like
-1062 deletions ripping out the ACL system). That is a staleness mirage, not the
-commit.
-
-Look at each NEW commit on its own:
-```bash
-git log --oneline ${BASE}..refs/incoming/<host>     # the dev box's actual new commits
-git show --stat <sha>                               # per-commit: files + size
-git show <sha>                                      # per-commit: the real diff
-```
-**Compare each commit's diff to its commit message.** If the message says one
-small thing but the diff does something large or unrelated (deletes modules,
-touches secrets/auth/another host) — STOP and surface it to the human. This check
-is the point; it caught a mislabelled commit on the first real run.
-
-## 4. Security review every commit against least-privilege
-
-For each new commit, scan the diff for blast-radius / least-privilege red flags
-(CLAUDE.md "AUDIT FOR LEAST PRIVILEGE"):
-- plaintext secrets/tokens/keys, `.env` contents, anything that looks like a credential
-- world-readable file modes (`0xx[1-7]`), broadened ownership
-- new network exposure: opened ports, firewall holes, `0.0.0.0` binds, new proxy routes
-- new passwordless sudo / polkit grants / `fleetDeploy.role` changes
-- changes to auth, image trust (pinning/digests), sops scoping, allowed_signers
-- edits to OTHER hosts or shared modules when the commit claims to be host-local
-
-If anything trips, name it explicitly in the summary. Don't paper over it.
-
-## 5. Verify signatures + attribution
-
-```bash
-git log --show-signature ${BASE}..refs/incoming/<host>
-```
-Every new commit must show **Good "git" signature** by a `hosts.nix` key. Note
-WHICH host signed each (that is "where the commit came from"). An
-unsigned/untrusted commit will loud-fail the fleet's nightly verification — do
-not relay it; surface it instead.
-
-## 6. Rebase onto current master (re-signs with doc1's key)
-
-Work on a temp branch so a bad relay never strands doc1's master:
-```bash
-git switch -C relay/<host> origin/master
-git cherry-pick ${BASE}..refs/incoming/<host>      # replays ONLY the box's new commits
-```
-- Non-fast-forward is EXPECTED (the box was behind). Rebase/cherry-pick — NEVER
-  force-push the box's branch (that would revert the commits it's behind on).
-- Cherry-pick re-commits, so signing flips to **doc1's** key (signByDefault) while
-  the original author is preserved. That's fine — doc1's key is in hosts.nix.
-- Confirm the result is now a clean fast-forward and touches only expected files:
-```bash
-git merge-base --is-ancestor origin/master relay/<host> && echo "clean FF"
-git diff --stat origin/master..relay/<host>
-git log --oneline origin/master..relay/<host>
+git diff --check origin/master refs/incoming/<host>
 ```
 
-## 7. (Recommended) eval-check before it can hit the fleet
+## 4. Publish and confirm
+
+Use the candidate ref above (normally `refs/incoming/<host>`):
 
 ```bash
-nix flake check        # eval + repo checks (sops scope, signers, bastion role, …)
-```
-Warm cache on doc1 makes this tolerable. At minimum the change must evaluate.
-
-## 8. Apply the authorization gate
-
-Present: source host, # commits, files touched, per-commit message-vs-diff verdict,
-signature/attribution, security-review result, FF status, flake-check result.
-
-- With the user present in-session, report that summary and push. Do not stop for a
-  separate "go".
-- Stop and surface it if a check actually tripped — message-vs-diff mismatch,
-  least-privilege red flag, bad or untrusted signature, non-fast-forward, or a
-  failing `nix flake check`. That is what the gate is for.
-- An unattended or automated relay with no human in the loop still stops here for
-  explicit approval.
-
-## 9. Publish from doc1, verify, clean up
-
-For an ordinary in-session relay, use the direct-master flow below. For the
-unlocked WSL cellar-manager mode, push `relay/<host>` as a Forgejo feature
-branch, open a pull request against `master`, wait for checks, merge it through
-the Forgejo REST API using `Do = "fast-forward-only"`, and only then
-fast-forward doc1's local `master`. This preserves the doc1 SSH signature;
-never create an unsigned server-side merge commit. If master moved, replay and
-re-sign onto the new tip before retrying. The API
-credential and procedure are documented in
-`.claude/memory/forgejo-issue-token-doc1.md`; never copy the credential to WSL.
-
-```bash
-# Ordinary direct-master relay only:
 ./scripts/forgejo-auth.sh git-push \
-  --repo ~/nixosconfig --remote origin \
+  --repo "$PWD" --remote origin \
   --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
   --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
   --token-file /run/secrets/forgejo/nixbot-token \
-  --refspec relay/<host>:master
-# The helper preserves git's exit status; verify the remote ref after success.
-git fetch origin master
-git rev-parse --short HEAD origin/master           # confirm tip moved to our commit
-# tidy doc1's local state + temp refs
-git switch master && git merge --ff-only relay/<host> && git branch -D relay/<host>
-git update-ref -d refs/incoming/<host>
+  --refspec <candidate-ref>:master
+git ls-remote origin refs/heads/master
+git rev-parse <candidate-ref>
 ```
-Never echo the token. The checked-in helper owns the header handoff, rejects
-credential-bearing or ambiguous remotes before reading the file, disables Git
-Trace2/curl verbosity for the child, and preserves the caller's remote-SHA
-verification step.
 
-## 10. Tell the dev box to resync
+Confirm remote SHA matches the candidate. The helper validates remotes and
+handles the secret header; never print or transfer the token. Report the commit
+and relevant validation concisely, without narrating each gate separately.
 
-The dev box's local branch is now a diverged dead-end (its old commit was
-replaced by the doc1-signed cherry-pick). On the dev box:
-```bash
-git fetch && git reset --hard origin/master
-```
-The change is in master, so this is safe and drops the stale branch.
+Fast-forward clean local master checkouts as needed. With preserved commits,
+ordinary `git pull --ff-only` suffices on the source. If replay changed its SHA,
+check for new commits and uncommitted work before aligning it to the published
+commit; never blindly `reset --hard`. Remove temporary refs/worktrees afterward.
 
----
+For WSL cellar-manager, publish a feature branch and open/merge its PR via the
+Forgejo REST API with `Do = "fast-forward-only"` to preserve signatures.
+API guidance: `.claude/memory/forgejo-issue-token-doc1.md`.
 
-## Deploy is separate
-
-This skill only lands code on Forgejo master. To actually roll it onto hosts,
-use the **service-deploy** skill / `fleet-deploy <host>` (see CLAUDE.md).
-
-## Notes / exceptions
-
-- **wsl** holds no Forgejo push token. Its interactive exception is an unlocked
-  Windows-backed SSH path to doc1, which lets the local agent drive the reviewed
-  PR and deployment while all Forgejo credentials remain on doc1.
-- **doc1** is the one unattended writer (the 23:00 bot). It never relays.
-- **Break-glass:** if a future FIDO-touch key is lost, this relay IS the fallback
-  path — doc1's token still works.
+Deploy separately when the requested change affects running systems, using
+`service-deploy` / `fleet-deploy`. Prose-only changes finish at publication.
