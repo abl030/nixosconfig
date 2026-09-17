@@ -37,9 +37,10 @@ library swap uses exact guarded `library-delete`, verifies the independent stagi
 copy survived, and imports the physical release's own request.
 
 CTDB confidence is independent corroboration. CrateDigger and Whipper verify but
-do not submit; upstream CUETools 2.2.6's GUI submits eligible Secure/Paranoid rips,
-while its console frontend does not. Never invent confidence or duplicate an
-existing entry.
+do not submit. Prefer the runbook's agent-driven, explicitly opt-in patched
+CUERipper console for eligible Secure/Paranoid contributions; upstream CUETools
+2.2.6's GUI also submits, while its stock console does not. Never invent
+confidence or duplicate an existing checksum.
 
 Every MusicBrainz artist field must resolve to the correct entity. Never use a
 namesake or Various Artists merely to satisfy validation. The logged-in user must

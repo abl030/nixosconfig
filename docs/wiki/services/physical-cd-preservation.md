@@ -211,11 +211,49 @@ evidence and must not receive a duplicate submission. CTDB confidence is
 independent accepted corroboration; a second local read does not increase it.
 
 CrateDigger verifies imported PCM against CTDB but does not submit. Whipper also
-does not submit to CTDB. For a genuinely absent entry, use CUERipper in Secure or
-Paranoid mode. Upstream CUETools 2.2.6's WinForms GUI calls `CTDB.Submit`; its
-console frontend does not, so a zero-error console log is not a contribution.
-Treat submission as successful only when the response reports success and a fresh
-lookup returns the rip CRC. Never force an ineligible image or invent confidence.
+does not submit to CTDB. For a genuinely absent checksum, use CUERipper in Secure
+or Paranoid mode; Burst mode is ineligible. Retain its extraction log and the CTDB
+response/query as evidence.
+
+Prefer the agent-driven, opt-in console path when its reviewed build is available.
+Do not ask the operator to drive the WinForms GUI merely because upstream's stock
+console omits submission. The reviewed console patch adds `--submit-ctdb`,
+`--artist`, `--title`, and `--no-gaps`, then executes the same submission sequence
+as the GUI after the secure read:
+
+```csharp
+ctdb.DoVerify();
+var response = ctdb.Submit(confidence, quality, artist, title, barcode);
+```
+
+Run it from a new private output directory and make submission explicit. Under
+Wine, map the physical drive to `D:` and use the verified drive offset; for the
+`HL-DT-ST DVDRAM GP65NB60` that is `+6`. Gap detection may be skipped when the
+physical TOC has already been captured and Wine's gap scan is unreliable:
+
+```bash
+WINEPREFIX=<32-bit-prefix> wine \
+  /path/to/CUETools.Ripper.Console.ctdb-submit.exe \
+  --secure --drive D: --offset 6 --c2mode 0 --no-gaps \
+  --submit-ctdb --artist '<ARTIST>' --title '<TITLE>'
+```
+
+The patch must remain mutation-safe: ordinary diagnostic invocations do not
+submit, and `--submit-ctdb` is required. Upstream CUETools 2.2.6's WinForms GUI
+also calls `CTDB.Submit`, but its unmodified console frontend stops after writing
+the image, cue, and log. A zero-error stock-console log is therefore local rip
+evidence, not an upload receipt.
+
+Treat submission as successful only when the returned response says `success`
+and a fresh `lookup2.php` query returns the rip CRC. Preserve the console output,
+log, submission response, and post-submit lookup. One accepted contribution
+normally begins at confidence one; a second read on the same drive is not an
+independent confidence increment. Never force an ineligible image or invent
+confidence.
+
+Verified example (2026-09-17): the agent-driven Winesong submission returned
+token `blokBmSfz6482Kddw08mggWvxq4-`; the immediate lookup returned entry
+`13063896`, CRC32 `af764d8f`, parity present, confidence `1`.
 
 ## 5. Import through CrateDigger
 
