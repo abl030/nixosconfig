@@ -143,6 +143,17 @@ After submission, record the release MBID and confirm the public API returns the
 
 Votable metadata edits and newly uploaded cover art can remain unapplied or unapproved for days. Record the edit/upload identity and pending state, keep the physical evidence and intended values in the bundle, and continue secure ripping, lyric preservation, and staging. Pending community review is not a reason to stop the preservation session. Before final CrateDigger import, account for the distinction explicitly: use the currently applied MusicBrainz identity for strict matching and retain evidenced pending corrections locally; do not create duplicate edits or uploads merely because the public API still exposes the old applied value.
 
+If currently applied MusicBrainz data makes Beets materialise the exact release with a demonstrably wrong fallback value—for example, a missing pending release date causes the release-group year to control the library path—complete the strict import first, then correct only the evidence-backed fields on the exact new Beets album. Use its server-owned album ID, retain the MusicBrainz release and recording IDs, write the corrected tags, move the library path, and preserve a before/after receipt. This is a metadata correction, not a request-identity replacement; do not use `pipeline-cli replace`:
+
+```bash
+beet modify -a -m -y year=<YYYY> month=<MM> day=<DD> \
+  original_year=<YYYY> original_month=<MM> original_day=<DD> id:<BEETS_ALBUM_ID>
+beet modify -m -y 'title=<EVIDENCED_PENDING_TITLE>' \
+  album_id:<BEETS_ALBUM_ID> track:<TRACK_NUMBER>
+```
+
+Afterward, re-read the Beets row and every output file. Confirm the corrected path and tags, exact release/recording MBIDs, lyrics, artwork, FLAC integrity, and CrateDigger quality/provenance. A later accepted MusicBrainz edit should converge with these values rather than requiring another replacement.
+
 For request creation, run the repository helper on doc2. It makes an ephemeral copy of the installed CrateDigger runtime config, changes only `[MusicBrainz] api_base` to public MusicBrainz, and calls the installed `pipeline-cli add`; the production config remains immutable and all ordinary requests keep using the local mirror:
 
 ```bash
