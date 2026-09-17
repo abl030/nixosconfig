@@ -1,0 +1,53 @@
+{
+  "name": "Example Album",
+  "artist_credit": [
+    {
+      "mbid": "89ad4ac3-39f7-470e-963a-56509c546377",
+      "credited_name": "Various Artists"
+    }
+  ],
+  "type": [
+    "album",
+    "compilation"
+  ],
+  "status": "official",
+  "language": "eng",
+  "script": "Latn",
+  "packaging": "digipak",
+  "barcode": "none",
+  "event": {
+    "country": "AU",
+    "year": 2026
+  },
+  "label": {
+    "name": "Example Label",
+    "catalog_number": "EXAMPLE-001"
+  },
+  "medium": {
+    "format": "CD",
+    "toc": "1 2 30000 150 15150",
+    "tracks": [
+      {
+        "number": "1",
+        "name": "First Track",
+        "artist_credit": [
+          {
+            "mbid": "00000000-0000-0000-0000-000000000000",
+            "credited_name": "Existing Artist"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "name": "Second Track",
+        "artist_credit": [
+          {
+            "artist_name": "Unmatched Artist Name"
+          }
+        ]
+      }
+    ]
+  },
+  "annotation": "Facts suitable for the public release annotation.",
+  "edit_note": "Sources and reasoning for the MusicBrainz editor reviewing this edit."
+}

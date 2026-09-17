@@ -1,0 +1,21 @@
+{
+  "artists": [
+    {
+      "name": "Example Artist",
+      "sort_name": "Artist, Example",
+      "type_id": 1,
+      "area": "Australia",
+      "disambiguation": "Western Australian singer-songwriter",
+      "evidence": [
+        "https://example.com/artist"
+      ],
+      "external_links": [
+        {
+          "url": "https://example.com/artist",
+          "link_type_id": 183
+        }
+      ],
+      "edit_note": "Created from the physical CD in hand. The liner credits and linked source identify this artist."
+    }
+  ]
+}
