@@ -9,6 +9,7 @@
 
   metadataDir = "${pkgs.vinsight-local}/share/vinsight-local/spec/metadata";
   dbPath = "${cfg.stateDir}/vinsight.db";
+  metricsDbPath = "${cfg.stateDir}/tank-metrics.db";
   vinsight = "${pkgs.vinsight-local}/bin/vinsight-sync";
 
   baseArgs = "--db ${dbPath} --metadata ${metadataDir}";
@@ -73,6 +74,12 @@ in {
       type = lib.types.str;
       default = "*:0/30";
       description = "systemd OnCalendar spec for the incremental Vinsight sync timer.";
+    };
+
+    tankControllerEndpoint = lib.mkOption {
+      type = lib.types.str;
+      default = "opc.tcp://192.168.100.119:4840";
+      description = "Read-only Fermecraft OPC UA endpoint for tank telemetry.";
     };
   };
 
@@ -140,7 +147,7 @@ in {
         Type = "simple";
         User = cfg.user;
         EnvironmentFile = cfg.envFile;
-        ExecStart = "${vinsight} ${baseArgs} serve --host 127.0.0.1 --port ${toString cfg.port} --dashboards ${cfg.dashboardsDir}";
+        ExecStart = "${vinsight} ${baseArgs} serve --host 127.0.0.1 --port ${toString cfg.port} --dashboards ${cfg.dashboardsDir} --metrics-db ${metricsDbPath}";
         Restart = "on-failure";
         RestartSec = "5s";
         ProtectSystem = "strict";
@@ -149,6 +156,32 @@ in {
         NoNewPrivileges = true;
         ReadWritePaths = [cfg.stateDir];
         RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
+        RestrictNamespaces = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+      };
+    };
+
+    systemd.services.cullen-tank-metrics = {
+      description = "Collect read-only Fermecraft tank thermal telemetry";
+      after = ["network-online.target" "cullen-dashboard-init.service"];
+      wants = ["network-online.target"];
+      requires = ["cullen-dashboard-init.service"];
+      wantedBy = ["multi-user.target"];
+      serviceConfig = {
+        Type = "simple";
+        User = cfg.user;
+        ExecStart = "${vinsight} ${baseArgs} collect-tanks --metrics-db ${metricsDbPath} --endpoint ${cfg.tankControllerEndpoint} --interval 60";
+        Restart = "always";
+        RestartSec = "10s";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        ReadWritePaths = [cfg.stateDir];
+        RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
+        IPAddressDeny = "any";
+        IPAddressAllow = "192.168.100.119";
         RestrictNamespaces = true;
         LockPersonality = true;
         SystemCallArchitectures = "native";

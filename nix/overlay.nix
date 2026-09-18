@@ -225,6 +225,7 @@
         build-system = with final.python3Packages; [hatchling];
 
         dependencies = with final.python3Packages; [
+          asyncua
           httpx
           fastapi
           uvicorn
