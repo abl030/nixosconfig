@@ -220,6 +220,7 @@ Order: 1) block DoT (:853); 2) block DoH (→ pfB_DoH_v4:443); 3) pass DNS opt6 
 - Prevents devices from using their own DoH/DoT resolvers
 - pfBlockerNG DNSBL active for ad/malware blocking
 - `regdhcp: false`, `regdhcpstatic: false` — DHCP leases/static mappings are NOT auto-registered in Unbound. Kea DHCP still writes PTR entries for static mappings that have a hostname field set. To avoid PTR conflicts on shared IPs, clear the hostname from the DHCP static mapping and use a Host Override instead.
+- Client-specific filtering for `s-a55` assigns `no_youtube no_news no_reddit` only to `100.102.60.123/32`, `fd7a:115c:a1e0::5301:3c7b/128`, and LAN fallback `192.168.1.38/32`. Reddit's zones are `reddit.com`, `redd.it`, `redditstatic.com`, and `redditmedia.com`; all fifteen filtered zones have Tailscale split-DNS routes exclusively to `100.123.61.111`. Applied and phone/control verified 2026-09-20. Full rationale and the complete zone list: `docs/wiki/infrastructure/pfsense-dns-resolver.md`.
 
 ### Unbound Host Overrides (manually managed)
 
