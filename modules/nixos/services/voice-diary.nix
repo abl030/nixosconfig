@@ -48,6 +48,7 @@
 
   ingest = pkgs.writeShellScript "voice-diary-ingest" ''
     set -euo pipefail
+    export VOICE_DIARY_FFPROBE=${lib.escapeShellArg "${pkgs.ffmpeg-headless}/bin/ffprobe"}
     exec ${pkgs.python3}/bin/python3 ${ingestScript} "$@"
   '';
 
@@ -69,6 +70,7 @@
     export VOICE_DIARY_MODEL=${lib.escapeShellArg cfg.model}
     export VOICE_DIARY_PROMPT=${lib.escapeShellArg cfg.prompt}
     export VOICE_DIARY_TIMEOUT=${toString cfg.timeoutSeconds}
+    export VOICE_DIARY_FFPROBE=${lib.escapeShellArg "${pkgs.ffmpeg-headless}/bin/ffprobe"}
     echo "Regenerating any missing transcripts from the inbox archive."
     echo "Existing transcripts are left alone; delete a .md to force its rebuild."
     exec ${pkgs.python3}/bin/python3 ${ingestScript} --from-inbox "$@"

@@ -40,6 +40,7 @@ import mimetypes
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -71,6 +72,7 @@ MODEL = os.environ.get("VOICE_DIARY_MODEL", "large")
 # (see NAME_FIXES), so treat it as a nudge, not a guarantee.
 PROMPT = os.environ.get("VOICE_DIARY_PROMPT", "").strip()
 TIMEOUT = int(os.environ.get("VOICE_DIARY_TIMEOUT", "3600"))
+FFPROBE = os.environ.get("VOICE_DIARY_FFPROBE", "ffprobe")
 # Archived audio is by definition settled, so the still-syncing guard is only
 # meaningful against staging.
 MIN_AGE = 0 if FROM_INBOX else int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
@@ -264,6 +266,40 @@ def transcribe(path: Path) -> str:
     return text
 
 
+def is_unfinalized_mp4(path: Path) -> bool:
+    """Return whether an MP4-family recording is waiting for its moov atom.
+
+    Easy Voice Recorder can expose a paused M4A to Syncthing before it closes
+    the container. Its mtime may already be old enough to pass MIN_AGE, but the
+    missing moov atom makes it unplayable until recording finishes. That is a
+    normal not-ready state, not a failed transcription.
+    """
+    if path.suffix.lower() not in {".m4a", ".mp4"}:
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                FFPROBE,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"ffprobe timed out reading {path.name}") from exc
+
+    return result.returncode != 0 and "moov atom not found" in result.stderr.lower()
+
+
 def stamp_for(path: Path) -> str:
     return local_dt(path.stat().st_mtime).strftime("%Y-%m-%d_%H%M%S")
 
@@ -288,6 +324,10 @@ def process(src: Path) -> bool:
     age = time.time() - src.stat().st_mtime
     if age < MIN_AGE:
         log(f"skip (still settling, {int(age)}s old): {src.name}")
+        return False
+
+    if not FROM_INBOX and is_unfinalized_mp4(src):
+        log(f"skip (recording paused or still open; no moov atom yet): {src.name}")
         return False
 
     size_mb = src.stat().st_size / 1024 / 1024

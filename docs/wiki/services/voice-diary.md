@@ -109,6 +109,11 @@ personal diary entries; they should not leave the fleet.
   beside it, because it doubles as the idempotency marker.
 - **`minAgeSeconds` (default 120)** skips files touched recently, so a recording
   still being replicated by Syncthing isn't transcribed half-written.
+- **Paused M4A recordings are not failures.** Easy Voice Recorder can expose a
+  paused file to Syncthing before its MP4 `moov` atom has been written. The
+  ingest checks M4A/MP4 files with `ffprobe`; that exact not-finalized state is
+  left queued and the run exits successfully. Once recording stops and
+  Syncthing delivers the finalized file, a later timer tick transcribes it.
 - **Failures are left alone and retried** on the next tick. A single `FAILED`
   line is therefore not alerted — only "can't see the recordings at all" is.
 - **Dotted paths are ignored**: Syncthing's `.stfolder`/`.stversions` and Easy

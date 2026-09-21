@@ -24,6 +24,13 @@
     python3 -m unittest discover -p test_winery_history.py
     touch "$out"
   '';
+  voiceDiaryCheck = pkgs.runCommand "voice-diary" {nativeBuildInputs = [pkgs.python3];} ''
+    mkdir -p scripts tests
+    cp ${../../scripts/voice-diary-ingest.py} scripts/voice-diary-ingest.py
+    cp ${../../tests/test_voice_diary_ingest.py} tests/test_voice_diary_ingest.py
+    python3 -m unittest discover -s tests -p test_voice_diary_ingest.py -v
+    touch "$out"
+  '';
   kopiaVerificationCheck = let
     host = self.nixosConfigurations.kopia.config;
     verify = host.systemd.services.kopia-verify-mum;
@@ -762,6 +769,7 @@ in {
   inherit
     oauth2RotationCheck
     wineryHistoryCheck
+    voiceDiaryCheck
     kopiaBackupProbeCheck
     kopiaVerificationCheck
     gwmArchiverCheck
