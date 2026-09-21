@@ -213,6 +213,15 @@ database should grow by roughly 3 GB/year; retain the raw history while the
 cross-season model is being established and revisit rollups only if storage
 becomes operationally material.
 
+The same database materialises durable `thermal_runs` records every 15 minutes.
+Each record carries the tank, batch, run boundaries, end reason, evidence,
+derived energy/coefficient values, complete JSON summary, and model version.
+Emptying, batch or batch-state changes, material volume changes, setpoint or
+tank-mode changes, and collection gaps finalise the prior record immediately.
+The dashboard and `/api/tank-thermal/runs` continue to expose completed records
+after the vessel is empty or reused. Raw minute samples remain authoritative so
+future model versions can rebuild the derived history.
+
 ## References
 
 - <https://kb.secomea.com/docs/basic-port-forwarding-setup>
