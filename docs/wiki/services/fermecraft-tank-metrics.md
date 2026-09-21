@@ -1,9 +1,9 @@
 # Fermecraft tank metrics
 
-- **Date:** 2026-09-18
-- **Status:** OPC UA access proved end to end through a temporary,
-  laptop-source-pinned SiteManager forwarding rule. Metrics collection design is
-  next; no collector service or permanent VLAN has been deployed.
+- **Date:** 2026-09-21
+- **Status:** One-minute OPC UA collection and the tank thermal-performance
+  dashboard are live on WSL through the temporary, laptop-source-pinned
+  SiteManager forwarding rule. The permanent VLAN remains external follow-up.
 - **External coordination:** Cullen IT will create the permanent UPLINK VLAN and
   SonicWall policy. Fermecraft controls the SiteManager/GateManager configuration.
 
@@ -172,9 +172,26 @@ The collector should:
 - make tank activation/sensor-validity metadata explicit rather than inferring
   it from the existence of `T001` through `T040`.
 
-Sampling/subscription cadence, storage destination, retention, dashboarding,
-active tank inventory, and the eventual durable collector host remain design
-decisions for the implementation session.
+The deployed `cullen-tank-metrics` service performs one batched read per minute
+for tanks 1–31 and stores raw observations in
+`/var/lib/cullen-dashboard/tank-metrics.db`. Each row includes temperature,
+both valve states, active setpoint/control state, tank mode, hysteresis, quality,
+timestamps, and contemporaneous Vinsight batch/volume context. Custom OPC UA
+types are loaded once per service process so `ActiveSPCtrl` is decoded without
+repeating the namespace browse each minute.
+
+The dashboard segments the latest history whenever batch, material volume,
+setpoint, tank mode, collection continuity, or a rapid valve-open warming event
+changes. A first-order equilibrium/time-constant fit is shown for constant-open
+cold-stabilisation only when at least 24 hours and 0.5 C of cooling constrain a
+bounded curve. Otherwise it reports current cooling rates and an explicit
+collecting, cycling, disturbed, irregular, or still-cooling state. This avoids
+inventing a precise asymptote while the tank is still approximately linear.
+
+Minute samples currently have no automatic expiry. At the observed rate the
+database should grow by roughly 3 GB/year; retain the raw history while the
+cross-season model is being established and revisit rollups only if storage
+becomes operationally material.
 
 ## References
 
