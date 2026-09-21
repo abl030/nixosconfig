@@ -180,13 +180,33 @@ timestamps, and contemporaneous Vinsight batch/volume context. Custom OPC UA
 types are loaded once per service process so `ActiveSPCtrl` is decoded without
 repeating the namespace browse each minute.
 
-The dashboard segments the latest history whenever batch, material volume,
-setpoint, tank mode, collection continuity, or a rapid valve-open warming event
-changes. A first-order equilibrium/time-constant fit is shown for constant-open
-cold-stabilisation only when at least 24 hours and 0.5 C of cooling constrain a
-bounded curve. Otherwise it reports current cooling rates and an explicit
-collecting, cycling, disturbed, irregular, or still-cooling state. This avoids
-inventing a precise asymptote while the tank is still approximately linear.
+The dashboard segments the latest history whenever batch, batch heat state,
+material volume, setpoint, tank mode, collection continuity, or a rapid
+valve-open warming event changes. Assuming wine density 0.99 kg/L and heat
+capacity 3.9 kJ/kg/K, temperature slope and volume yield apparent net
+wine-side cooling power. At least two hours of context-complete valve-off data
+identify the empirical tank heat-leak coefficient `UA`; at least two hours of
+valve-on data plus the brine reference then identify effective jacket
+conductance `K` for Valve 1. Valve 2-active or invalid intervals are excluded
+from both coefficient fits rather than being mistaken for passive leakage.
+Gross jacket energy integrates fractional Valve 1 runtime across transitions
+and is shown as a daily load only when brine-reference coverage reaches 90%.
+Fermenting and unknown batch heat states are not fit.
+
+Historical ambient input only uses tank probes that qualified over each
+preceding 24-hour window as continuously empty, valve-closed, fresh and valid.
+It remains a lagged empty-tank zone proxy rather than a true air measurement.
+The brine input may be an assumed plant setpoint rather than actual jacket
+supply temperature. Treat `UA`, `K`, thermal kW and kWh as comparative empirical
+metrics; true refrigeration COP still requires chiller electrical input and
+preferably brine flow plus supply/return temperature.
+
+A separate first-order reachable-floor/time-constant fit is shown for
+constant-open cold-stabilisation only when at least 24 hours and 0.5 C of
+cooling constrain a bounded curve. A lower floor reflects the combined effects
+of jacket strength, insulation, ambient and actual brine conditions; it does not
+identify any one of those causes. Cycling or disturbed runs remain visible
+without a misleading asymptote.
 
 Minute samples currently have no automatic expiry. At the observed rate the
 database should grow by roughly 3 GB/year; retain the raw history while the
