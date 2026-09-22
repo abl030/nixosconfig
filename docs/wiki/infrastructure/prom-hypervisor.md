@@ -98,7 +98,9 @@ and forwarding faults without guessing an affected IP in advance.
 - `-p` avoids promiscuous mode. Separate `-Q in` and `-Q out` captures retain the
   direction that a single Ethernet pcap cannot encode.
 - The service runs as Debian's `tcpdump` user with only `CAP_NET_RAW`; systemd
-  denies IP sockets and makes the rest of the host filesystem read-only.
+  denies IP traffic and makes the rest of the host filesystem read-only. An
+  `AF_INET` socket remains available only because `tcpdump` uses one for the
+  `SIOCETHTOOL` timestamp-capability ioctl before opening the packet socket.
 
 The tracked service and wrapper live in `scripts/prom-arp-capture/`. They are
 installed directly on Prom because the hypervisor is not a NixOS fleet host:
