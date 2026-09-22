@@ -167,9 +167,10 @@ in {
     groups = lib.mkOption {
       type = lib.types.attrsOf (lib.types.listOf lib.types.str);
       default = {
-        # nixpkgs + home-manager move together (HM is version-coupled to nixpkgs).
-        # Run first so the llm/rest groups build on the cached new world.
-        core = ["nixpkgs" "home-manager"];
+        # These inputs are compatibility-coupled. Home Manager follows nixpkgs,
+        # while sops-nix may need a newer Go builder as nixpkgs retires old ones.
+        # Updating them independently can create an invalid intermediate lock.
+        core = ["nixpkgs" "home-manager" "sops-nix"];
         # LLM tooling ships ~daily and is near-self-contained — always gets through
         # even when core/rest are red, so we keep the latest models.
         llm = [

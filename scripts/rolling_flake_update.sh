@@ -47,7 +47,7 @@ TAG="nix-rolling"
 # Group membership (space-separated input names). Core and LLM are configurable
 # from the Nix module. MongoDB, yt-dlp, and NvChad are hardcoded isolation
 # boundaries.
-GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
+GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager sops-nix}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
 # Deliberately not configurable: MongoDB's package-file update must never be
 # folded into the ordinary flake-input groups or silently cross series.
@@ -400,6 +400,8 @@ declare -a SUMMARY_LINES=()
 ANY_FAIL=0
 ANY_COMMIT=0
 FATAL_TRANSACTION=0
+ACTIVE_GROUP=""
+ACTIVE_GROUP_LOG=""
 
 # Fallback-only triage of a failed group's build log via headless Claude. The
 # normal path ships raw log excerpts plus artifact paths to the Hermes RCA agent
@@ -577,23 +579,36 @@ try_group() {
 
     log "🔄 [$name] updating: $inputs"
     local glog="$WORK_DIR/${name}.build.log"
+    ACTIVE_GROUP="$name"
+    ACTIVE_GROUP_LOG="$glog"
 
     if [ "$name" = "$GROUP_MONGODB80" ]; then
         if ! ./scripts/update_mongodb80.sh >"$glog" 2>&1; then
             record_group_update_failure "$name" "$glog" "official MongoDB 8.0 patch update failed"
+            ACTIVE_GROUP=""
+            ACTIVE_GROUP_LOG=""
             return 1
         fi
-        finish_updated_group "$name" "$inputs" "$glog" "nix/pkgs/mongodb80.nix"
-        return $?
+        local rc=0
+        finish_updated_group "$name" "$inputs" "$glog" "nix/pkgs/mongodb80.nix" || rc=$?
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return "$rc"
     fi
 
     # shellcheck disable=SC2086  # $inputs is a space-separated list of input names, splitting is intended
     if ! nix flake update $inputs >"$glog" 2>&1; then
         record_group_update_failure "$name" "$glog"
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
         return 1
     fi
 
-    finish_updated_group "$name" "$inputs" "$glog" "flake.lock nix/overlay.nix"
+    local rc=0
+    finish_updated_group "$name" "$inputs" "$glog" "flake.lock nix/overlay.nix" || rc=$?
+    ACTIVE_GROUP=""
+    ACTIVE_GROUP_LOG=""
+    return "$rc"
 }
 
 # Send ONE bundled Gotify with the whole night's per-group results. This is the
@@ -611,7 +626,7 @@ send_summary_notification() {
     nfail=$(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true)
     body="$(triaged_summary_lines)"
 
-    curl -fsS -X POST "${GOTIFY_URL}/message?token=$token" \
+    curl -fsS --connect-timeout 5 --max-time 20 -X POST "${GOTIFY_URL}/message?token=$token" \
         -F "title=rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}" \
         -F "message=$body" \
         -F "priority=8" >/dev/null || true
@@ -641,7 +656,7 @@ $(log_excerpt "${FAILED_GROUP_LOGS[$i]}" 40)
         --arg message "## Rolling flake update failed\nhost: ${RFU_HOSTNAME}\nfailed_groups: ${nfail}/${ntotal}\n\n${body}\n${excerpts}\nInvestigate read-only, starting from the excerpts and the artifact directories (build.log, head-rev.txt). Check our own overlays, checks and service PATHs before blaming nixpkgs. Tell the user once: failing package/input, classification, and whether there is anything to do locally." \
         '{title: $title, message: $message, priority: 8}')"
 
-    curl -fsS -X POST "$RCA_WEBHOOK_URL" \
+    curl -fsS --connect-timeout 5 --max-time 20 -X POST "$RCA_WEBHOOK_URL" \
         -H "Content-Type: application/json" \
         -H "X-Gitlab-Token: $RCA_WEBHOOK_SECRET" \
         -d "$payload" >/dev/null
@@ -679,12 +694,47 @@ fatal_error() {
     exit "$code"
 }
 
+# systemd enforces TimeoutStartSec with SIGTERM. Signals do not trigger Bash's
+# ERR trap, so without this handler the EXIT trap deletes the evidence and the
+# bundled RCA/Gotify notification is skipped entirely.
+# shellcheck disable=SC2329  # Invoked by the signal traps.
+terminated() {
+    local signal="$1"
+    local code=143
+    local artifact=""
+
+    [ "$signal" = "INT" ] && code=130
+    trap - ERR TERM INT
+    set +e
+    PRESERVE_WORK_DIR=1
+    ANY_FAIL=1
+
+    if [ -n "$ACTIVE_GROUP" ] && [ -f "$ACTIVE_GROUP_LOG" ]; then
+        artifact="$(persist_group_failure "$ACTIVE_GROUP" "$ACTIVE_GROUP_LOG")"
+        FAILED_GROUP_NAMES+=("$ACTIVE_GROUP")
+        FAILED_GROUP_LOGS+=("$ACTIVE_GROUP_LOG")
+        if [ -n "$artifact" ]; then
+            SUMMARY_LINES+=("❌ $ACTIVE_GROUP — updater terminated by $signal (systemd timeout or explicit stop; artifact: $artifact)")
+        else
+            SUMMARY_LINES+=("❌ $ACTIVE_GROUP — updater terminated by $signal (systemd timeout or explicit stop)")
+        fi
+    else
+        SUMMARY_LINES+=("❌ fatal — updater terminated by $signal (systemd timeout or explicit stop); workdir preserved at ${WORK_DIR:-unknown}")
+    fi
+
+    log "❌ Updater terminated by $signal; preserving evidence and notifying."
+    send_rca_notification || send_summary_notification
+    exit "$code"
+}
+
 # --- Setup -----------------------------------------------------------------
 PRESERVE_WORK_DIR=0
 WORK_DIR=$(mktemp -d)
 log "📂 Working in temp dir: $WORK_DIR"
 trap cleanup_work_dir EXIT
 trap fatal_error ERR
+trap 'terminated TERM' TERM
+trap 'terminated INT' INT
 
 if [ ! -x "$FORGEJO_AUTH_HELPER" ]; then
     log "❌ Forgejo authentication helper is missing or not executable: $FORGEJO_AUTH_HELPER"
