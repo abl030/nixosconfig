@@ -1,7 +1,7 @@
 # prom — Proxmox hypervisor (host config reference)
 
 **Host:** `prom` · 192.168.1.12 · AMD Ryzen 9 9950X · ASRock X870E Taichi Lite · Proxmox VE 9.2 (kernel 7.0.12-1-pve)
-**Status:** ✅ stable as of **2026-06-27**. This is the canonical record of prom's kernel flags, boot pool, bootloader setup, and cluster/quorum posture.
+**Status:** ✅ stable as of **2026-09-22**. This is the canonical record of prom's kernel flags, boot pool, bootloader setup, cluster/quorum posture, and LAN-boundary ARP capture.
 
 > prom is **not** a NixOS host — it's a hand-managed Proxmox install. Its host-level config (kernel cmdline, ESPs, ZFS pools) is managed **directly on the box**, *not* via this flake and **no longer via Ansible** (see [Management](#management)).
 
@@ -78,5 +78,62 @@ The end state must have **exactly one node and no device** so `expected=1` is un
 ## Off-box backup
 A full rpool image lives on **tower**; restore runbook: [prom-rpool-backup-restore.md](prom-rpool-backup-restore.md). Automating this as a recurring service is tracked in Forgejo (catastrophic-recovery safety net).
 
+## LAN-boundary ARP capture
+
+Prom continuously records ARP crossing the physical boundary between its Linux
+bridge and the USW Flex Mini. This exists to diagnose transient address-conflict
+and forwarding faults without guessing an affected IP in advance.
+
+- `prom-arp-capture@in.service` records frames arriving from the Flex Mini on
+  `enp8s0`.
+- `prom-arp-capture@out.service` records frames leaving Prom through `enp8s0`.
+- The filter includes untagged, single-tagged, and double-tagged ARP. It does not
+  filter on an IP or MAC address.
+- Each packet is capped at 128 bytes, enough for the complete Ethernet/VLAN/ARP
+  frame. No IP payload is collected.
+- Each running instance writes a 125 MB `tcpdump` ring. On restart, the wrapper
+  preserves up to 125 MB from earlier runs before starting a uniquely named new
+  ring. The hard steady-state bound is therefore 250 MB per direction, 500 MB
+  total.
+- `-p` avoids promiscuous mode. Separate `-Q in` and `-Q out` captures retain the
+  direction that a single Ethernet pcap cannot encode.
+- The service runs as Debian's `tcpdump` user with only `CAP_NET_RAW`; systemd
+  denies IP sockets and makes the rest of the host filesystem read-only.
+
+The tracked service and wrapper live in `scripts/prom-arp-capture/`. They are
+installed directly on Prom because the hypervisor is not a NixOS fleet host:
+
+```bash
+scp scripts/prom-arp-capture/prom-arp-capture \
+  root@prom:/usr/local/libexec/prom-arp-capture
+scp scripts/prom-arp-capture/prom-arp-capture@.service \
+  root@prom:/etc/systemd/system/prom-arp-capture@.service
+ssh root@prom 'chmod 0755 /usr/local/libexec/prom-arp-capture && \
+  chmod 0644 /etc/systemd/system/prom-arp-capture@.service && \
+  systemctl daemon-reload && \
+  systemctl enable --now prom-arp-capture@in.service prom-arp-capture@out.service'
+```
+
+Check the live writers and their security boundary:
+
+```bash
+ssh root@prom 'systemctl is-active prom-arp-capture@in.service prom-arp-capture@out.service; \
+  systemctl is-enabled prom-arp-capture@in.service prom-arp-capture@out.service; \
+  systemd-analyze security prom-arp-capture@in.service --no-pager; \
+  find /var/lib/prom-arp-capture -type f -name "*.pcap*" -ls'
+```
+
+After an incident, copy both direction directories before restarting either
+service. Read captures with `tcpdump -nn -e -tttt -r <file>` or Wireshark. A
+suspicious reply in `in/` arrived from the Flex side; one in `out/` originated on
+Prom or one of its guests.
+
 ## Management
-prom's host config is hand-managed **on the box** — `/etc/kernel/cmdline`, `proxmox-boot-tool`, `zpool`, the udev rule above. **The old `ansible/prom_prox/nvme.yml` + `nvme_readme.txt` NVMe-power playbook is DEPRECATED / no longer used** — its one job (the NVMe APST cmdline param) is now part of the directly-managed cmdline documented here. This page is the source of truth.
+prom's host config is installed directly **on the box**. Repeatable host-level
+artifacts may be tracked under `scripts/` and are linked from this page. Kernel,
+storage, and boot configuration remains hand-managed through
+`/etc/kernel/cmdline`, `proxmox-boot-tool`, `zpool`, and the udev rule above.
+**The old `ansible/prom_prox/nvme.yml` + `nvme_readme.txt` NVMe-power playbook is
+DEPRECATED / no longer used**. Its one job, the NVMe APST cmdline parameter, is
+now part of the directly managed cmdline documented here. This page is the
+source of truth.

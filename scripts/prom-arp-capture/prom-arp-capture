@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly direction="${1:-}"
+case "$direction" in
+  in | out) ;;
+  *)
+    echo "usage: prom-arp-capture in|out" >&2
+    exit 64
+    ;;
+esac
+
+readonly capture_dir="/var/lib/prom-arp-capture/$direction"
+readonly retained_bytes=125000000
+readonly capture_filter='arp or (vlan and arp) or (vlan and vlan and arp)'
+
+# A tcpdump size ring restarts at its base filename and would truncate the
+# capture immediately before a host reboot. Each service run gets a unique
+# prefix instead. Keep at most one run's ring as history before starting the
+# next one, which bounds each direction to 250 MB while preserving pre-reboot
+# packets.
+while (( $(du -sb "$capture_dir" | awk '{print $1}') > retained_bytes )); do
+  oldest="$({
+    find "$capture_dir" -maxdepth 1 -type f -name '*.pcap*' -printf '%T@ %p\n'
+  } | sort -n | awk 'NR == 1 {$1=""; sub(/^ /, ""); print; exit}')"
+  if [[ -z "$oldest" ]]; then
+    echo "capture directory exceeds its budget but has no managed pcap files" >&2
+    exit 1
+  fi
+  rm -- "$oldest"
+done
+
+run_id="$(date -u +%Y%m%dT%H%M%S)-$(date +%s%N)"
+readonly run_id
+
+exec /usr/bin/tcpdump \
+  -p \
+  -Q "$direction" \
+  -i enp8s0 \
+  -nn \
+  -s 128 \
+  -B 4096 \
+  -U \
+  -C 5 \
+  -W 25 \
+  -w "$capture_dir/$run_id.pcap" \
+  "$capture_filter"

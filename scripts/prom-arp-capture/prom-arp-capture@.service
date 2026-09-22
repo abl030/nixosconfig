@@ -1,0 +1,47 @@
+[Unit]
+Description=Bounded ARP packet capture at the prom LAN boundary (%i)
+Documentation=https://git.ablz.au/abl030/nixosconfig/src/branch/master/docs/wiki/infrastructure/prom-hypervisor.md
+Wants=sys-subsystem-net-devices-enp8s0.device
+After=sys-subsystem-net-devices-enp8s0.device
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=tcpdump
+Group=tcpdump
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=true
+ExecStart=/usr/local/libexec/prom-arp-capture %i
+Restart=always
+RestartSec=5s
+KillSignal=SIGINT
+TimeoutStopSec=15s
+
+StateDirectory=prom-arp-capture/%i
+StateDirectoryMode=0700
+UMask=0077
+
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_UNIX AF_PACKET
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
