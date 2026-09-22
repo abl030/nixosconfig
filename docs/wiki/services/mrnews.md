@@ -7,15 +7,22 @@ Updated 2026-09-23.
 
 1. Hermes cron jobs on doc1 (`~/.hermes/cron/jobs.json`, launchers in
    `~/.hermes/scripts/margaret-river-*.sh`) run the skills in
-   `abl030/margaret-river-planning` (`skills/margaret-river-*/SKILL.md`).
-2. A job that finds a story writes `content/posts/<file>.md` in `~/mrnews`,
-   builds it, makes an SSH-signed commit and pushes `abl030/mrnews` master.
-3. The job runs `scripts/publish-mrnews-post.py --post …` in the planning repo.
-   That calls `mrnews-deploy`, waits for `/posts/<slug>/` to return 200 and
-   sends a Gotify message ("MR News: <title>"). If the post can't go live it
-   sends "MR News post NOT live: …" at priority 8 and exits 1. Sent slugs are
-   recorded in `~/.local/state/margaret-river/mrnews-notified.json` so a
-   re-run does not ping twice.
+   `abl030/margaret-river-planning` (`skills/margaret-river-*/SKILL.md`) on
+   `gpt-6-luna` at `--reasoning xhigh` (set in `scripts/run-*.sh`).
+2. A job that finds a story only writes `content/posts/<file>.md` in `~/mrnews`
+   and runs `scripts/publish-mrnews-post.py --post …` in the planning repo. The
+   writer does no git or Nix plumbing itself.
+3. The helper checks the front matter (title, lowercase slug, `draft: false`,
+   and a `date` not in the future, because Hugo silently leaves future posts
+   out of the build), fast-forwards mrnews master, stages the file, builds and
+   checks `posts/<slug>/index.html` exists, makes the SSH-signed commit and
+   pushes with `/run/secrets/forgejo/hermes-token` sent as a header. It then
+   calls `mrnews-deploy`, waits for `/posts/<slug>/` to return 200 and sends a
+   Gotify message ("MR News: <title>"). If a pushed post can't go live it sends
+   "MR News post NOT live: …" at priority 8 and exits 1; a front-matter
+   problem exits 2 with no ping. Sent slugs are recorded in
+   `~/.local/state/margaret-river/mrnews-notified.json`, so a re-run is safe
+   and does not ping twice.
 4. `mrnews-deploy` starts `mrnews-deploy.service` (polkit lets `abl030` start
    only that unit). The service runs as `mrnews-deploy`, fetches master into
    `/var/lib/mrnews/repo`, requires a signature trusted by
