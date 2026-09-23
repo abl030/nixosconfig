@@ -1,1 +1,1 @@
-/nix/store/hhc0mb8ymsz8n74x0apfwk7nx0m2nqcr-nixos-system-kopia-lxc-proxmox-26.11.20260922.b6c98e9
+/nix/store/wyhnjqxn0w467nis7d1p0karq6ga15wv-nixos-system-kopia-lxc-proxmox-26.11.20260922.b6c98e9
