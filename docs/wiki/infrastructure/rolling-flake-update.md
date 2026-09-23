@@ -1,7 +1,8 @@
 # Rolling flake update (doc1)
 
-Status: unblocked 2026-09-23 (5 of 6 groups landed; `rest` held by a hermes-agent
-plugin break). Speed-ups landed; robustness items still open (below).
+Status: healthy since 2026-09-23. The first fully green run (11:16-11:22 AWST)
+landed every group in one combined pass in 6 min 21 s. Robustness items are
+still open (below).
 
 `rolling-flake-update.service` runs nightly at 23:00 AWST on doc1. It updates
 flake inputs in groups (`mongodb80`, `core`, `yt-dlp`, `llm`, `nvchad`,
@@ -75,9 +76,8 @@ Why it was quiet:
 
 Landed mongodb80 (21 min), core (29 min, 12 days of nixpkgs), yt-dlp (12 min),
 llm and nvchad, plus the heartbeat; push-deploy activated every host. `rest`
-failed a real check: the new `hermes-agent` input no longer enables the
-`ntfy-platform` plugin (`aiPortabilityCheck` →
-`check-hermes-ntfy-runtime.py`), so all ~25 `rest` inputs stay held.
+failed `aiPortabilityCheck` (our check's plugin lookup, see below) and a
+netwatch test, so all ~25 `rest` inputs were held until the fixes below.
 
 Where the time goes after the catch-up (sampled every 15s): each group is
 mostly **single-threaded evaluation**, with one `nix` process at ~100% of one
@@ -87,6 +87,17 @@ evaluates and builds the 12 hosts one at a time (~3 min eval, plus any build).
 That is six times a night. A single slow derivation also serializes the
 fleet: in the yt-dlp group, `mealie` held `doc2` (and every later host) for
 about 7 min at a load of 2.
+
+## `rest` unblocked (2026-09-23, 2cd8ab3d)
+
+- `aiPortabilityCheck` looked the ntfy plugin up as `_plugins["ntfy-platform"]`.
+  hermes-agent now keys plugins by path (`platforms/ntfy`); the plugin was
+  still enabled. The check now matches the path key or the manifest name.
+- netwatch 0.26.1 (upstream `matthart1983/netwatch`) added two procfs
+  socket-attribution tests that fail in the Nix build sandbox. `nix/overlay.nix`
+  skips just those two; drop the skips once upstream gates them.
+- The Hermes gateway had kept running the 2026-09-11 build because deploys
+  don't restart user units; it was restarted by hand. Tracked in forgejo #230.
 
 ## Speed-ups (implemented 2026-09-23)
 
