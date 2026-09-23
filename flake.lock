@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1789137424,
-        "narHash": "sha256-QNr0uYiXnho/Xdif1aO8WutHjTIle+BxNg350Uz2OIE=",
+        "lastModified": 1790113138,
+        "narHash": "sha256-PL9Z3hjcX+1TXfI8cHbu9078gnoPh5N2P1X9kk9Ac04=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "1a9f16c45e659d3bcb572b9e73c50aabccdc8b86",
+        "rev": "4fbabcd32b6ca7d8ebb82f15840fe34ef7562a64",
         "type": "github"
       },
       "original": {
@@ -93,11 +93,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1788555309,
-        "narHash": "sha256-uYy1Vt6KoGwknpBf8fYaKmIvRBB7zpTJ6xhSggdCNTA=",
+        "lastModified": 1789588982,
+        "narHash": "sha256-OVHXF1mzyOWEfJuQYkAlT/J1Quyupi0D8jYyqnb3ViM=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "196c134692cccde0de3c37b9d6533fa3b1946af9",
+        "rev": "309c07a8b4f7e9663e11d980cd4275d95f11c0e9",
         "type": "github"
       },
       "original": {
