@@ -8,7 +8,6 @@
 Purpose:
 - Centralise substituters + priorities with a single profile toggle: "internal" | "external" | "server".
 - Default public keys are hard-coded for:
-    • Cachix  : nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k=
     • nix-serve: ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54=
     • Hyprland: hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=
 - You can still override any value via options if needed later.
@@ -16,7 +15,9 @@ Purpose:
 Notes:
 - Lower numeric priority = higher preference.
 - We append ?priority=… (or &priority=… if the URL already has ?).
-- "server" profile removes cache.nixos.org (direct) and nix-serve; it uses the nginx mirror and (optionally) Cachix last.
+- "server" profile removes cache.nixos.org (direct) and nix-serve; it uses the nginx mirror.
+- nixosconfig.cachix.org was removed 2026-09-23: nothing had pushed to it for
+  months, so it only added a ~0.4s miss per local-only path on every build.
 */
 let
   cfg = config.homelab.nixCaches;
@@ -29,7 +30,6 @@ let
   in "${url}${sep}priority=${toString pr}";
 
   # Build the ordered list based on profile.
-  # Cachix is intentionally LAST so we only fetch our custom pre-computed artifacts there.
   substitutersFor = profile: let
     prio =
       if profile == "internal"
@@ -37,7 +37,6 @@ let
         nixServe = cfg.nixServe.priorityInternal;
         mirror = cfg.mirror.priorityInternal;
         upstream = cfg.upstream.priority;
-        cachix = cfg.cachix.priorityInternal;
         hyprland = cfg.hyprland.priorityInternal;
       }
       else if profile == "external"
@@ -45,7 +44,6 @@ let
         nixServe = cfg.nixServe.priorityExternal;
         mirror = cfg.mirror.priorityExternal;
         upstream = cfg.upstream.priority;
-        cachix = cfg.cachix.priorityExternal;
         hyprland = cfg.hyprland.priorityExternal;
       }
       else {
@@ -53,7 +51,6 @@ let
         nixServe = 999; # unused
         mirror = cfg.mirror.priorityInternal; # prefer LAN mirror on servers
         upstream = 999; # unused
-        cachix = cfg.cachix.priorityInternal; # keep Cachix last
         hyprland = cfg.hyprland.priorityInternal;
       };
 
@@ -70,10 +67,6 @@ let
       (lib.optional (profile != "server")
         (addPriority cfg.upstream.url prio.upstream))
 
-      # Cachix LAST on purpose (only for our custom pre-computed stuff)
-      (lib.optional cfg.cachix.enable
-        (addPriority "https://${cfg.cachix.name}.cachix.org" prio.cachix))
-
       # Hyprland Official Cache
       (lib.optional cfg.hyprland.enable
         (addPriority "https://hyprland.cachix.org" prio.hyprland))
@@ -83,7 +76,6 @@ let
 
   publicKeys = lib.flatten [
     (lib.optional cfg.nixServe.enable cfg.nixServe.publicKey)
-    (lib.optional cfg.cachix.enable cfg.cachix.publicKey)
     (lib.optional cfg.hyprland.enable cfg.hyprland.publicKey)
     cfg.upstream.publicKey
   ];
@@ -121,33 +113,6 @@ in {
       priorityExternal = lib.mkOption {
         type = lib.types.ints.positive;
         default = 20;
-      };
-    };
-
-    # Cachix (kept LAST so we don't pull general binaries from it)
-    cachix = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-      };
-      name = lib.mkOption {
-        type = lib.types.str;
-        default = "nixosconfig";
-      };
-      # Default public key hard-coded as requested.
-      publicKey = lib.mkOption {
-        type = lib.types.str;
-        default = "nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k=";
-        description = "Cachix public key.";
-      };
-      # Make Cachix the lowest priority by default (higher number → lower priority)
-      priorityInternal = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 50;
-      };
-      priorityExternal = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 50;
       };
     };
 
@@ -230,10 +195,6 @@ in {
       {
         assertion = cfg.nixServe.publicKey != "";
         message = "nix-serve public key must be non-empty.";
-      }
-      {
-        assertion = cfg.cachix.publicKey != "";
-        message = "Cachix public key must be non-empty.";
       }
     ];
 
