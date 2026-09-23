@@ -934,17 +934,6 @@ if [ "$FATAL_TRANSACTION" -eq 1 ]; then
     exit 1
 fi
 
-if [ "$ANY_COMMIT" -eq 1 ]; then
-    if [ -x ./scripts/hash-capture.sh ]; then
-        log "📊 Capturing hash baselines (final state)..."
-        ./scripts/hash-capture.sh --quiet || true
-        if ! git diff --quiet -- hashes/ 2>/dev/null; then
-            git add hashes/
-            git commit -q -m "rolling: hash baselines ($DATE)"
-        fi
-    fi
-fi
-
 # Recheck after potentially long builds, before issuing freshness or pushing.
 check_mongodb80_eol
 

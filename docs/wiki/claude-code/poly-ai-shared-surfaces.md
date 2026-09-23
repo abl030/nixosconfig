@@ -50,7 +50,8 @@ discovers them from `.claude/skills`. The symlink exposes the same `SKILL.md`
 files to both. The old `.codex/skills` adapter was removed after a Codex
 `debug prompt-input` smoke test showed all project skills loading from the new
 path. The previously lowercase `.claude/skills/drift/skill.md` was renamed to
-`SKILL.md`, making it visible to both clients.
+`SKILL.md`, making it visible to both clients. (The drift skill was removed
+on 2026-09-23 along with the unused hash-baseline tooling.)
 
 Skill authors should use the shared Agent Skills shape and ordinary procedural
 language. Claude-only tool names or frontmatter belong only where the workflow

@@ -1,1 +1,0 @@
-/nix/store/69limlj0bhwz99jrp1xnrl081gwb3qda-nixos-system-dev-26.11.20260606.cbb5cf3

@@ -557,16 +557,13 @@ in {
 
             failed=0
 
-            RUN_DRIFT=false
             RUN_FULL=false
             HOST_FILTER=""
             while [[ $# -gt 0 ]]; do
                 case "$1" in
-                    --drift) RUN_DRIFT=true; shift ;;
                     --help|-h)
                         cat <<'EOF'
-      Usage: check [--drift] [--full] [--hosts <name[,name...]>]
-        --drift  run hash-based drift detection (slow)
+      Usage: check [--full] [--hosts <name[,name...]>]
         --full   include host config checks during flake check (slow)
         --hosts  only run host config checks for the given hosts
       EOF
@@ -643,34 +640,6 @@ in {
           echo "✅ Flake check passed"
       fi
       echo ""
-
-            # Run drift detection (informational - doesn't fail the check)
-            if $RUN_DRIFT; then
-                echo "📊 Running Drift Detection..."
-                if [[ -x "./scripts/hash-compare.sh" ]] && [[ -d "./hashes" ]]; then
-                    # Capture output to parse it
-                    drift_output=$(./scripts/hash-compare.sh --summary 2>&1) || true
-                    echo "$drift_output"
-
-                    # Extract counts from summary
-                    if echo "$drift_output" | grep -q "Drifted: 0"; then
-                        echo ""
-                        echo "✅ No configuration drift detected."
-                    else
-                        drifted=$(echo "$drift_output" | grep "Drifted:" | grep -oE '[0-9]+' || echo "?")
-                        echo ""
-                        echo "📝 $drifted configuration(s) changed from baseline."
-                        echo "   Review the drift above to verify changes are intentional."
-                        echo "   Run './scripts/hash-compare.sh' for detailed nix-diff output."
-                    fi
-                else
-                    echo "⚠️  Drift detection not available (missing scripts or hashes)."
-                fi
-                echo ""
-            else
-                echo "ℹ️  Drift detection skipped (use --drift to enable)."
-                echo ""
-            fi
 
             echo "✅ All local checks passed. Ready to commit."
     '';
