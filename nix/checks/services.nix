@@ -169,14 +169,18 @@
       touch $out
     '';
 
-  # Evaluated contract for the private Hugo site: immutable site
-  # package, loopback-only static server, and LAN/tailnet HTTPS ingress.
+  # Evaluated contract for the private Hugo site: signed on-demand
+  # deploys into /var/lib/mrnews/site (flake package only seeds it),
+  # loopback-only static server, and LAN/tailnet HTTPS ingress.
+  # See docs/wiki/services/mrnews.md.
   mrnewsIntegrationCheck = let
     doc1 = self.nixosConfigurations.proxmox-vm.config;
     sitePackage = inputs.mrnews.packages.${system}.default;
     mrnewsCfg = doc1.homelab.services.mrnews;
     service = doc1.systemd.services.mrnews.serviceConfig;
+    deploy = doc1.systemd.services.mrnews-deploy.serviceConfig;
     unit = doc1.systemd.units."mrnews.service".unit;
+    seedRule = "L /var/lib/mrnews/site - - - - ${sitePackage}";
     nginxConfig = doc1.environment.etc."nginx/nginx.conf".source;
     proxy = lib.findFirst (entry: entry.host == mrnewsCfg.fqdn) null doc1.homelab.localProxy.hosts;
     monitor = lib.findFirst (entry: entry.url == "https://${mrnewsCfg.fqdn}/") null doc1.homelab.monitoring.monitors;
@@ -191,7 +195,7 @@
       "${pkgs.static-web-server}/bin/static-web-server"
       "--host 127.0.0.1"
       "--port ${toString mrnewsCfg.port}"
-      "--root ${sitePackage}"
+      "--root /var/lib/mrnews/site"
       "--cache-control-headers false"
       "--log-level warn"
     ];
@@ -206,6 +210,16 @@
       test ${lib.escapeShellArg service.ExecStart} = ${lib.escapeShellArg expectedExecStart}
       test -s ${sitePackage}/index.html
       test -s ${sitePackage}/index.xml
+      test '${lib.boolToString (lib.elem seedRule doc1.systemd.tmpfiles.rules)}' = true
+
+      # Deployer: own unprivileged user, root only for the restart post-step,
+      # and polkit lets deploy users start exactly this unit.
+      test ${lib.escapeShellArg deploy.User} = mrnews-deploy
+      test '${lib.boolToString deploy.NoNewPrivileges}' = true
+      test -z ${lib.escapeShellArg deploy.CapabilityBoundingSet}
+      test '${lib.boolToString (lib.hasPrefix "+" deploy.ExecStartPost)}' = true
+      test '${lib.boolToString (lib.hasInfix ''action.lookup("unit") == "mrnews-deploy.service"'' doc1.security.polkit.extraConfig)}' = true
+      test '${lib.boolToString (lib.hasInfix ''action.lookup("verb") == "start"'' doc1.security.polkit.extraConfig)}' = true
 
       test '${lib.boolToString service.DynamicUser}' = true
       test '${lib.boolToString service.NoNewPrivileges}' = true
