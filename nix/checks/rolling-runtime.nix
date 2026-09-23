@@ -11,6 +11,8 @@
       printf 'archive fixture\n' > fixture
       tar -czf fixture.tgz fixture
       tar -tzf fixture.tgz | grep -qx fixture
+      # update_mongodb80.sh compares candidate package files with cmp (#228).
+      cmp -s fixture fixture
       touch "$out"
     '';
 

@@ -248,10 +248,10 @@ in {
         after = ["network-online.target"];
 
         # Keep git's configured credential helper available inside the service.
-        # curl/gawk/gnused/gnugrep/tar are used by scripts/rolling_flake_update.sh
+        # curl/gawk/gnused/gnugrep/tar/cmp are used by scripts/rolling_flake_update.sh
         # for official MongoDB archive verification, triage, and the bundled
         # Gotify notification.
-        path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.nix-eval-jobs pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep pkgs.gnutar pkgs.gzip];
+        path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.nix-eval-jobs pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep pkgs.gnutar pkgs.gzip pkgs.diffutils];
 
         serviceConfig = {
           Type = "oneshot";
