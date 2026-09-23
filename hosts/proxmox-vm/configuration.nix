@@ -7,6 +7,7 @@
   imports = [
     ./hardware-configuration.nix
     ./forgejo-push.nix
+    ./hermes-gateway.nix
     ../../modules/nixos/services/podcast.nix
   ];
 
@@ -68,37 +69,6 @@
     format = "dotenv";
     owner = "abl030";
     mode = "0400";
-  };
-
-  # Authenticated self-hosted ntfy channel for two-way Hermes access and
-  # completion pings. This gateway-only file excludes server provisioning and
-  # operator credentials.
-  sops.secrets."hermes/ntfy-env" = {
-    sopsFile = config.homelab.secrets.sopsFile "hosts/proxmox-vm/ntfy-gateway.env";
-    format = "dotenv";
-    owner = "abl030";
-    mode = "0400";
-  };
-
-  # The gateway's primary unit is installed under ~/.config/systemd/user by
-  # Hermes. Force NixOS to emit only a drop-in so systemd merges the SOPS
-  # environment into that mutable unit instead of shadowing it.
-  systemd.user.services.hermes-gateway = {
-    overrideStrategy = "asDropin";
-    # Reset the mutable installer's pinned commands: core, plugins and cleanup
-    # must follow the same deployed package. See docs/wiki/services/ntfy.md.
-    serviceConfig = {
-      ExecStart = ["" "${pkgs.hermes-agent}/bin/hermes gateway run"];
-      ExecStopPost = ["" "-${pkgs.hermes-agent.hermesVenv}/bin/python -m gateway.cgroup_cleanup"];
-      Environment = [
-        # MCP wrappers need the same Nix system/user executables as the CLI.
-        "PATH=/run/wrappers/bin:/etc/profiles/per-user/abl030/bin:/run/current-system/sw/bin"
-        "VIRTUAL_ENV=${pkgs.hermes-agent.hermesVenv}"
-        "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins"
-        "PYTHONPATH=${pkgs.hermes-agent.hermesStateStoreModules}/${pkgs.python312.sitePackages}"
-      ];
-      EnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
-    };
   };
 
   homelab = {
