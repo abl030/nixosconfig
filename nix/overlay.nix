@@ -267,10 +267,22 @@
     }
   )
 
-  # netwatch overlay: real-time network diagnostics TUI from upstream flake
+  # netwatch overlay: real-time network diagnostics TUI from upstream flake.
+  # Two upstream procfs socket-attribution tests (added in 0.26.1) expect to
+  # map a spawned process's sockets back to its PID, which fails inside the
+  # Nix build sandbox (attribution comes back None / unknown). Skip just those
+  # two; drop this once upstream gates them. Held the rolling `rest` group on
+  # 2026-09-23 (docs/wiki/infrastructure/rolling-flake-update.md).
   (
     final: _prev: {
-      netwatch = inputs.netwatch.packages.${final.stdenv.hostPlatform.system}.default;
+      netwatch = inputs.netwatch.packages.${final.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+        checkFlags =
+          (old.checkFlags or [])
+          ++ [
+            "--skip=collectors::connections::tests::startup_snapshot_expires_and_revalidates_socket_identity"
+            "--skip=collectors::connections::tests::controlled_polling_matrix_matches_independent_processes"
+          ];
+      });
     }
   )
 

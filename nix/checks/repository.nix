@@ -97,7 +97,11 @@
       from hermes_cli.tools_config import _get_platform_tools
 
       discover_plugins(force=True)
-      loaded = get_plugin_manager()._plugins.get("ntfy-platform")
+      # hermes-agent keys plugins by their path key ("platforms/ntfy") since
+      # 2026-09; older releases keyed them by manifest name. Match either.
+      plugins = get_plugin_manager()._plugins
+      loaded = plugins.get("platforms/ntfy") or next(
+          (p for p in plugins.values() if p.manifest.name == "ntfy-platform"), None)
       assert loaded is not None and loaded.enabled, "ntfy-platform plugin is not enabled"
       assert "ntfy" in {entry.name for entry in platform_registry.plugin_entries()}
 
