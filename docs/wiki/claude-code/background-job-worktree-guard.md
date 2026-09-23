@@ -38,6 +38,7 @@ Treat it as a fixed constraint and shape commands to fit it.
 | `cd /home/abl030/repo && git …`, `git -C /abs/path …` | runs | the path is literal |
 | heredoc-write a script and `bash` it in one call | refused | the guard can't see what the heredoc hands to bash |
 | heredoc Python whose text mentions git | refused | same |
+| `forgejo-auth.sh rest … --body "$(cat f)"` | refused | the command substitution can't be verified; use `--body-stdin < f` |
 | script written with the Write tool, then `bash /abs/script.sh` as its own call | runs | |
 
 The original report (2026-09-23, during the mrnews deploy) also saw these refused:
