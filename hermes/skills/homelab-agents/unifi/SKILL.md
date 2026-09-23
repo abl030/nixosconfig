@@ -90,11 +90,23 @@ Key pfSense rules affecting devices you manage:
 
 | Name | Type | Model | MAC | IP | Firmware |
 |------|------|-------|-----|-----|----------|
-| MastSwitch | Switch | US-8-60W (US8P60) | fc:ec:da:d5:e0:bb | 192.168.1.53 | 7.2.123.16565 |
+| MastSwitch | Switch | US-8-60W (US8P60) | fc:ec:da:d5:e0:bb | 192.168.1.53 | 7.5.15.17146 |
 | USW Flex Mini | Switch | USMINI | f4:e2:c6:58:fc:66 | 192.168.1.54 | 2.1.6.762 |
 | Master Bedroom | AP | UAP-AC-Pro (U7PG2) | fc:ec:da:10:b5:4a | 192.168.1.50 | 6.8.2.15592 |
 | Living Room | AP | UAP-AC-Pro (U7PG2) | fc:ec:da:10:b2:41 | 192.168.1.51 | 6.8.2.15592 |
 | Hallway | AP | UAP-AC-Pro (U7PG2) | fc:ec:da:10:b5:81 | 192.168.1.52 | 6.8.2.15592 |
+
+**Management IPs are static on the devices** (`config_network.type: static`,
+/24, gateway and DNS `192.168.1.1`) as of 2026-09-24, and pfSense Kea also holds
+matching reservations. Keep both in step when moving a device. A DHCP-managed
+device can briefly fall back to Ubiquiti's factory `192.168.1.20` when it loses
+its controller. That knocked Home Assistant offline (#223;
+`docs/wiki/infrastructure/unifi-fallback-ip-conflict.md`), and `.20` is now a
+permanent pfSense placeholder. The MCP has no tool that writes `config_network`.
+Set it with a direct controller API call, `PUT /api/s/<site>/rest/device/<_id>`
+with `{"config_network": {...}}`, merging into the existing object (the APs also
+carry `bonding_enabled`). Or use the UI: Device → Settings → IP Configuration.
+The change reprovisions the device without rebooting it.
 
 ### MastSwitch Port Map (US-8-60W)
 
@@ -102,7 +114,7 @@ Key pfSense rules affecting devices you manage:
 |------|-------|-----|---------|---------|
 | 1 | 1000 | - | Lan + VLAN | Trunk |
 | 2 | Down | off | Default, all VLANs | Unused |
-| 3 | 1000 | - | - | - |
+| 3 | 1000 | - | - | Downlink to USW Flex Mini port 1 |
 | 4 | 1000 | - | Lan + VLAN | Chromecast Ultra, trunk |
 | 5 | 1000 | auto | - | PoE to AP (Master Bedroom) |
 | 6 | 1000 | auto | - | PoE to AP (Living Room) |

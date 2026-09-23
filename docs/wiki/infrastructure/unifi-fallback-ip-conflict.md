@@ -56,8 +56,10 @@ this behaviour.
 - **`.20` is held by a pfSense Kea static mapping** on placeholder MAC
   `00:00:00:00:00:04`. pfSense rejects duplicate static IPs, so `.20` cannot be
   handed out again. **Never assign `192.168.1.20` on this LAN.**
-- **The Flex Mini's management IP is static in UniFi** (`.54`), so it no longer
-  depends on DHCP.
+- **Every UniFi device now has a static management IP** in UniFi: the Flex Mini
+  `.54`, MastSwitch `.53`, and the APs `.50`–`.52`. They no longer depend on DHCP,
+  and the pfSense reservations stay as a matching record. None of them rebooted.
+  The procedure is in `.claude/agents/unifi.md`.
 - **HA conflict detection is off:** `ipv4.dad-timeout 0` on HA's `Supervisor
   enp6s18` NetworkManager connection. A stray ARP can no longer make HA drop its
   address. The Supervisor owns this connection; if `ha network update` or the UI
@@ -71,6 +73,30 @@ this behaviour.
 
   The SSH add-on has no `nmcli` and cannot enter the host namespace. The
   throwaway container above uses the host D-Bus socket instead.
+
+## Open question: why the Flex Mini fell back
+
+The trigger is established, since both flips happened while the controller was
+unavailable. The mechanism inside the switch is not, because its firmware is
+closed and it keeps no syslog.
+
+- **When:** on 2026-09-24 the flip came about 95 s into a controller outage. On
+  2026-09-22 it came about 2.5 minutes into doc2's backup freeze.
+- **What it did:** the Flex announced `.20`, then asked for its own real `.54`
+  from `.20`. That looks like its network setup running again with the
+  factory default applied first, before the DHCP address was reconfirmed.
+- **What stays unknown:**
+  - whether it actually sent DHCP (Kea's per-packet log is not exposed through
+    the pfSense API);
+  - why earlier controller restarts caused no flip that anyone noticed. A flip
+    only broke something if a device held `.20`, and HA did. Many past flips
+    may have gone unseen.
+- **Current exposure:** every device now has a static IP, and `.20` is held by
+  a pfSense placeholder with nothing live on it. A future flip should either not
+  happen or have nothing to collide with.
+- **How to test:** restart `unifi.service` on doc2 while running `tcpdump -nn -e
+  arp and ether src f4:e2:c6:58:fc:66` on doc1. doc1 sees the broadcast
+  gratuitous ARP.
 
 ## Tools used
 
