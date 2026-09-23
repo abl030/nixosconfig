@@ -1,6 +1,7 @@
 # Rolling flake update (doc1)
 
-Status: unblocked 2026-09-23. Durable robustness fixes are still open (below).
+Status: unblocked 2026-09-23 (5 of 6 groups landed; `rest` held by a hermes-agent
+plugin break). Speed-ups and robustness fixes still open (below).
 
 `rolling-flake-update.service` runs nightly at 23:00 AWST on doc1. It updates
 flake inputs in groups (`mongodb80`, `core`, `yt-dlp`, `llm`, `nvchad`,
@@ -55,15 +56,54 @@ Why it was quiet:
   doc1's 03:10 switch cannot kill a run.
 - `OnFailure=rolling-flake-update-alert.service`
   (`scripts/rolling_flake_update_alert.sh failure`) sends a direct Gotify page
-  for every failed run: group failure, abort, timeout or kill. The title says
-  how many nights in a row; the body gives the last-green time from master's
-  heartbeat and the last log lines. Priority is 8, or 10 from the second night.
+  for every failed run: group failure, abort, timeout or kill. A run that still
+  pushed (fresh heartbeat) pages yellow at priority 6 and resets the streak.
+  Otherwise the title says how many nights in a row, the body gives the
+  last-green time from master's heartbeat and the last log lines, and the
+  priority is 8, or 10 from the second night.
   The streak lives in `/var/lib/rolling-flake-update/failure-streak` and the
   updater resets it after a fully green run. The Hermes RCA still follows as
   explanation.
 - `rolling-flake-update-stale.timer` (09:00 daily, doc1 only) pages if
   master's heartbeat is older than 36h and no failure page went out in the last
   20h, i.e. the updater is not running at all. Priority 8, or 10 from 72h.
+- Removed the `nixosconfig.cachix.org` substituter fleet-wide. It served 0 of
+  ~2,500 substituted paths, but as the last substituter it was queried (~0.4s
+  per miss, against ~0.05s for the LAN mirror) for every local-only path.
+
+## First unblocked run (2026-09-23 08:19 → 09:55)
+
+Landed mongodb80 (21 min), core (29 min, 12 days of nixpkgs), yt-dlp (12 min),
+llm and nvchad, plus the heartbeat; push-deploy activated every host. `rest`
+failed a real check: the new `hermes-agent` input no longer enables the
+`ntfy-platform` plugin (`aiPortabilityCheck` →
+`check-hermes-ntfy-runtime.py`), so all ~25 `rest` inputs stay held.
+
+Where the time goes after the catch-up (sampled every 15s): each group is
+mostly **single-threaded evaluation**, with one `nix` process at ~100% of one
+core and zero builders for minutes while 29 cores idle.
+`nix flake check` evaluates the fleet (~2.5 min), then `populate_cache.sh`
+evaluates and builds the 12 hosts one at a time (~3 min eval, plus any build).
+That is six times a night. A single slow derivation also serializes the
+fleet: in the yt-dlp group, `mealie` held `doc2` (and every later host) for
+about 7 min at a load of 2.
+
+## Speed-ups, ranked
+
+1. **Try all groups at once, split only on failure.** Update every group's
+   inputs, then do one eval+build. On a green night that is one pass instead of
+   six; fall back to per-group isolation (or bisection) only when it fails.
+2. **Parallel eval and one build.** Replace `flake check` + the per-host loop
+   with `nix-eval-jobs --workers 3-4 --max-memory-size` over checks plus every
+   host toplevel, then a single `nix build` of all the drvs, so 30 cores build
+   across hosts at once. Evaluating once also removes the double evaluation.
+3. **Scope the yt-dlp overlay.** `nix/overlay.nix` swaps yt-dlp tip in
+   globally, so dependants such as mealie get new drvs that aren't in the public
+   cache and rebuild (with tests) whenever tip moves. Apply tip only to the
+   packages that need it. The same applies to the podman/netavark overlay and
+   the hermes Python set.
+4. **Eval cache.** `--impure` on a dirty tree disables it. Commit the group
+   to a temporary commit first and evaluate purely.
 
 ## Still to do (durable)
 
