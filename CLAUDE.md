@@ -109,6 +109,15 @@ fleet work is tracked in Forgejo issue #232.
   are needed, ask one at a time unless they are tiny and tightly coupled.
 - Complete every related item in the requested scope. Do not manufacture sibling
   issues to defer awkward work; name a genuine blocker on the original issue.
+- Clean up git state yourself; never hand the user cleanup commands. Remove your
+  own worktrees and branches once they are on `origin/master`: fast-forward the
+  main checkout (`git merge --ff-only origin/master`), then `git worktree remove`
+  and `git branch -d`. `ExitWorktree` compares against the often-stale local
+  `master`, so fast-forward first instead of treating its refusal as a stop.
+  When asked to clean up, treat every leftover worktree, branch and stash as
+  stale. Save uncommitted changes as patches and unmerged refs as a `git bundle`
+  under `~/.cache/`, then remove them. Skip only what a running process is using.
+  Close superseded bot PRs with a comment naming the commit that replaced them.
 - For a real data or service migration, perform the migration in-session unless
   the user explicitly asks for staging. Use preflight checks, backups,
   verification, and a rollback command rather than permanent deferral machinery.
