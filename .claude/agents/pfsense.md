@@ -271,7 +271,7 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 
 ## DHCP Static Mappings (Key Hosts)
 
-RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's MAC) are reserved with fake MACs so nobody accidentally assigns a DHCP static to those IPs. Pattern: `00:00:00:00:00:00` (the existing .34 entry) and `00:00:00:00:00:01`–`03` for newer entries. Kea enforces global MAC uniqueness so each placeholder must be unique. OPT3 is a separate pool scope so `00:00:00:00:00:00` can be reused there.
+RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's MAC) are reserved with fake MACs so nobody accidentally assigns a DHCP static to those IPs. Pattern: `00:00:00:00:00:00` (the existing .34 entry) and `00:00:00:00:00:01`–`03` for newer ipvlan entries. Kea enforces global MAC uniqueness so each placeholder must be unique. OPT3 is a separate pool scope so `00:00:00:00:00:00` can be reused there. `00:00:00:00:00:04` (.20) is the same pattern reused for a different reason: it's not an ipvlan share, it's a permanent claim on the Ubiquiti factory-fallback IP so Kea's duplicate-IP validation rejects any future attempt to assign `.20` to a real device (Forgejo #223, 2026-09-24).
 
 | IP | Hostname | Description |
 |----|----------|-------------|
@@ -284,7 +284,8 @@ RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's M
 | 192.168.1.10 | — | Tower add-in card |
 | 192.168.1.12 | — | Proxmox (prom) |
 | 192.168.1.14 | chromecast-audio | Chromecast Audio |
-| 192.168.1.20 | homeassistant | Home Assistant |
+| 192.168.1.20 | — | RESERVED placeholder MAC 00:00:00:00:00:04 — Ubiquiti factory fallback IP, never assign (#223) |
+| 192.168.1.25 | homeassistant | Home Assistant (moved off .20 on 2026-09-24, #223) |
 | 192.168.1.17 | — | tower nzbget (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:01) |
 | 192.168.1.18 | — | tower nzbhydra2 (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:02) |
 | 192.168.1.21 | printer | Brother printer (MAC 4c:d5:77:31:8e:30) |
@@ -321,7 +322,6 @@ All overrides use domain `local.com` to match existing convention.
 | igpu.local.com | 192.168.1.33 | iGPU transcoding VM (VMID 109) |
 | musicbrainz.local.com | 192.168.1.43 | MusicBrainz metadata mirror LXC (CT 100) |
 | discogs.local.com | 192.168.1.44 | Discogs metadata mirror LXC (CT 102) |
-| homeassistant.local.com | 192.168.1.20 | Home Assistant (pre-existing) |
 | nzbget.local.com | 192.168.1.17 | tower Docker container (ipvlan on br0) |
 | nzbhydra2.local.com | 192.168.1.18 | tower Docker container (ipvlan on br0) |
 | zigbee2mqtt.local.com | 192.168.1.22 | tower Docker container (ipvlan on br0) |
@@ -332,6 +332,8 @@ All overrides use domain `local.com` to match existing convention.
 Note: .29 (doc1) may show a stale `nixos.local.com` PTR alongside `doc1.local.com` until the DHCP lease renews or Unbound restarts — the `doc1` PTR is correct and returned first.
 
 Note: .21 printer PTR returns both `brw4cd577318e30.local.com` (Kea auto-generated, TTL 2400) and `printer.local.com` (Host Override, TTL 3600) transiently after the hostname rename. The stale Kea PTR ages out within ~40 minutes.
+
+Note: `homeassistant.local.com` has NO Host Override entry (confirmed live 2026-09-24, no entry in this table) — it resolves purely via Kea's own DDNS auto-registration from the DHCP static mapping's `hostname` field, same mechanism as the printer's auto-generated PTR above. Verified 2026-09-24 via `pfsense_post_diagnostics_ping`: `homeassistant.local.com` resolved to `192.168.1.25` immediately after the static mapping's `ipaddr` was changed from `.20` to `.25` — no Unbound restart or Host Override needed.
 
 ## Services
 

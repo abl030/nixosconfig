@@ -14,7 +14,7 @@ longer applies to this fleet.
 
 ## Topology reminder
 
-HA is **HAOS on prom VM 116** (`192.168.1.20`). It is *not* a NixOS flake host, so
+HA is **HAOS on prom VM 116** (`192.168.1.25`). It is *not* a NixOS flake host, so
 none of the fleet's usual guarantees (signed deploys, `nixos-upgrade`, deep probes)
 covered it. That is why it needed its own arrangement.
 
@@ -151,7 +151,7 @@ Current rule in `/boot/config/shares/VMBackups.cfg`
 ```
 192.168.1.35(ro,sync,no_subtree_check,insecure,anonuid=99,anongid=100,all_squash)
 192.168.1.36(ro,sync,no_subtree_check,insecure,anonuid=99,anongid=100,all_squash)
-192.168.1.20(rw,sync,no_subtree_check,insecure,anonuid=99,anongid=100,all_squash)
+192.168.1.25(rw,sync,no_subtree_check,insecure,anonuid=99,anongid=100,all_squash)
 ```
 
 Verified after applying: doc2 still reads the share; doc1 (`192.168.1.29`) is
@@ -171,7 +171,7 @@ already-scoped share (`magazines.cfg` is a good model) rather than inventing it.
 # What is pending right now
 python3 - <<'EOF'   # or just look at Settings > System > Updates
 EOF
-curl -s -H "Authorization: Bearer $HA_TOKEN" http://192.168.1.20:8123/api/states \
+curl -s -H "Authorization: Bearer $HA_TOKEN" http://192.168.1.25:8123/api/states \
   | jq -r '.[] | select(.entity_id|startswith("update.")) | "\(.entity_id) \(.state)"'
 
 # Disable all unattended updating, immediately, without touching YAML:

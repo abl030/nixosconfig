@@ -302,7 +302,8 @@ RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's M
 | 192.168.1.10 | — | Tower add-in card |
 | 192.168.1.12 | — | Proxmox (prom) |
 | 192.168.1.14 | chromecast-audio | Chromecast Audio |
-| 192.168.1.20 | homeassistant | Home Assistant |
+| 192.168.1.20 | — | RESERVED placeholder MAC 00:00:00:00:00:04 — Ubiquiti factory fallback IP, never assign (#223) |
+| 192.168.1.25 | homeassistant | Home Assistant (moved off .20 on 2026-09-24, #223) |
 | 192.168.1.17 | — | tower nzbget (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:01) |
 | 192.168.1.18 | — | tower nzbhydra2 (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:02) |
 | 192.168.1.21 | printer | Brother printer (MAC 4c:d5:77:31:8e:30) |
@@ -338,7 +339,6 @@ All overrides use domain `local.com` to match existing convention.
 | prom.local.com | 192.168.1.12 | Proxmox host — AMD 9950X hypervisor |
 | pbs.local.com | 192.168.1.30 | Proxmox Backup Server |
 | igpu.local.com | 192.168.1.33 | iGPU transcoding VM (VMID 109) |
-| homeassistant.local.com | 192.168.1.20 | Home Assistant (pre-existing) |
 | nzbget.local.com | 192.168.1.17 | tower Docker container (ipvlan on br0) |
 | nzbhydra2.local.com | 192.168.1.18 | tower Docker container (ipvlan on br0) |
 | zigbee2mqtt.local.com | 192.168.1.22 | tower Docker container (ipvlan on br0) |

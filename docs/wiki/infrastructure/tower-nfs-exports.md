@@ -15,7 +15,7 @@ to change it without the change silently reverting.
 
 | Share | Rule | Consumers |
 |---|---|---|
-| `VMBackups` | `192.168.1.35` ro, `192.168.1.36` ro, `192.168.1.20` rw | doc2 (kopia-mum walks `containers` + `homeassistant`), HAOS (writes its nightly backups) |
+| `VMBackups` | `192.168.1.35` ro, `192.168.1.36` ro, `192.168.1.25` rw | doc2 (kopia-mum walks `containers` + `homeassistant`), HAOS (writes its nightly backups) |
 | `data` | `100.0.0.0/8` rw, `192.168.1.29` rw, `192.168.1.0/24` rw | doc1, doc2, servarr, prom (→ igpu CT), framework — the media library |
 | `magazines` | `192.168.1.35` rw, `192.168.1.5` rw, `100.78.17.73` ro | doc2 (kopia-mum), epi |
 | `domains` | **`*` ro** ⚠️ | **none found** — see below |

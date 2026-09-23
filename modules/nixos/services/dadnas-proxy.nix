@@ -58,6 +58,9 @@ in {
       wantedBy = ["sockets.target"];
       listenStreams = ["127.0.0.1:${toString port}" "${listenIp}:${toString port}"];
       socketConfig = {
+        # Bind doc1's LAN address even before network-addresses-ens18 assigns
+        # it; otherwise the socket fails permanently at boot (EADDRNOTAVAIL).
+        FreeBind = true;
         Accept = true;
         NoDelay = true;
         MaxConnections = 128;

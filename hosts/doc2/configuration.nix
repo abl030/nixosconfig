@@ -618,7 +618,7 @@
   # anything that could reach tower's NFS — despite this comment previously claiming
   # it was scoped. It is now genuinely scoped in /boot/config/shares/VMBackups.cfg:
   #   192.168.1.35 ro, 192.168.1.36 ro  (doc2's two NICs, this mount)
-  #   192.168.1.20 rw                   (HAOS Supervisor backup mount)
+  #   192.168.1.25 rw                   (HAOS Supervisor backup mount)
   # Nothing else reaches that share over NFS — doc1's containers-backup and
   # prom-rpool-backup use SSH, and the PBS VM uses virtiofs passthrough.
   # See docs/wiki/services/home-assistant-auto-update.md.

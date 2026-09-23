@@ -206,7 +206,7 @@
             "/mnt/backup/vm-backups/containers"
             # Home Assistant's nightly automatic backups (02:00, keep 7).
             # HAOS writes them itself over a Supervisor NFS backup mount
-            # (192.168.1.20 is the only rw entry in tower's VMBackups export);
+            # (192.168.1.25 is the only rw entry in tower's VMBackups export);
             # kopia-mum is what actually gets them off the LAN.
             # Full architecture: docs/wiki/services/home-assistant-auto-update.md
             "/mnt/backup/vm-backups/homeassistant"

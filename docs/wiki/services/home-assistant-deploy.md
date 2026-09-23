@@ -5,13 +5,13 @@
 
 ## Topology
 
-- **`home.ablz.au`** → DNS resolves to `192.168.1.6` (caddy host, Home Manager-only) → Caddy reverse-proxies to `192.168.1.20:8123`.
-- **`192.168.1.20`** = Home Assistant Operating System (HAOS). Not in this NixOS repo. Manage via the HA UI + this deploy procedure.
+- **`home.ablz.au`** → DNS resolves to `192.168.1.6` (caddy host, Home Manager-only) → Caddy reverse-proxies to `192.168.1.25:8123`.
+- **`192.168.1.25`** = Home Assistant Operating System (HAOS). Not in this NixOS repo. Manage via the HA UI + this deploy procedure.
 - HAOS version visible via `ha core info`. Add-ons run as Alpine containers; `/config` is bind-mounted into them.
 
 ## SSH access
 
-- Port 22 on `192.168.1.20` is exposed by the **Advanced SSH & Web Terminal** community add-on. Port 22222 (official Terminal & SSH add-on) is NOT installed.
+- Port 22 on `192.168.1.25` is exposed by the **Advanced SSH & Web Terminal** community add-on. Port 22222 (official Terminal & SSH add-on) is NOT installed.
 - User: `abl030`, UID 1000, in `wheel`. **Passwordless sudo.**
 - **Authorized keys** are configured via the SSH add-on's `authorized_keys:` option in the HA UI (Settings → Add-ons → Advanced SSH & Web Terminal → Configuration). On first auth they get installed into `/home/abl030/.ssh/authorized_keys`.
 - The doc1 bastion's fleet SSH key (`~/.ssh/id_ed25519` on doc1/proxmox-vm, comment `master-fleet-identity`) is authorized as of 2026-05-25. This is the single doc1-only fleet key (see [ssh-bastion-model.md](../infrastructure/ssh-bastion-model.md)), not a fleet-wide or separate "master" key — siblings are keyless and reach HA via doc1.
@@ -19,7 +19,7 @@
 ### Quick connectivity test
 
 ```bash
-ssh abl030@192.168.1.20 'id; sudo ls /config | head -5'
+ssh abl030@192.168.1.25 'id; sudo ls /config | head -5'
 ```
 
 ## File layout
@@ -46,14 +46,14 @@ The Advanced SSH add-on doesn't enable the SFTP subsystem, so plain `scp file re
 ```bash
 # Single file
 tar -C ha -cf - bedtime.yaml | \
-  ssh abl030@192.168.1.20 'tar -C /tmp -xf - && \
+  ssh abl030@192.168.1.25 'tar -C /tmp -xf - && \
     sudo install -m 644 -o root -g root /tmp/bedtime.yaml /config/bedtime.yaml && \
     rm /tmp/bedtime.yaml && \
     sudo md5sum /config/bedtime.yaml'
 
 # Multiple files
 tar -C ha -cf - bedtime.yaml oral_b_package.yaml | \
-  ssh abl030@192.168.1.20 'tar -C /tmp -xf - && \
+  ssh abl030@192.168.1.25 'tar -C /tmp -xf - && \
     for f in bedtime.yaml oral_b_package.yaml; do
       sudo install -m 644 -o root -g root /tmp/$f /config/$f && rm /tmp/$f
     done && \
@@ -73,7 +73,7 @@ md5sum ha/bedtime.yaml
 yq '.' ha/bedtime.yaml > /dev/null && echo OK
 
 # On HAOS: full HA config validation (currently broken — needs ha auth)
-ssh abl030@192.168.1.20 'sudo ha core check'
+ssh abl030@192.168.1.25 'sudo ha core check'
 #   → "unauthorized: missing or invalid API token"
 # Workaround: use the MCP `ha_call_service(domain=homeassistant, service=check_config)`
 # which goes through HA's HTTP API and posts result as a persistent_notification.
@@ -96,7 +96,7 @@ ssh abl030@192.168.1.20 'sudo ha core check'
 
 ```bash
 diff <(md5sum ha/*.yaml ha/energy/*.yaml | awk '{print $1, $2}' | sed 's|ha/||;s|energy/||' | sort) \
-     <(ssh abl030@192.168.1.20 'sudo md5sum /config/{bedtime,oral_b_package,configuration,automations,scripts,scenes,solar_analytics,energy_tariffs,energy_tarrif_2,energy_tarrif1_battery,energy_tarrif_2_battery,infinite_battery}.yaml' | awk '{print $1, $2}' | sed 's|/config/||' | sort)
+     <(ssh abl030@192.168.1.25 'sudo md5sum /config/{bedtime,oral_b_package,configuration,automations,scripts,scenes,solar_analytics,energy_tariffs,energy_tarrif_2,energy_tarrif1_battery,energy_tarrif_2_battery,infinite_battery}.yaml' | awk '{print $1, $2}' | sed 's|/config/||' | sort)
 ```
 
 ## Gotchas encountered (worth saving for next session)

@@ -74,7 +74,7 @@ When you research something non-trivial (API quirks, integration gotchas, archit
 
 ## Package & Config Files (mirror of `/config/` on HAOS)
 
-YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files in `/config/` on the Home Assistant Operating System host (`192.168.1.20`). The repo is the **source of truth** — live HA config must never drift from these files. Home Assistant's HTTP server settings are the deliberate exception: since Core 2026.8 they are UI-managed under **Settings > System > Network** and persisted in `/config/.storage/http`; do not restore an `http:` block to `configuration.yaml`.
+YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files in `/config/` on the Home Assistant Operating System host (`192.168.1.25`). The repo is the **source of truth** — live HA config must never drift from these files. Home Assistant's HTTP server settings are the deliberate exception: since Core 2026.8 they are UI-managed under **Settings > System > Network** and persisted in `/config/.storage/http`; do not restore an `http:` block to `configuration.yaml`.
 
 ### File inventory
 
@@ -103,15 +103,15 @@ The UI-managed HTTP settings must retain `use_x_forwarded_for: true` and trusted
 
 ### Deploying (repo → HA)
 
-HAOS exposes the **Advanced SSH & Web Terminal** community add-on on port 22 of `192.168.1.20`. User `abl030` has passwordless sudo. The master fleet identity SSH key is authorized.
+HAOS exposes the **Advanced SSH & Web Terminal** community add-on on port 22 of `192.168.1.25`. User `abl030` has passwordless sudo. The master fleet identity SSH key is authorized.
 
 ```bash
 # Deploy a single package file
-scp ha/oral_b_package.yaml abl030@192.168.1.20:/tmp/
-ssh abl030@192.168.1.20 'sudo install -m 644 -o root -g root /tmp/oral_b_package.yaml /config/oral_b_package.yaml && rm /tmp/oral_b_package.yaml'
+scp ha/oral_b_package.yaml abl030@192.168.1.25:/tmp/
+ssh abl030@192.168.1.25 'sudo install -m 644 -o root -g root /tmp/oral_b_package.yaml /config/oral_b_package.yaml && rm /tmp/oral_b_package.yaml'
 
 # Validate before reload (requires ha auth tokens to be set up)
-ssh abl030@192.168.1.20 'sudo ha core check'
+ssh abl030@192.168.1.25 'sudo ha core check'
 
 # Reload (most packages: reload via service call from MCP; full restart only when adding new domains)
 # Via MCP: ha_call_service(domain="homeassistant", service="reload_all")
@@ -120,7 +120,7 @@ ssh abl030@192.168.1.20 'sudo ha core check'
 ### Rules
 
 - **Never edit `/config/*.yaml` on HAOS directly.** Always edit in this repo, commit, then deploy via SSH.
-- Drift check before any edit: `md5sum` the repo file and `ssh abl030@192.168.1.20 sudo md5sum /config/<file>` — they must match.
+- Drift check before any edit: `md5sum` the repo file and `ssh abl030@192.168.1.25 sudo md5sum /config/<file>` — they must match.
 - `ha core check` returns "unauthorized: missing or invalid API token" until `ha auth` is configured — workaround is the MCP `ha_call_service(homeassistant.check_config)`.
 - **Full wiki entry**: `docs/wiki/services/home-assistant-deploy.md` — covers SSH setup, tar-over-ssh (scp's SFTP is disabled), reload vs restart matrix, and the gotchas worth keeping for next session.
 - **HA updates itself** (Core, OS, add-ons, HACS) as of 2026-08-21. The four `Auto-update: *` automations in `automations.yaml` are part of that; don't delete them casually, and read `docs/wiki/services/home-assistant-auto-update.md` before changing the backup mount, the Kuma monitor, or tower's `VMBackups` NFS export. ESPHome *device* firmware is deliberately excluded.
@@ -192,7 +192,7 @@ Live audio fingerprinting service for RTRFM 92.1. Runs on doc2.
 - **Track history queries**: Read the wiki entry for API endpoints (`/tracklist?date=...&show=...`)
 
 ## System Overview
-- HA Core 2026.9.1 (verified live 2026-09-08) on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
+- HA Core 2026.9.1 (verified live 2026-09-08) on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.25`), URL: https://home.ablz.au
 - Location: <TOWN> WA (AWST UTC+8), metric units, AUD
 - 1115 entities, 29 domains, 276 services, 210 loaded components, 6 areas (Bathroom, Bedroom, Cullen Wines, Garage, Kitchen, Living Room)
 - 33 config entries / 28 integrations. Not loaded: `zha`, `smlight` (Zigbee runs through Zigbee2MQTT on tower, not ZHA); `proxmoxve` in `setup_retry`.

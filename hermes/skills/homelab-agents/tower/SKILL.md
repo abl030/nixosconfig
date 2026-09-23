@@ -83,7 +83,7 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
   An `/etc/exports`-only edit is lost on array restart. **Unraid has no `python3`** — use sed/awk in
   anything you pipe over. Copy rule syntax from an already-scoped share (`magazines.cfg`).
 - **`VMBackups` is deliberately scoped (2026-08-21) — do not widen it back to `*`.** Rule:
-  `192.168.1.35` ro + `192.168.1.36` ro (doc2's NICs, kopia-mum) and `192.168.1.20` rw (HAOS
+  `192.168.1.35` ro + `192.168.1.36` ro (doc2's NICs, kopia-mum) and `192.168.1.25` rw (HAOS
   nightly backups). doc1's `containers-backup` and `prom-rpool-backup` write over **SSH**; the PBS
   VM reaches `VMBackups/proxmox` via **virtiofs passthrough**, not NFS.
 - **`appdata` was retired 2026-08-21** (unshared on tower; doc1, doc2, prom's igpu CT bind

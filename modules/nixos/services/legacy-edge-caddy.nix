@@ -105,7 +105,7 @@
     }
     {
       host = "home.ablz.au";
-      upstream = "192.168.1.20:8123";
+      upstream = "192.168.1.25:8123";
     }
     {
       host = "lidarr.ablz.au";

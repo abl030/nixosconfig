@@ -117,7 +117,7 @@ Base path: `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skill
 - `examples.yaml` — Compound examples combining multiple best practices
 
 ## System Overview
-- HA Core 2026.8.2 on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
+- HA Core 2026.8.2 on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.25`), URL: https://home.ablz.au
 - Location: <TOWN> WA (AWST UTC+8), metric units, AUD
 - 1115 entities, 29 domains, 276 services, 210 loaded components, 6 areas (Bathroom, Bedroom, Cullen Wines, Garage, Kitchen, Living Room)
 - 33 config entries / 28 integrations. Not loaded: `zha`, `smlight` (Zigbee runs through Zigbee2MQTT on tower, not ZHA); `proxmoxve` in `setup_retry`.

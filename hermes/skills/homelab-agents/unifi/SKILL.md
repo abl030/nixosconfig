@@ -157,7 +157,7 @@ All WLANs broadcast on all 3 APs. No VLAN tagging on wireless — all traffic la
 | Tower | 192.168.1.2 | Unraid server |
 | genericvm | 192.168.1.4 | Downloader + PiHole (VPN routed) |
 | caddy | 192.168.1.6 | Reverse proxy |
-| homeassistant | 192.168.1.20 | Home Assistant VM |
+| homeassistant | 192.168.1.25 | Home Assistant VM |
 | proxmox-vm (doc1) | 192.168.1.29 | Main services VM |
 | doc2 | 192.168.1.35 | Service appliance VM |
 | doc2 (2nd NIC) | 192.168.1.36 | VPN NIC (VPN routed) |
