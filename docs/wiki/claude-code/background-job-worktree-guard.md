@@ -71,8 +71,13 @@ The original report (2026-09-23, during the mrnews deploy) also saw these refuse
 
 ## Upstream
 
-Report as Claude Code false positives (`/feedback`):
+Filed 2026-09-23:
 
-- `nix eval` and `x complete` look-alikes
-- `.git` URL operands to non-git programs
-- running subagents losing Bash when the parent enters a worktree
+- `nix eval` and `x complete` are the same token-in-argument-position false
+  positive as
+  [anthropics/claude-code#88312](https://github.com/anthropics/claude-code/issues/88312);
+  our cases are added there as a comment.
+- Running subagents losing Bash when the parent enters a worktree:
+  [anthropics/claude-code#96209](https://github.com/anthropics/claude-code/issues/96209).
+- Not filed: a `git-*` subcommand or a `.git` URL passed to a launcher. This is
+  the guard being cautious on purpose; `forgejo-push` avoids it.
