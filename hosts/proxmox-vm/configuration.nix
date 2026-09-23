@@ -6,6 +6,7 @@
 }: {
   imports = [
     ./hardware-configuration.nix
+    ./forgejo-push.nix
     ../../modules/nixos/services/podcast.nix
   ];
 

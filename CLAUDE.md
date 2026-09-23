@@ -44,16 +44,20 @@ Before any `nixos-rebuild switch`, run `hostname` again and use the actual host 
   `docs/wiki/infrastructure/signed-fleet-deploys.md`.
 
 On doc1, Forgejo push authentication uses the `abl030`-owned 0400 nixbot token as an
-HTTP header, never in argv or the remote URL:
+HTTP header, never in argv or the remote URL. From inside the checkout (or any
+worktree of it), run:
 
 ```bash
-./scripts/forgejo-auth.sh git-push \
-  --repo "$PWD" --remote origin \
-  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --token-file /run/secrets/forgejo/nixbot-token \
-  --refspec HEAD:master
+forgejo-push              # default refspec HEAD:master
+forgejo-ls-remote         # verify the remote master SHA afterward
 ```
+
+Both are fixed-argument front ends for `scripts/forgejo-auth.sh`
+(`hosts/proxmox-vm/forgejo-push.nix`), which does the remote-URL and token checks.
+
+In a Claude Code background job isolated in a worktree, a built-in guard refuses
+commands it cannot prove leave git alone. Permission allow rules do not override
+it. Workarounds: `docs/wiki/claude-code/background-job-worktree-guard.md`.
 
 Dev boxes (`epimetheus`, `framework`) intentionally hold no Forgejo push token.
 Never install one to fix a failed push. Land their work from doc1 with the

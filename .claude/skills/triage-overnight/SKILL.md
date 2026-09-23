@@ -287,13 +287,8 @@ git log -1 --format='%G?'                  # confirm G BEFORE pushing
 
 # Push to master through the shared boundary. The dedicated nixbot token is
 # opened only after the helper has verified the exact fetch/push remotes:
-./scripts/forgejo-auth.sh git-push \
-  --repo "$PWD" --remote origin \
-  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --token-file /run/secrets/forgejo/nixbot-token \
-  --refspec HEAD:master
-# Verify the remote branch SHA after the helper returns success.
+forgejo-push                               # wraps scripts/forgejo-auth.sh git-push
+forgejo-ls-remote                          # verify the remote master SHA
 ```
 
 If a cherry-pick changed the SHA the PR won't auto-close — close it via API with a

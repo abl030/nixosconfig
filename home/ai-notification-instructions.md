@@ -6,7 +6,9 @@ semantic boundary:
 - **Claude Code:** run `ai-gotify-notify complete Claude` exactly once after a
   meaningful work arc is fully complete and verified. Run
   `ai-gotify-notify input Claude` immediately before asking for a decision or
-  missing information that blocks further progress.
+  missing information that blocks further progress. Run it as a Bash call on
+  its own: next to a `git` command in the same call, the background-job
+  worktree guard refuses it.
 - **Codex:** do not run the publisher from the sandbox. At the very end of the
   final response, append exactly one invisible marker for the native external
   callback: `<!-- ai-gotify:complete -->` after a meaningful, verified work arc,

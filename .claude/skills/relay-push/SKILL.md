@@ -72,13 +72,8 @@ git diff --check origin/master refs/incoming/<host>
 Use the candidate ref above (normally `refs/incoming/<host>`):
 
 ```bash
-./scripts/forgejo-auth.sh git-push \
-  --repo "$PWD" --remote origin \
-  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
-  --token-file /run/secrets/forgejo/nixbot-token \
-  --refspec <candidate-ref>:master
-git ls-remote origin refs/heads/master
+forgejo-push <candidate-ref>:master
+forgejo-ls-remote
 git rev-parse <candidate-ref>
 ```
 
