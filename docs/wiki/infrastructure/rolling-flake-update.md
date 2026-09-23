@@ -1,7 +1,7 @@
 # Rolling flake update (doc1)
 
 Status: unblocked 2026-09-23 (5 of 6 groups landed; `rest` held by a hermes-agent
-plugin break). Speed-ups and robustness fixes still open (below).
+plugin break). Speed-ups landed; robustness items still open (below).
 
 `rolling-flake-update.service` runs nightly at 23:00 AWST on doc1. It updates
 flake inputs in groups (`mongodb80`, `core`, `yt-dlp`, `llm`, `nvchad`,
@@ -88,31 +88,45 @@ That is six times a night. A single slow derivation also serializes the
 fleet: in the yt-dlp group, `mealie` held `doc2` (and every later host) for
 about 7 min at a load of 2.
 
-## Speed-ups, ranked
+## Speed-ups (implemented 2026-09-23)
 
-1. **Try all groups at once, split only on failure.** Update every group's
-   inputs, then do one eval+build. On a green night that is one pass instead of
-   six; fall back to per-group isolation (or bisection) only when it fails.
-2. **Parallel eval and one build.** Replace `flake check` + the per-host loop
-   with `nix-eval-jobs --workers 3-4 --max-memory-size` over checks plus every
-   host toplevel, then a single `nix build` of all the drvs, so 30 cores build
-   across hosts at once. Evaluating once also removes the double evaluation.
-3. **Scope the yt-dlp overlay.** `nix/overlay.nix` swaps yt-dlp tip in
-   globally, so dependants such as mealie get new drvs that aren't in the public
-   cache and rebuild (with tests) whenever tip moves. Apply tip only to the
-   packages that need it. The same applies to the podman/netavark overlay and
-   the hermes Python set.
-4. **Eval cache.** `--impure` on a dirty tree disables it. Commit the group
-   to a temporary commit first and evaluate purely.
+1. **All groups at once, split only on failure** (`try_all_groups` in
+   `scripts/rolling_flake_update.sh`). Every group's inputs and the MongoDB
+   patch are updated together and verified in one pass, then committed as one
+   `rolling: <changed groups>` commit. If the update, build or commit fails,
+   the tree is restored and the old per-group transactions run as before, so a
+   bad input still only holds back its own group. `ONLY_GROUP` runs (and the
+   test fixtures) skip the combined pass.
+2. **Parallel evaluation, one build** (`scripts/populate_cache.sh`).
+   `nix-eval-jobs` (3 workers, 6 GiB each) evaluates checks, packages, dev
+   shells, every NixOS system and every Home Manager activation in parallel.
+   One `nix build --keep-going` then builds all of them with doc1's full
+   parallelism, and the `<host>-system` / `<host>-home` GC roots are refreshed
+   for push-deploy. This replaces `FULL_CHECK=1 nix flake check` plus the
+   host-by-host loop; host systems are built directly, which also sidesteps the
+   `nix/checks/default.nix` NixOS/HM check shadowing. Measured: 286 s for the
+   whole fleet (73 top-level derivations, 40 builders at peak) versus about
+   10-12 min per group before.
+3. **yt-dlp tip for the CLI only** (`nix/overlay.nix`). The top-level
+   `yt-dlp` still rides upstream tip; it is used by cratedigger's ingest worker
+   (via `${pkgs.yt-dlp}/bin` on PATH), `podcast.nix` and the shell scripts.
+   A `pythonPackagesExtensions` entry rebuilds `python3Packages.yt-dlp` from
+   the original nixpkgs package, so Python dependants (mealie, ...) are
+   identical to nixpkgs and substitute from cache. Verified: the library and
+   mealie drvs equal vanilla nixpkgs.
+4. **Pure evaluation.** Both the combined pass and the per-group fallback
+   evaluate with `--flake .#` and no `--impure`. The not-yet-committed lock
+   change is in tracked files, so pure flake evaluation still sees it.
+   nix-eval-jobs does not use the flake eval cache; the parallel workers are
+   the speed-up.
+
+Dropped from the old flake check: schema validation of non-derivation outputs
+(apps, overlays, modules). Everything that builds is still built.
 
 ## Still to do (durable)
 
 - Push after each group passes, and have the TERM handler push what already
   passed.
-- One full check per night instead of per group; build hosts in separate
-  processes. Fix the `nix/checks/default.nix` `//` shadowing, where the HM
-  checks overwrite the NixOS host checks, so the flake check builds no host
-  system.
 - Cache-aware nixpkgs bumps: reject revisions whose closure needs upstream
   source builds, or split `core`.
 - Check free disk space before the run; make `persist_group_failure` writes

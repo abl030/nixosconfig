@@ -53,7 +53,7 @@ def main():
             (root / "bin" / command).symlink_to(resolved)
         for name, body in {
             "update_mongodb80.sh": 'printf "update\\n" >> calls\n[ "$NO_CHANGE" -eq 1 ] || printf candidate > nix/pkgs/mongodb80.nix\nexit "$UPDATE_RC"\n',
-            "populate_cache.sh": 'printf "cache\\n" >> calls\nexit "$CACHE_RC"\n',
+            "populate_cache.sh": 'printf "cache\\n" >> calls\n[ "$CHECK_RC" -eq 0 ] || exit "$CHECK_RC"\nexit "$CACHE_RC"\n',
         }.items():
             path = root / "scripts" / name
             # NixOS has no /bin/bash. Every executable fixture uses the actual
@@ -71,11 +71,11 @@ triage() { printf fixture; }
 persist_group_failure() { printf 'persist %s\n' "$1" >> calls; }
 send_rca_notification() { printf 'notify\n' >> calls; }
 send_summary_notification() { printf 'fallback-notify\n' >> calls; }
+# The group's check + build is one populate_cache.sh pass (a CHECK_RC or
+# CACHE_RC fault in the fixture); a direct nix call is a regression.
 nix() {
   printf 'nix %s\n' "$*" >> calls
-  [ "$*" = 'flake check --impure --print-build-logs' ] || return 98
-  [ "$FULL_CHECK" = 1 ] || return 97
-  return "$CHECK_RC"
+  return 98
 }
 git() {
   printf 'git %s\n' "$*" >> calls
@@ -136,14 +136,14 @@ ANY_COMMIT=1
                 if not values["CHECKOUT_RC"]:
                     assert (root / "nix/pkgs/mongodb80.nix").read_text() == "baseline"
             if committed:
-                assert calls == ["update", "git diff --quiet -- nix/pkgs/mongodb80.nix",
-                                 "nix flake check --impure --print-build-logs", "cache",
+                assert calls == ["update", "git diff --quiet -- nix/pkgs/mongodb80.nix", "cache",
                                  "git add -- nix/pkgs/mongodb80.nix", "git commit -q -m rolling: mongodb80 (fixture)"], calls
                 assert (root / "nix/pkgs/mongodb80.nix").read_text() == "candidate"
             if values["NO_CHANGE"]:
                 assert calls == ["update", "git diff --quiet -- nix/pkgs/mongodb80.nix"]
-            if values["UPDATE_RC"] or values["CHECK_RC"]:
+            if values["UPDATE_RC"]:
                 assert "cache" not in calls
+            assert not any(call.startswith("nix ") for call in calls), (label, calls)
             if values["UPDATE_RC"] or values["CHECK_RC"] or values["CACHE_RC"] or values["ADD_RC"]:
                 assert not any(call.startswith("git commit") for call in calls)
             if poisoned:

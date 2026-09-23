@@ -1,102 +1,93 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Verify and build everything the fleet needs in ONE pass, then GC-root every
+# host closure so doc1 serves it to the fleet (push-deploy reads the
+# <host>-system roots).
+#
+# nix-eval-jobs evaluates the flake's checks, packages, dev shells, every NixOS
+# system and every Home Manager activation in parallel workers, purely from the
+# flake (no --impure, so FULL_CHECK/HOST_CHECKS are unset and checks are the
+# audit set; hosts are built directly instead). A single `nix build` then builds
+# every derivation with doc1's full parallelism, so one slow package no longer
+# serialises the fleet. This replaces `FULL_CHECK=1 nix flake check` plus a
+# host-by-host build loop, which evaluated the fleet twice on one core per
+# rolling-update group. See docs/wiki/infrastructure/rolling-flake-update.md.
+
 # --- Configuration ---------------------------------------------------------
 # Where to store the symlinks (GC Roots).
 # As long as files exist here, the Nix Store won't delete the builds.
-CI_RESULTS_DIR="/home/abl030/.cache/nix-ci-results"
+CI_RESULTS_DIR="${RFU_CI_RESULTS_DIR:-/home/abl030/.cache/nix-ci-results}"
+SYSTEM="${CI_SYSTEM:-x86_64-linux}"
+# A big host evaluates in ~7 GiB; workers x memory is nix-eval-jobs' combined
+# budget, kept under the updater unit's MemoryHigh.
+WORKERS="${CI_EVAL_WORKERS:-3}"
+WORKER_MEMORY_MB="${CI_EVAL_WORKER_MEMORY_MB:-6144}"
+EVAL_JOBS="${NIX_EVAL_JOBS:-nix-eval-jobs}"
 mkdir -p "$CI_RESULTS_DIR"
 
 # Tag for logs
 TAG="nix-ci"
-
-# --- Helpers ---------------------------------------------------------------
 
 # Log to stderr. Systemd picks this up automatically.
 # Usage: log "INFO" "Message here"
 log() {
     local level="$1"
     shift
-    local msg="$*"
-    # Print formatted message to stderr
-    echo "[$TAG] [$level] $msg" >&2
+    echo "[$TAG] [$level] $*" >&2
 }
 
-json_eval() {
-    nix eval --json --impure --expr "$1"
-}
+for tool in jq "$EVAL_JOBS"; do
+    if ! command -v "$tool" &>/dev/null; then
+        log "ERROR" "$tool is missing. Please enter the devshell (nix develop) or install it."
+        exit 1
+    fi
+done
 
-# --- Pre-flight Checks -----------------------------------------------------
-if ! command -v jq &>/dev/null; then
-    log "ERROR" "jq is missing. Please enter the devshell (nix develop) or install jq."
+JOBS_FILE="$(mktemp)"
+trap 'rm -f "$JOBS_FILE"' EXIT
+
+# Home Manager activations are built for every homeConfigurations entry, as the
+# old FULL_CHECK host checks did; <host>-home roots keep them cached.
+# shellcheck disable=SC2016  # Nix ${...} interpolation, not shell
+SELECT='outputs: let
+  s = "'"$SYSTEM"'";
+  pick = name: if builtins.hasAttr name outputs && builtins.hasAttr s outputs.${name} then outputs.${name}.${s} else {};
+in {
+  checks = pick "checks";
+  packages = pick "packages";
+  devShells = pick "devShells";
+  system = builtins.mapAttrs (_: c: c.config.system.build.toplevel) (outputs.nixosConfigurations or {});
+  home = builtins.mapAttrs (_: h: h.activationPackage) (outputs.homeConfigurations or {});
+}'
+
+log "INFO" "Evaluating checks, packages, dev shells and every host ($WORKERS workers)..."
+"$EVAL_JOBS" --flake '.#' --select "$SELECT" --force-recurse \
+    --workers "$WORKERS" --max-memory-size "$WORKER_MEMORY_MB" >"$JOBS_FILE"
+
+errors="$(jq -r 'select(.error) | "\(.attr): \(.error)"' "$JOBS_FILE")"
+if [ -n "$errors" ]; then
+    log "ERROR" "Evaluation failed:"
+    printf '%s\n' "$errors" >&2
     exit 1
 fi
 
-log "INFO" "Starting cache population run..."
-log "INFO" "GC Roots will be saved to: $CI_RESULTS_DIR"
-
-# --- Host Analysis ---------------------------------------------------------
-log "INFO" "Evaluating flake for hosts..."
-
-# Pull host lists directly from hosts.nix
-# Filter out special entries (prefixed with _) like _proxmox
-# Use builtins.substring instead of lib.hasPrefix to avoid NIX_PATH dependency
-NIXOS_HOSTS_JSON=$(json_eval '
-  let
-    hosts = import ./hosts.nix;
-    hostNames = builtins.filter (n: builtins.substring 0 1 n != "_") (builtins.attrNames hosts);
-  in builtins.filter (n: hosts.${n} ? configurationFile) hostNames
-')
-HM_ONLY_HOSTS_JSON=$(json_eval '
-  let
-    hosts = import ./hosts.nix;
-    hostNames = builtins.filter (n: builtins.substring 0 1 n != "_") (builtins.attrNames hosts);
-  in builtins.filter (n: !(hosts.${n} ? configurationFile)) hostNames
-')
-
-mapfile -t NIXOS_HOSTS < <(jq -r '.[]' <<<"$NIXOS_HOSTS_JSON")
-mapfile -t HM_ONLY_HOSTS < <(jq -r '.[]' <<<"$HM_ONLY_HOSTS_JSON")
-
-log "INFO" "Found ${#NIXOS_HOSTS[@]} NixOS hosts and ${#HM_ONLY_HOSTS[@]} Home-Manager hosts."
-
-# --- Build NixOS -----------------------------------------------------------
-if ((${#NIXOS_HOSTS[@]})); then
-    log "INFO" "Building NixOS toplevels..."
-
-    for host in "${NIXOS_HOSTS[@]}"; do
-        log "INFO" "Build starting: $host (System)"
-
-        if nix build --keep-going \
-            --out-link "${CI_RESULTS_DIR}/${host}-system" \
-            ".#nixosConfigurations.${host}.config.system.build.toplevel"; then
-
-            log "SUCCESS" "Built $host"
-        else
-            log "ERROR" "Failed to build $host"
-            # We don't exit immediately, we try to build the rest
-            exit 1
-        fi
-    done
+mapfile -t DRVS < <(jq -r 'select(.drvPath) | "\(.drvPath)^*"' "$JOBS_FILE")
+if [ "${#DRVS[@]}" -eq 0 ]; then
+    log "ERROR" "Evaluation produced no derivations."
+    exit 1
 fi
 
-# --- Build Home Manager ----------------------------------------------------
-if ((${#HM_ONLY_HOSTS[@]})); then
-    log "INFO" "Building Home-Manager activations..."
-
-    for host in "${HM_ONLY_HOSTS[@]}"; do
-        log "INFO" "Build starting: $host (Home)"
-
-        if nix build --keep-going \
-            --out-link "${CI_RESULTS_DIR}/${host}-home" \
-            ".#homeConfigurations.${host}.activationPackage"; then
-
-            log "SUCCESS" "Built $host"
-        else
-            log "ERROR" "Failed to build $host"
-            # We allow HM failures to pass if you want, but strictly:
-            exit 1
-        fi
-    done
+log "INFO" "Building ${#DRVS[@]} top-level derivations in one invocation..."
+if ! nix build --no-link --keep-going --print-build-logs "${DRVS[@]}"; then
+    log "ERROR" "Build failed (see above)."
+    exit 1
 fi
+
+log "INFO" "Refreshing GC roots in $CI_RESULTS_DIR..."
+while read -r kind host drv; do
+    nix build --out-link "${CI_RESULTS_DIR}/${host}-${kind}" "${drv}^out"
+done < <(jq -r 'select(.drvPath and (.attrPath[0] == "system" or .attrPath[0] == "home"))
+    | "\(.attrPath[0]) \(.attrPath[1]) \(.drvPath)"' "$JOBS_FILE")
 
 log "INFO" "Run complete. All artifacts cached."

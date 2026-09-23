@@ -122,6 +122,9 @@
         ${pkgs.python3}/bin/python3 ${./test_mongodb80_update.py}
       ROLLING_UPDATE_SOURCE=${../../scripts/rolling_flake_update.sh} \
         ${pkgs.python3}/bin/python3 ${./test_rolling_mongodb80_transaction.py}
+      # Same source-replay harness for the all-groups-at-once pass.
+      ROLLING_UPDATE_SOURCE=${../../scripts/rolling_flake_update.sh} \
+        ${pkgs.python3}/bin/python3 ${./test_rolling_combined_pass.py}
       touch "$out"
     '';
 

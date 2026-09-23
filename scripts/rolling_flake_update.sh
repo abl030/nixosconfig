@@ -3,10 +3,12 @@ set -Eeuo pipefail
 
 # Rolling flake update — grouped, fail-isolated.
 #
-# Instead of one all-or-nothing `nix flake update` + build, we update inputs in
-# independent GROUPS, each its own transaction: update -> flake check -> build ->
-# commit-or-revert. A red group is reverted and skipped; green groups still land.
-# One bundled Gotify notification is sent at the end summarising the night.
+# First every group is updated together and verified in one pass (parallel eval
+# + one build of checks and every host, scripts/populate_cache.sh). On a green
+# night that single commit lands. If it fails, the tree is restored and inputs
+# are retried in independent GROUPS, each its own transaction: update -> check +
+# build -> commit-or-revert. A red group is reverted and skipped; green groups
+# still land. One bundled notification is sent at the end summarising the night.
 #
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
@@ -521,9 +523,9 @@ finish_updated_group() {
         return 0
     fi
 
-    log "🚧 [$name] flake check + build (all hosts)..."
-    if FULL_CHECK=1 nix flake check --impure --print-build-logs >>"$glog" 2>&1 \
-        && ./scripts/populate_cache.sh >>"$glog" 2>&1; then
+    log "🚧 [$name] check + build (all hosts)..."
+    # One parallel eval + build of checks and every host; see populate_cache.sh.
+    if ./scripts/populate_cache.sh >>"$glog" 2>&1; then
         local commit_failed=0
         # shellcheck disable=SC2086  # changed_paths is a deliberate path list
         if ! git add -- $changed_paths; then
@@ -559,6 +561,109 @@ finish_updated_group() {
         fi
         return 1
     fi
+}
+
+# True if any named top-level input's locked node differs between two locks.
+lock_inputs_changed() {
+    local base="$1"; shift
+    local inp query
+    # shellcheck disable=SC2016  # jq program, not shell
+    query='(.nodes[.root].inputs[$i]) as $k | if ($k | type) == "string" then .nodes[$k].locked else $k end'
+    for inp in "$@"; do
+        if [ "$(jq -c --arg i "$inp" "$query" "$base")" != "$(jq -c --arg i "$inp" "$query" flake.lock)" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Optimistic pass: update every group together and verify once. On a green
+# night that is one evaluation + build instead of one per group. Any failure
+# restores the tree and returns 1 so the caller falls back to the isolated
+# per-group transactions, which still decide what lands.
+# See docs/wiki/infrastructure/rolling-flake-update.md.
+try_all_groups() {
+    local glog="$WORK_DIR/all.build.log"
+    local paths="flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix"
+    local base_lock="$WORK_DIR/all.base.flake.lock"
+    local inputs="$GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD $GROUP_REST"
+    local group group_inputs changed=()
+
+    [ "$FATAL_TRANSACTION" -eq 0 ] || return 1
+    cp flake.lock "$base_lock"
+
+    log "🔄 [all] updating every group together..."
+    ACTIVE_GROUP="all"
+    ACTIVE_GROUP_LOG="$glog"
+    # shellcheck disable=SC2086  # $inputs is a space-separated list of input names
+    if ! ./scripts/update_mongodb80.sh >"$glog" 2>&1 || ! nix flake update $inputs >>"$glog" 2>&1; then
+        log "↩️  [all] combined update failed; falling back to one group at a time."
+        restore_group_state all "$glog" || true
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return 1
+    fi
+
+    # shellcheck disable=SC2086  # deliberate path list
+    if git diff --quiet -- $paths; then
+        log "➖ [all] no changes."
+        for group in mongodb80 core yt-dlp llm nvchad rest; do
+            SUMMARY_LINES+=("➖ $group — no changes")
+        done
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return 0
+    fi
+
+    log "🚧 [all] check + build (all hosts, one pass)..."
+    if ! ./scripts/populate_cache.sh >>"$glog" 2>&1; then
+        log "↩️  [all] combined build failed; retrying one group at a time."
+        restore_group_state all "$glog" || true
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return 1
+    fi
+
+    local summary=()
+    for group in mongodb80 core yt-dlp llm nvchad rest; do
+        case "$group" in
+            mongodb80) group_inputs="" ;;
+            core) group_inputs="$GROUP_CORE" ;;
+            yt-dlp) group_inputs="$GROUP_YTDLP" ;;
+            llm) group_inputs="$GROUP_LLM" ;;
+            nvchad) group_inputs="$GROUP_NVCHAD" ;;
+            rest) group_inputs="$GROUP_REST" ;;
+        esac
+        # shellcheck disable=SC2086  # $group_inputs is a space-separated input list
+        if { [ "$group" = mongodb80 ] && ! git diff --quiet -- nix/pkgs/mongodb80.nix; } \
+            || { [ -n "${group_inputs// /}" ] && lock_inputs_changed "$base_lock" $group_inputs; }; then
+            changed+=("$group")
+            if [ "$group" = mongodb80 ]; then
+                summary+=("✅ mongodb80 — mongodb80")
+            else
+                summary+=("✅ $group — $(printf '%s' "$group_inputs" | tr -s ' ' | sed 's/^ //; s/ $//; s/ /, /g')")
+            fi
+        else
+            summary+=("➖ $group — no changes")
+        fi
+    done
+
+    # shellcheck disable=SC2086  # deliberate path list
+    if ! git add -- $paths >>"$glog" 2>&1 \
+        || ! git commit -q -m "rolling: ${changed[*]:-lock refresh} ($DATE)" >>"$glog" 2>&1; then
+        log "↩️  [all] commit failed; retrying one group at a time."
+        restore_group_state all "$glog" || true
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return 1
+    fi
+
+    SUMMARY_LINES+=("${summary[@]}")
+    ANY_COMMIT=1
+    log "✅ [all] passed: ${changed[*]:-lock refresh}."
+    ACTIVE_GROUP=""
+    ACTIVE_GROUP_LOG=""
+    return 0
 }
 
 # Run one ordinary group as an isolated transaction. Never aborts the script
@@ -796,20 +901,27 @@ log "   llm : $GROUP_LLM"
 log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
 
-# --- Run each group as its own transaction ---------------------------------
-# MongoDB is first so its package candidate is independently verified before
-# the core lock moves; a core failure cannot discard a good binary patch.
-try_group mongodb80 $GROUP_MONGODB80 || true
-# shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
-try_group core $GROUP_CORE || true
-# shellcheck disable=SC2086
-try_group yt-dlp $GROUP_YTDLP || true
-# shellcheck disable=SC2086
-try_group llm $GROUP_LLM || true
-# shellcheck disable=SC2086
-try_group nvchad $GROUP_NVCHAD || true
-# shellcheck disable=SC2086
-try_group rest $GROUP_REST || true
+# --- All groups at once; per-group transactions only if that fails ---------
+COMBINED_LANDED=0
+if [ -z "$ONLY_GROUP" ] && try_all_groups; then
+    COMBINED_LANDED=1
+fi
+
+if [ "$COMBINED_LANDED" -eq 0 ]; then
+    # MongoDB is first so its package candidate is independently verified before
+    # the core lock moves; a core failure cannot discard a good binary patch.
+    try_group mongodb80 $GROUP_MONGODB80 || true
+    # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
+    try_group core $GROUP_CORE || true
+    # shellcheck disable=SC2086
+    try_group yt-dlp $GROUP_YTDLP || true
+    # shellcheck disable=SC2086
+    try_group llm $GROUP_LLM || true
+    # shellcheck disable=SC2086
+    try_group nvchad $GROUP_NVCHAD || true
+    # shellcheck disable=SC2086
+    try_group rest $GROUP_REST || true
+fi
 
 # --- Finalise: hash baselines, single push, single notification ------------
 if [ "$FATAL_TRANSACTION" -eq 1 ]; then

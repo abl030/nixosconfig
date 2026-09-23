@@ -6,6 +6,7 @@
 # Notes:
 # - nvchad is sourced from the nvchad4nix flake for the current system.
 # - yt-dlp tracks upstream git tip; its package version includes that tip's rev.
+#   Only the top-level CLI rides tip; python3Packages.yt-dlp stays on nixpkgs.
 # - If an overlay needs the system string, prefer prev.stdenv.hostPlatform.system
 #   (that keeps it correct under cross and matches flake-parts guidance).
 {inputs}: [
@@ -50,6 +51,20 @@
         in
           prev.lib.replaceStrings [oldLine] [newLine] oldPostPatch;
       });
+
+      # Tip is for the CLI only (cratedigger's worker, podcast, shell scripts).
+      # nixpkgs derives python3Packages.yt-dlp from the top-level package, so
+      # without this every Python dependant (mealie, …) got a fresh drv that
+      # is never in the public cache and rebuilt, tests included, each time
+      # tip moved. Pin the library back to the cached nixpkgs build.
+      # See docs/wiki/infrastructure/rolling-flake-update.md.
+      pythonPackagesExtensions =
+        (prev.pythonPackagesExtensions or [])
+        ++ [
+          (pyFinal: pyPrev: {
+            yt-dlp = pyPrev.toPythonModule (prev.yt-dlp.override {python3Packages = pyFinal;});
+          })
+        ];
     }
   )
 
