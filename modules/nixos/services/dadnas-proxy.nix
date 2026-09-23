@@ -56,6 +56,8 @@ in {
     systemd.sockets.dadnas-relay = {
       description = "Dad NAS relay for Caddy and local doc1 access";
       wantedBy = ["sockets.target"];
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
       listenStreams = ["127.0.0.1:${toString port}" "${listenIp}:${toString port}"];
       socketConfig = {
         Accept = true;
