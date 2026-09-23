@@ -93,11 +93,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1789588982,
-        "narHash": "sha256-OVHXF1mzyOWEfJuQYkAlT/J1Quyupi0D8jYyqnb3ViM=",
+        "lastModified": 1790157414,
+        "narHash": "sha256-rRHezhrMILKCQtnzA60zPK07AxdZLBQSBV6Y9/VtVeA=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "309c07a8b4f7e9663e11d980cd4275d95f11c0e9",
+        "rev": "1a2a3b082fe2075504ee544115c02a55364dc643",
         "type": "github"
       },
       "original": {
@@ -114,11 +114,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790108060,
-        "narHash": "sha256-E0Jcy9cFahc6OVjLD+cHBryUCpwehF6i79Ej/xpSDoA=",
+        "lastModified": 1790133537,
+        "narHash": "sha256-mEFACxZFULdtR/jRByFjCiB08rK+7A5o4wmvrdyZROw=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "e6d8256f5d5005a8de04ada728c6bbe33a13a207",
+        "rev": "515f02b2fa319fc42075f456345a6c4e4508ebb2",
         "type": "github"
       },
       "original": {
@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790132102,
-        "narHash": "sha256-XpAHgmuMqVub0PEVG9zk9MwXERu/TBcjFYRA8vZu2gM=",
+        "lastModified": 1790174975,
+        "narHash": "sha256-/6N9yHAkzjsH61iXYQdA4yl2H3sU/MEF2GCKU651YL8=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "9fe737aef2dd18a351dff3c4de608d63879a6524",
+        "rev": "6b6c7f4a99f1407eca3b6c06d691a972a8d80323",
         "type": "github"
       },
       "original": {
@@ -425,11 +425,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1790120829,
-        "narHash": "sha256-aPNg2CKSPat+SjD20AXYyRAXsPH7fe5+N0ZYOhpjym0=",
+        "lastModified": 1790168646,
+        "narHash": "sha256-r9fCWLwAC+ecK6LTnThNjNfNzfh8um3veG49v2/T4XM=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "b2fd8eb40192c4fefd16c26b979954f7d354d1aa",
+        "rev": "f5dd93cd4305a43ae4e9977549cd0e0c08d2ef82",
         "type": "github"
       },
       "original": {
@@ -446,11 +446,11 @@
         "papermod": "papermod"
       },
       "locked": {
-        "lastModified": 1790118474,
-        "narHash": "sha256-97opOZhCW6A5qWeslC8lkRLS7R0VSOfhFq19PYl+8BI=",
+        "lastModified": 1790158546,
+        "narHash": "sha256-fPu9CLQin5owslkmDufPp/B0qum02o4AmJkqlFpXCM0=",
         "ref": "refs/heads/master",
-        "rev": "58879a0d439a2dd12db3e508e92014c5f51dd6da",
-        "revCount": 25,
+        "rev": "f2af7379c3b21978c5b191d700c5d9e5d93c2156",
+        "revCount": 26,
         "type": "git",
         "url": "https://git.ablz.au/abl030/mrnews"
       },
@@ -561,11 +561,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790055231,
-        "narHash": "sha256-QpXotokGh5eeMG1Njiuh27oP0rK6t5+cMp7ymXSs7mc=",
+        "lastModified": 1790149054,
+        "narHash": "sha256-FfjXg6mAzKQBCY+7V9keGWOXG4DV2Eym/qA987lFl8A=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b6c98e9e6633ee64753b594ff4a5febf0367fc00",
+        "rev": "8825bebf6324e0579d012936eff73379af284b6d",
         "type": "github"
       },
       "original": {
