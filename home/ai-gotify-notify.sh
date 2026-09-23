@@ -28,7 +28,10 @@ project="$(basename -- "$cwd")"
 kind=""
 
 case "$mode" in
-  complete)
+  # `finished` is the documented agent spelling: Claude Code's background-job
+  # worktree guard reads a `complete` argument as the bash builtin and refuses
+  # the call (#227, docs/wiki/claude-code/background-job-worktree-guard.md).
+  complete|finished)
     kind="complete"
     title="🤖 $agent finished — $project"
     printf -v message '%s completed a meaningful work arc and is ready for review.\nProject: %s' "$agent" "$project"
