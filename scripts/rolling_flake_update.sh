@@ -894,6 +894,10 @@ if [ "$ANY_FAIL" -eq 1 ]; then
     log "🟡 Completed with $(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true) failed group(s)."
 else
     log "🎉 All groups succeeded or were no-ops."
+    # rolling-flake-update-alert (OnFailure=) counts consecutive failed runs.
+    if [ -n "$STATE_DIR" ] && [ -d "$STATE_DIR" ]; then
+        echo 0 >"$STATE_DIR/failure-streak" || true
+    fi
 fi
 
 # Exit non-zero iff a group failed, so systemd/Loki still flag the night.

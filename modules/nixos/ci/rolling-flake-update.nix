@@ -62,6 +62,18 @@
     text = builtins.readFile ../../../scripts/rolling_flake_update.sh;
   };
 
+  alertScript = pkgs.writeShellApplication {
+    name = "rolling-flake-update-alert";
+    runtimeInputs = [pkgs.coreutils pkgs.curl pkgs.jq pkgs.gnused pkgs.gnugrep config.systemd.package];
+    text = builtins.readFile ../../../scripts/rolling_flake_update_alert.sh;
+  };
+  alertEnv = {
+    RFU_STATE_DIR = cfg.stateDir;
+    RFU_HEARTBEAT_URL = "${lib.removeSuffix ".git" cfg.remoteUrl}/raw/branch/master/${cfg.heartbeatFile}";
+    GOTIFY_URL = toString gotifyUrl;
+    GOTIFY_TOKEN_FILE = toString gotifyTokenFile;
+  };
+
   # Thin wrapper: execute the updater script from the evaluated closure, not from
   # the mutable checkout. The checkout remains the source for clone context only.
   # Signing and freshness-heartbeat runbook:
@@ -245,22 +257,32 @@ in {
           Type = "oneshot";
           User = "abl030";
           WorkingDirectory = cfg.repoDir;
-          TimeoutStartSec = "4h";
+          TimeoutStartSec = "6h";
+          # Bounds the updater's own processes (fleet-wide eval peaked at 15G
+          # plus 12G swap on the ballooned ~24-46G VM). Builds run under
+          # nix-daemon's cgroup, so this caps evaluation, not build parallelism.
+          MemoryHigh = "20G";
 
           ExecStart = wrapperScript;
         };
+
+        # A switch mid-run (doc1's 03:10 nixos-upgrade) must not restart and
+        # kill a long update; the next timer run picks up the new unit.
+        restartIfChanged = false;
+        # Direct priority-8/10 page for every failed run, including timeouts
+        # and kills the script's own traps cannot report.
+        unitConfig.OnFailure = ["rolling-flake-update-alert.service"];
 
         # Use the `environment` attrset (NOT serviceConfig.Environment) so values
         # containing spaces — the space-separated group lists — are quoted correctly.
         # systemd's Environment= splits on whitespace and would mangle them.
         environment =
           {
-            # doc1 exposes 30 build CPUs but has 24 GiB RAM. Both Nix job-level
-            # and builder-internal parallelism must be serialized: MongoDB's
-            # SCons build can otherwise run two 8-14 GiB linker jobs at once and
-            # exhaust RAM plus swap even with max-jobs = 1. NIX_CONFIG applies to
-            # every Nix invocation in the updater and cache-population helper.
-            NIX_CONFIG = "max-jobs = 1\ncores = 1";
+            # No NIX_CONFIG override: builds use doc1's defaults (max-jobs = 30,
+            # cores = 0). The former max-jobs = 1 / cores = 1 serialization was
+            # for MongoDB's SCons source build (gone since mongodb80 went to
+            # vendor binaries, 2026-09-06) and left 30 CPUs ~2% busy until the
+            # 4h timeout killed every run from 2026-09-12 to 09-22.
             REPO_DIR = cfg.repoDir;
             BASE_BRANCH = "master";
             RFU_REMOTE_URL = cfg.remoteUrl;
@@ -309,6 +331,37 @@ in {
           OnCalendar = cfg.onCalendar;
           Persistent = true;
           AccuracySec = "5m";
+        };
+      };
+
+      # Direct Gotify paging, independent of the Hermes RCA path.
+      # See docs/wiki/infrastructure/rolling-flake-update.md.
+      services.rolling-flake-update-alert = {
+        description = "Page on a failed rolling flake update";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "abl030";
+          ExecStart = "${alertScript}/bin/rolling-flake-update-alert failure";
+        };
+        environment = alertEnv;
+      };
+
+      services.rolling-flake-update-stale = {
+        description = "Page when no rolling flake update has completed recently";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "abl030";
+          ExecStart = "${alertScript}/bin/rolling-flake-update-alert stale";
+        };
+        environment = alertEnv;
+      };
+
+      timers.rolling-flake-update-stale = {
+        description = "Daily rolling flake update staleness check";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "09:00";
+          Persistent = true;
         };
       };
 
