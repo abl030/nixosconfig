@@ -285,29 +285,24 @@
       touch $out
     '';
 
-  # WSL's mapped Z: drive can remain remembered but disconnected after
-  # a Windows/WSL restart. The nightly sync must repair that Windows-side
-  # mapping before treating its source as unavailable.
-  wslOpsSyncSourceReconnectCheck = let
+  # ops-sync mounts its SMB source itself (read-only CIFS, credential from a
+  # root-only host-scoped secret) instead of the Windows Z: mapping, which
+  # dropped after every Windows reboot. Guard against regressing to drvfs.
+  wslOpsSyncSourceCheck = let
     wsl = self.nixosConfigurations.wsl.config;
-    reconnect = wsl.systemd.services.ops-sync-source-reconnect.serviceConfig.ExecStart;
+    secret = wsl.sops.secrets."ops-sync/cifs-credentials";
   in
-    pkgs.runCommand "wsl-ops-sync-source-reconnect" {} ''
-      reconnect=${lib.escapeShellArg reconnect}
-      test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourceWindowsShare} = '\\192.168.100.201\Data'
-      test ${lib.escapeShellArg wsl.systemd.services.ops-sync-source-reconnect.serviceConfig.User} = nixos
-      test '${lib.boolToString (lib.elem "mnt-z.automount" wsl.systemd.services.ops-sync.wants)}' = true
-      ${pkgs.gnugrep}/bin/grep -F 'share_b64="$(printf' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F 'WSLENV=OPS_SYNC_SHARE_B64' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F '[Convert]::FromBase64String($env:OPS_SYNC_SHARE_B64)' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F '$mapping = Get-SmbMapping -LocalPath "Z:"' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F '$mapping.RemotePath -eq $ExpectedShare' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F 'net.exe" use Z: /delete /y' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F 'Start-Process -FilePath "$env:SystemRoot\System32\net.exe"' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F '@("use", "Z:", $ExpectedShare, "/persistent:yes")' "$reconnect" >/dev/null
-      ${pkgs.gnugrep}/bin/grep -F 'Test-Path -LiteralPath "Z:\Operations & Production"' "$reconnect" >/dev/null
+    pkgs.runCommand "wsl-ops-sync-source" {} ''
       ops_sync=${lib.escapeShellArg wsl.systemd.services.ops-sync.serviceConfig.ExecStart}
-      ${pkgs.gnugrep}/bin/grep -F 'systemctl reset-failed mnt-z.mount' "$ops_sync" >/dev/null
+      test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourceShare} = '//192.168.100.201/Data/Operations & Production'
+      test '${lib.boolToString (lib.any (u: lib.hasPrefix "mnt-z" u) (wsl.systemd.services.ops-sync.after ++ wsl.systemd.services.ops-sync.wants))}' = false
+      test ${lib.escapeShellArg secret.owner} = root
+      test ${lib.escapeShellArg secret.mode} = 0400
+      ${pkgs.gnugrep}/bin/grep -F 'mount -t cifs -o ro,nosuid,nodev,noexec,credentials=${secret.path},' "$ops_sync" >/dev/null
+      if ${pkgs.gnugrep}/bin/grep -F '/mnt/z' "$ops_sync" >/dev/null; then
+        echo "ops-sync still reads the Windows Z: drvfs mount" >&2
+        exit 1
+      fi
       touch $out
     '';
 
@@ -790,7 +785,7 @@ in {
     bddayIntegrationCheck
     mrnewsIntegrationCheck
     cullenBdProxyCheck
-    wslOpsSyncSourceReconnectCheck
+    wslOpsSyncSourceCheck
     audiobookshelfCacheCleanupCheck
     doc2CrashCaptureCheck
     podman6CutoverCheck

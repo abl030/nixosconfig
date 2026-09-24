@@ -5,6 +5,7 @@
 - **Issue:** forgejo#4 (Harden + clarify the Cullen-site NFS + Syncthing mounts
   under `tag:cullen` isolation), part of #239 (tailscale least-privilege ACL)
 - **Code:** `hosts/wsl/data-mounts.nix`, `modules/nixos/services/mounts/ops-sync.nix`,
+  `secrets/hosts/wsl/ops-sync-cifs.cred`,
   `hosts.nix` (wsl entry), `tailscale/acl.hujson`
 
 ## Threat model
@@ -64,6 +65,38 @@ igpu/servarr `:443`, tower NFS `:2049`, doc1 SSH, Hermes webhook), with the
 `tests{}` block asserting the isolation denies. Empirically, wsl fleet-updated
 successfully over this ACL. No change needed there.
 
+## ops-sync source: direct CIFS mount (2026-09-24)
+
+- **Status:** ✅ built; replaces the Windows Z: / drvfs source.
+- **Problem:** ops-sync read `/mnt/z/Operations & Production` via drvfs from the
+  Windows `Z:` mapping (`\\192.168.100.201\Data`). That mapping kept only a
+  username; Windows Credential Manager held no password for the server. After
+  every Windows reboot the mapping was disconnected. The `ops-sync-source-reconnect`
+  preflight's `net use` then prompted for a username (error 1223 in a
+  non-interactive process), and deleted the remembered mapping as it went. The
+  sync gave up after 5 retries (e.g. 2026-09-19, 20, 23). Repeated failed drvfs
+  probes also tripped `mnt-z.automount`'s start limit. That left the automount
+  itself failed, and resetting only `mnt-z.mount` couldn't recover it.
+- **Fix:** WSL mounts the share itself. For the length of the sync only, ops-sync
+  mounts `//192.168.100.201/Data/Operations & Production` read-only (`ro,nosuid,
+  nodev,noexec`) at `/mnt/ops-source`, and the `EXIT` trap tears it down with the
+  NFS destination. The subfolder is part of the UNC path, so nothing else on the
+  share is mounted. The Windows reconnect service and the `mnt-z` dependency are
+  gone. `wslOpsSyncSourceCheck` guards against regressing to `/mnt/z`.
+- **Credential:** `secrets/hosts/wsl/ops-sync-cifs.cred`, a sops binary holding a
+  `mount.cifs` credentials file (`username=`/`password=`). It decrypts to
+  `/run/secrets/ops-sync/cifs-credentials` (root, 0400) and is readable only by wsl
+  plus the editor and break-glass keys. **It is the file server's `administrator`
+  account** (owner's choice, so other folders can be added later). The mount is
+  read-only and subfolder-scoped, but the credential itself is not: a root
+  compromise of wsl yields admin on the Cullen file server. A dedicated read-only
+  SMB account would bound that; revisit if wsl's exposure changes.
+- **Reachability:** wsl reaches `192.168.100.201:445` directly through WSL NAT, and
+  the WSL kernel ships `cifs.ko`, which loads on demand like the NFS modules.
+- **Rotation:** re-encrypt from inside `secrets/` with
+  `sops -e --input-type binary --output-type binary --filename-override hosts/wsl/ops-sync-cifs.cred <plain> > hosts/wsl/ops-sync-cifs.cred`,
+  then shred the plaintext.
+
 ## ⚠️ Gotcha: automount → noauto on a *live* mount fails the switch
 
 Migrating a **currently-mounted** `x-systemd.automount` NFS mount to `noauto` +
@@ -91,7 +124,7 @@ already down, so a future option change won't re-trigger it.
 - `data-mount` → `nfs4 … soft,timeo=30,retrans=2`, share lists; `data-umount` →
   clean empty dir. NOPASSWD sudo rule works.
 - `data-mount-daily-umount.timer` → 17:00; `data-mount-reaper.timer` → 5-min.
-- ops-sync `After=` = `network-online + mnt-z` (no `mnt-data`); deployed script
+- ops-sync `After=` = `network-online` (was `+ mnt-z` until 2026-09-24; no `mnt-data`); deployed script
   JIT-mounts `/mnt/ops-backup`.
 - `syncthing.service` = `not-found` on wsl; device dropped from doc1's config;
   ACL pushed to control (`gitops-pusher`: control checksum advanced, cullen out of

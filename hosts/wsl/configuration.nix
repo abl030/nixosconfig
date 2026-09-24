@@ -82,13 +82,10 @@
           mountPoint = "/mnt/z";
         };
       };
-      opsSync = {
-        enable = true;
-        # Z: is a Windows user-session mapping and can remain remembered but
-        # disconnected after a Windows/WSL restart. The reconnect preflight
-        # restores this declared mapping with the existing Windows credential.
-        sourceWindowsShare = "\\\\192.168.100.201\\Data";
-      };
+      # Mounts the Cullen SMB share itself (read-only CIFS, sync-lifetime);
+      # no longer reads the Windows Z: mapping. Credential:
+      # secrets/hosts/wsl/ops-sync-cifs.cred.
+      opsSync.enable = true;
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
