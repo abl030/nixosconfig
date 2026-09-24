@@ -22,6 +22,9 @@ write root (mirrored to GitHub). See
 - HTTP: `127.0.0.1:3023`, proxied by nginx as `https://git.ablz.au`
 - SSH Git: built-in Forgejo SSH server on `git.ablz.au:2222`
 - Dumps: `/mnt/data/Life/Andy/Code/forgejo-dumps`
+- LFS: enabled 2026-09-24 for binary-evidence repos (first user: `abl030/cullen-carbon`).
+  Objects: `/mnt/virtio/forgejo/data/lfs`; included in the daily dump, so dump size
+  grows with LFS content. Dumps are not pruned (145 zips / 14 GB at enable time).
 
 Instance settings (as of the Phase D U8 setup):
 
@@ -65,7 +68,7 @@ sudo -u forgejo sh -c "cd /mnt/virtio/forgejo && HOME=/mnt/virtio/forgejo $bin -
 Observed on 2026-06-10 after the unattended v11 to v15 upgrade: doctor exits
 0 and the consistency checks pass. The first `Garbage collect LFS` line prints
 `ERROR` even though LFS is disabled; later LFS checks explicitly skip and the
-command still exits 0.
+command still exits 0. (LFS was enabled on 2026-09-24; re-check this line after the next doctor run.)
 
 ## Post-v15 Verification
 
