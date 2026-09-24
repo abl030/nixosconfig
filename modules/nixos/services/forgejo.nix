@@ -24,6 +24,49 @@
         --type zip
     '';
   };
+  # Dumps are ~200 MB and grow with LFS content; unpruned they reached 145 zips
+  # / 14 GB by 2026-09-24. Runs as ExecStartPost, i.e. only after a new dump
+  # succeeded. Keeps the newest `keepDaily` plus the earliest dump of each of
+  # the newest `keepMonthly` calendar months (Australia/Perth).
+  dumpPrune = pkgs.writeShellApplication {
+    name = "forgejo-dump-prune";
+    runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.gnused];
+    text = ''
+      set -euo pipefail
+      dir=${lib.escapeShellArg dumpDir}
+      keepDaily=14
+      keepMonthly=12
+
+      # Epochs of files forgejo dump itself names, newest first.
+      mapfile -t epochs < <(
+        find "$dir" -maxdepth 1 -type f -name 'forgejo-dump-*.zip' -printf '%f\n' \
+          | sed -nE 's/^forgejo-dump-([0-9]+)\.zip$/\1/p' \
+          | sort -nr
+      )
+      [ "''${#epochs[@]}" -gt "$keepDaily" ] || exit 0
+
+      declare -A keep=() monthFirst=()
+      months=()
+      for i in "''${!epochs[@]}"; do
+        epoch="''${epochs[$i]}"
+        [ "$i" -lt "$keepDaily" ] && keep["$epoch"]=1
+        month="$(TZ=Australia/Perth date -d "@$epoch" +%Y-%m)"
+        # Newest-first order: the last epoch seen per month is its earliest.
+        [ -n "''${monthFirst[$month]:-}" ] || months+=("$month")
+        monthFirst["$month"]="$epoch"
+      done
+      for month in "''${months[@]:0:$keepMonthly}"; do
+        keep["''${monthFirst[$month]}"]=1
+      done
+
+      for epoch in "''${epochs[@]}"; do
+        if [ -z "''${keep[$epoch]:-}" ]; then
+          echo "pruning forgejo-dump-$epoch.zip"
+          rm -f -- "$dir/forgejo-dump-$epoch.zip"
+        fi
+      done
+    '';
+  };
 in {
   options.homelab.services.forgejo = {
     enable = lib.mkEnableOption "Forgejo self-hosted git forge";
@@ -202,6 +245,7 @@ in {
           environment.FORGEJO__REPOSITORY_0x2E_SIGNING__SIGNING_KEY = dumpSigningCredential;
           serviceConfig = {
             ExecStart = lib.mkForce "${dumpCommand}/bin/forgejo-dump-with-private-config";
+            ExecStartPost = "${dumpPrune}/bin/forgejo-dump-prune";
             LoadCredential = [
               "repository-signing-key.pub:${mergeSigningPublicKey}"
             ];

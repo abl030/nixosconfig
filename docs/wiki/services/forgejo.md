@@ -24,7 +24,7 @@ write root (mirrored to GitHub). See
 - Dumps: `/mnt/data/Life/Andy/Code/forgejo-dumps`
 - LFS: enabled 2026-09-24 for binary-evidence repos (first user: `abl030/cullen-carbon`).
   Objects: `/mnt/virtio/forgejo/data/lfs`; included in the daily dump, so dump size
-  grows with LFS content. Dumps are not pruned (145 zips / 14 GB at enable time).
+  grows with LFS content; see the retention note under "Dumps And Restore".
 
 Instance settings (as of the Phase D U8 setup):
 
@@ -285,6 +285,13 @@ Daily dumps land in:
 ```sh
 /mnt/data/Life/Andy/Code/forgejo-dumps
 ```
+
+Retention (added 2026-09-24, when LFS made dumps grow): `forgejo-dump-prune`
+runs as the dump unit's `ExecStartPost`, so only after a successful new dump.
+It keeps the newest 14 dumps plus the earliest dump of each of the newest 12
+calendar months (Australia/Perth), and touches only `forgejo-dump-<epoch>.zip`
+files. Before it existed the directory held 145 unpruned zips / 14 GB. Change
+the limits via `keepDaily`/`keepMonthly` in `modules/nixos/services/forgejo.nix`.
 
 The dump process receives the repository-signing public key through its own
 `forgejo-dump.service` credential directory. systemd credential directories are
