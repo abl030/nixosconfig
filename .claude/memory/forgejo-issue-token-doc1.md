@@ -38,3 +38,12 @@ stopped.
 UPDATE 2026-07-23: token file renamed → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml`,
 also materialized at `/run/secrets/forgejo/hermes-token` (owner `abl030`, mode
 `0400`) — verified working. Replaced by the persistent admin token on 2026-07-29.
+
+UPDATE 2026-09-24: rotated after ~26 of 40 hex characters of the token were
+exposed (base64) in an LLM transcript. New token `doc1-agent-admin-2026-09-24`
+(scope `all`, last-eight `31973e38`) minted with `forgejo admin user
+generate-access-token --raw` on doc2, piped straight into the SOPS file via a
+0600 tmpfs file and `sops set --value-file`. The old token
+`hermes-agent-admin-doc1-20260729` (access_token id 15, last-eight `7472b501`)
+was deleted afterwards. The token API needs basic auth, so list/delete tokens
+with sqlite3 on doc2 (`nix build nixpkgs#sqlite.bin`; stop Forgejo before writing).
