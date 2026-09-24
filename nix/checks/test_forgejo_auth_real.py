@@ -4,6 +4,7 @@
 Adapted from the independent issue #28 review's http_probes.py. No production
 DNS/transport is used: the proxy terminates TLS itself using a fresh test CA.
 """
+import base64
 import os
 from pathlib import Path
 import socketserver
@@ -73,6 +74,10 @@ class Handler(socketserver.BaseRequestHandler):
                         data = b"001e# service=git-upload-pack\n0000" + f"{len(ref)+4:04x}".encode() + ref + b"0000"
                         if server.mode == "private-empty":
                             data = b"001e# service=git-upload-pack\n00000000"
+                elif server.mode == "basic-private" and auth != server.expected_basic:
+                    status = "401 Unauthorized"
+                    extra = 'WWW-Authenticate: Basic realm="private"\r\n'
+                    data = b"authentication required"
                 elif ".git/" in lines[0]:
                     status = "400 Bad Request"
                     data = b"dummy Git failure"
@@ -88,6 +93,7 @@ class Server(socketserver.ThreadingTCPServer):
     requests: list[tuple[str, str, bytes]]
     errors: list[str]
     mode: str
+    expected_basic: str
 
 
 class RealToolTests(unittest.TestCase):
@@ -238,6 +244,23 @@ commit="$EXPECTED_SHA"
                     result = subprocess.run(["bash", "-c", setup + body], cwd=self.repo, env=env, text=True, capture_output=True, timeout=10)
                     self.assertEqual(result.returncode == 0, case == "matching", result.stderr)
                     self.assertNotIn(TOKEN, result.stdout + result.stderr)
+
+    def test_lfs_push_answers_basic_challenge_via_own_credential_helper(self):
+        # Forgejo LFS needs Basic auth and echoes it into upload actions, so
+        # git-lfs-push must authenticate through Git's credential protocol,
+        # never an extraHeader, and must ignore inherited credential helpers.
+        self.server.mode = "basic-private"
+        self.server.expected_basic = "basic " + base64.b64encode(f"forgejo-token:{TOKEN}".encode()).decode().lower()
+        capture = self.root / "inherited-helper-called"
+        config = self.root / "global.gitconfig"
+        config.write_text(f"[credential]\n helper = \"!f() {{ cat > {capture}; }}; f\"\n")
+        self.env["GIT_CONFIG_GLOBAL"] = str(config)
+        result = self.run_helper("git-lfs-push", *self.common, "--refspec", ":refs/heads/probe")
+        self.assertNotEqual(result.returncode, 0)  # the fake server has no receive-pack
+        auths = [auth for _, auth, _ in self.server.requests]
+        self.assertIn(self.server.expected_basic, auths)
+        self.assertFalse(any(auth.startswith("token ") for auth in auths), auths)
+        self.assertFalse(capture.exists(), "an inherited credential helper was consulted")
 
     def test_empty_second_push_url_is_rejected(self):
         self.git("-C", str(self.repo), "config", "--add", "remote.origin.pushurl", URL)

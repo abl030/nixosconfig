@@ -26,6 +26,32 @@ write root (mirrored to GitHub). See
   Objects: `/mnt/virtio/forgejo/data/lfs`; included in the daily dump, so dump size
   grows with LFS content; see the retention note under "Dumps And Restore".
 
+### Pushing LFS repos from doc1 (2026-09-24)
+
+Use `scripts/forgejo-auth.sh git-lfs-push` (same arguments as `git-push`) with
+`git-lfs` on PATH (`nix build --no-link --print-out-paths nixpkgs#git-lfs`).
+Plain `git-push` cannot carry LFS:
+
+- Forgejo's LFS routes reject the `Authorization: token …` scheme (batch 401);
+  they accept Basic auth with the token as password.
+- Forgejo copies the batch request's `Authorization` header into every upload
+  action. A URL-wide `http.extraHeader` then sends it twice on each object PUT,
+  and a duplicated Authorization header gets HTTP 400.
+- git-lfs 3.7.1 panics (`negative WaitGroup counter`) uploading over HTTP/2 to
+  this server; `git-lfs-push` pins `http.version=HTTP/1.1`.
+
+So `git-lfs-push` answers Git's credential prompts through the helper's own
+`git-credential` mode instead of a header, discards inherited credential
+helpers so none can store the token, and strips `GIT_TRANSFER_TRACE`.
+
+**Never trace LFS transfers with a real token.** Because Forgejo echoes the
+Authorization header into the batch response *body*, `GIT_TRANSFER_TRACE` output
+contains the credential even though git-lfs redacts headers. A diagnostic run
+on 2026-09-24 leaked part of the doc1 admin token this way; it was rotated the
+same day (`2c4382e3`). Diagnose with dummy credentials instead, e.g.
+`curl --http1.1 -X PUT -H 'Authorization: Basic Zm9vOmJhcg==' …` (one header → 401,
+two → 400).
+
 Instance settings (as of the Phase D U8 setup):
 
 ```ini

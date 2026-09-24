@@ -28,6 +28,9 @@ usage:
   forgejo-auth.sh git-push --repo DIR --remote NAME \
     --expected-fetch-url URL --expected-push-url URL \
     --token-file FILE --refspec REFSPEC [--force] [--quiet]
+  forgejo-auth.sh git-lfs-push --repo DIR --remote NAME \
+    --expected-fetch-url URL --expected-push-url URL \
+    --token-file FILE --refspec REFSPEC [--force] [--quiet]
   forgejo-auth.sh git-ls-remote --repo DIR --remote NAME \
     --expected-fetch-url URL --expected-push-url URL --token-file FILE --ref REF
   forgejo-auth.sh rest --token-file FILE --method METHOD --url URL \
@@ -56,6 +59,7 @@ sanitize_debug_environment() {
         GIT_TRACE2_ENV_VARS \
         GIT_TRACE2_PARENT \
         GIT_CURL_VERBOSE \
+        GIT_TRANSFER_TRACE \
         CURL_VERBOSE \
         CURL_TRACE \
         CURL_TRACE_ASCII \
@@ -193,7 +197,7 @@ run_git_push() {
 
     [ -n "$repo" ] && [ -n "$remote" ] && [ -n "$expected_fetch" ] \
         && [ -n "$expected_push" ] && [ -n "$token_file" ] || usage
-    if [ "$command" = git-push ]; then
+    if [ "$command" != git-ls-remote ]; then
         [ -n "$refspec" ] && [ -z "$ref" ] || usage
     else
         [[ "$ref" =~ ^refs/heads/[A-Za-z0-9._/-]+$ ]] || fail "readback requires one exact branch ref"
@@ -211,9 +215,28 @@ run_git_push() {
     read_token "$token_file"
     sanitize_debug_environment
 
-    export GIT_CONFIG_COUNT=1
-    export GIT_CONFIG_KEY_0="$FORGEJO_GIT_CONFIG_KEY"
-    export GIT_CONFIG_VALUE_0="Authorization: token $FORGEJO_TOKEN"
+    if [ "$command" = git-lfs-push ]; then
+        # LFS cannot use the extraHeader: Forgejo's LFS routes reject the
+        # `token` scheme, and Forgejo echoes the batch request's Authorization
+        # into every upload action, so a URL-wide header is sent twice (HTTP
+        # 400). Answer Git's credential prompts instead, through this script's
+        # git-credential mode, which re-reads and re-validates the token file.
+        # The empty helper first discards inherited helpers so none can store
+        # the token. The child sees a file path, never the token.
+        # HTTP/1.1: git-lfs 3.7.1 panics on HTTP/2 uploads to this server.
+        # See docs/wiki/services/forgejo.md (LFS).
+        unset FORGEJO_TOKEN
+        export GIT_CONFIG_COUNT=3
+        export GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0=
+        export GIT_CONFIG_KEY_1=credential.helper
+        GIT_CONFIG_VALUE_1="!$(printf '%q' "$BASH") -p $(printf '%q' "$(readlink -f -- "${BASH_SOURCE[0]}")") git-credential --token-file $(printf '%q' "$token_file")"
+        export GIT_CONFIG_VALUE_1
+        export GIT_CONFIG_KEY_2=http.version GIT_CONFIG_VALUE_2=HTTP/1.1
+    else
+        export GIT_CONFIG_COUNT=1
+        export GIT_CONFIG_KEY_0="$FORGEJO_GIT_CONFIG_KEY"
+        export GIT_CONFIG_VALUE_0="Authorization: token $FORGEJO_TOKEN"
+    fi
     export GIT_TERMINAL_PROMPT=0
 
     # Git's HTTP URL specificity outranks an unscoped command-line setting.
@@ -222,7 +245,7 @@ run_git_push() {
     git_args=(-C "$repo" -c http.followRedirects=false
         -c "http.$expected_fetch.followRedirects=false"
         -c "http.$expected_push.followRedirects=false")
-    if [ "$command" = git-push ]; then
+    if [ "$command" != git-ls-remote ]; then
         git_args+=(push)
         [ "$force" -eq 1 ] && git_args+=(--force)
         [ "$quiet" -eq 1 ] && git_args+=(--quiet)
@@ -307,12 +330,36 @@ run_rest() {
     return "$rc"
 }
 
+# Git credential-helper protocol endpoint for git-lfs-push; Git appends the
+# operation. Answers only `get` for https://git.ablz.au, so the token never
+# reaches another host; `store`/`erase` are ignored so nothing persists it.
+run_git_credential() {
+    local token_file="" operation="" line protocol="" host=""
+    [ "$#" -eq 3 ] && [ "$1" = "--token-file" ] || usage
+    token_file="$2"
+    operation="$3"
+    if [ "$operation" != get ]; then
+        cat >/dev/null
+        return 0
+    fi
+    while IFS= read -r line && [ -n "$line" ]; do
+        case "$line" in
+            protocol=*) protocol="${line#protocol=}" ;;
+            host=*) host="${line#host=}" ;;
+        esac
+    done
+    [ "$protocol" = https ] && [ "$host" = git.ablz.au ] || return 0
+    read_token "$token_file"
+    printf 'username=forgejo-token\npassword=%s\n' "$FORGEJO_TOKEN"
+}
+
 [ "$#" -gt 0 ] || usage
 command="$1"
 shift
 case "$command" in
     validate-git-url) validate_git_url_command "$@" ;;
-    git-push|git-ls-remote) run_git_push "$@" ;;
+    git-push|git-lfs-push|git-ls-remote) run_git_push "$@" ;;
+    git-credential) sanitize_debug_environment; run_git_credential "$@" ;;
     rest) run_rest "$@" ;;
     *) usage ;;
 esac

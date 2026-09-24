@@ -57,10 +57,21 @@ if [ "$is_push" -eq 1 ]; then
   : "${FAKE_PUSH_ENV_CAPTURE:?}"
   : "${FAKE_PUSH_STARTED:?}"
   printf '%s' "${GIT_CONFIG_VALUE_0-}" >"$FAKE_PUSH_AUTH_CAPTURE"
+  if [ -n "${FAKE_PUSH_CONFIG_CAPTURE-}" ]; then
+    {
+      printf 'COUNT=%s\n' "${GIT_CONFIG_COUNT-<unset>}"
+      for i in 0 1 2 3; do
+        key="GIT_CONFIG_KEY_$i"
+        value="GIT_CONFIG_VALUE_$i"
+        printf '%s=%s|%s\n' "$i" "${!key-<unset>}" "${!value-<unset>}"
+      done
+    } >"$FAKE_PUSH_CONFIG_CAPTURE"
+  fi
   {
     for name in GIT_TRACE GIT_TRACE_PACKET GIT_TRACE_PERFORMANCE GIT_TRACE_SETUP \
       GIT_TRACE_SHALLOW GIT_TRACE_CURL GIT_TRACE2 GIT_TRACE2_EVENT GIT_TRACE2_PERF \
-      GIT_TRACE2_BRIEF GIT_TRACE2_CONFIG_PARAMS GIT_CURL_VERBOSE CURL_VERBOSE; do
+      GIT_TRACE2_BRIEF GIT_TRACE2_CONFIG_PARAMS GIT_CURL_VERBOSE GIT_TRANSFER_TRACE \
+      CURL_VERBOSE; do
       if printenv "$name" >/dev/null 2>&1; then
         printf '%s=present\n' "$name"
       else
@@ -411,6 +422,65 @@ class ForgejoAuthBoundaryTests(unittest.TestCase):
         result = self._rest(FAKE_CURL_RC="42")
         self.assertEqual(result.returncode, 42)
         self.assertNotIn(FIXTURE_TOKEN, result.stdout + result.stderr)
+
+    def _lfs_push(self, **env_extra: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(HELPER), "git-lfs-push", "--repo", str(self.repo), "--remote", "origin", "--expected-fetch-url", EXPECTED_REPOSITORY, "--expected-push-url", EXPECTED_REPOSITORY, "--token-file", str(self.token_file), "--refspec", "HEAD:master"],
+            env=self._env(**env_extra),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def _credential(self, operation: str, stdin: str, token_file: Path | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(HELPER), "git-credential", "--token-file", str(token_file or self.token_file), operation],
+            env=self._env(),
+            input=stdin,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_lfs_push_uses_credential_helper_not_header(self) -> None:
+        config = self.root / "git-config"
+        result = self._lfs_push(FAKE_PUSH_CONFIG_CAPTURE=str(config), GIT_TRANSFER_TRACE="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn(FIXTURE_TOKEN, result.stdout + result.stderr + self.git_log.read_text())
+        captured = config.read_text()
+        self.assertNotIn(FIXTURE_TOKEN, captured)
+        lines = dict(line.split("=", 1) for line in captured.splitlines())
+        self.assertEqual(lines["COUNT"], "3")
+        # Inherited helpers are discarded first so none can store the token.
+        self.assertEqual(lines["0"], "credential.helper|")
+        key, value = lines["1"].split("|", 1)
+        self.assertEqual(key, "credential.helper")
+        self.assertTrue(value.startswith("!"), value)
+        self.assertIn(" git-credential --token-file " + str(self.token_file), value)
+        self.assertEqual(lines["2"], "http.version|HTTP/1.1")
+        self.assertIn("GIT_TRANSFER_TRACE=unset", self.git_env.read_text())
+        self.assertIn("<push>", self.git_log.read_text())
+
+    def test_git_credential_answers_only_forgejo_https_get(self) -> None:
+        good = "protocol=https\nhost=git.ablz.au\npath=abl030/x.git\n\n"
+        result = self._credential("get", good)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"username=forgejo-token\npassword={FIXTURE_TOKEN}\n")
+        self.assertNotIn(FIXTURE_TOKEN, result.stderr)
+        for stdin in ("protocol=https\nhost=evil.example\n\n", "protocol=http\nhost=git.ablz.au\n\n", "protocol=https\nhost=git.ablz.au.evil.example\n\n", ""):
+            with self.subTest(stdin=stdin):
+                other = self._credential("get", stdin)
+                self.assertEqual(other.returncode, 0, other.stderr)
+                self.assertEqual(other.stdout, "")
+        for operation in ("store", "erase"):
+            with self.subTest(operation=operation):
+                other = self._credential(operation, good + "password=" + FIXTURE_TOKEN + "\n")
+                self.assertEqual((other.returncode, other.stdout), (0, ""))
+        bad = self.root / "bad-token"
+        bad.write_text("G" * 40)
+        rejected = self._credential("get", good, bad)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertEqual(rejected.stdout, "")
 
 
 if __name__ == "__main__":

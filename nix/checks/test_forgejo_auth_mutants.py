@@ -20,6 +20,9 @@ mutants = {
     "debug-trap-retained": (source.replace("trap - DEBUG RETURN ERR EXIT", ":"), behavior, "startup_debug_trap"),
     "config-trace2-enabled": (source.replace("    export GIT_TRACE2=0 GIT_TRACE2_EVENT=0 GIT_TRACE2_PERF=0", "    :"), real, "global_and_system_trace2"),
     "config-rewrite-retained": (source.replace("    normalize_git_environment\n", "    sanitize_debug_environment\n"), real, "inherited_rewrites"),
+    "lfs-inherited-helpers-kept": (source.replace("        export GIT_CONFIG_COUNT=3\n        export GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0=\n", "        export GIT_CONFIG_COUNT=3\n        export GIT_CONFIG_KEY_0=core.mutant GIT_CONFIG_VALUE_0=1\n"), real, "own_credential_helper"),
+    "credential-any-host": (source.replace('    [ "$protocol" = https ] && [ "$host" = git.ablz.au ] || return 0\n', ""), behavior, "only_forgejo_https_get"),
+    "transfer-trace-kept": (source.replace("        GIT_TRANSFER_TRACE \\\n", ""), behavior, "credential_helper_not_header"),
 }
 with tempfile.TemporaryDirectory(prefix="forgejo-mutants-") as temp:
     for name, (text, suite, selector) in mutants.items():
