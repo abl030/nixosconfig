@@ -7,6 +7,14 @@
 
 - **`home.ablz.au`** → DNS resolves to `192.168.1.6` (caddy host, Home Manager-only) → Caddy reverse-proxies to `192.168.1.25:8123`.
 - **`192.168.1.25`** = Home Assistant Operating System (HAOS). Not in this NixOS repo. Manage via the HA UI + this deploy procedure.
+- **These point at HA's IP, so check them if it changes:**
+  - pfSense Kea reservation;
+  - the caddy upstream in `legacy-edge-caddy.nix`;
+  - tower's `VMBackups` NFS rw rule;
+  - tower zigbee2mqtt's `mqtt.server` (Mosquitto add-on on `:1883`), in
+    `/mnt/user/appdata/zigbee2mqtt/configuration.yaml`.
+
+  See [unifi-fallback-ip-conflict.md](../infrastructure/unifi-fallback-ip-conflict.md).
 - HAOS version visible via `ha core info`. Add-ons run as Alpine containers; `/config` is bind-mounted into them.
 
 ## SSH access

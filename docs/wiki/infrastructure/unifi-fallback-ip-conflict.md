@@ -1,7 +1,8 @@
 # UniFi fallback IP (192.168.1.20) conflict — Home Assistant outages
 
 **Date:** 2026-09-24
-**Status:** Fixed. Forgejo #223 closed.
+**Status:** Fixed, and the fix was verified by a controlled test the same day.
+Forgejo #223 closed.
 **Revisit:** if HA, or anything else on the LAN, logs an IPv4 address conflict
 naming a Ubiquiti MAC.
 
@@ -74,29 +75,40 @@ this behaviour.
   The SSH add-on has no `nmcli` and cannot enter the host namespace. The
   throwaway container above uses the host D-Bus socket instead.
 
-## Open question: why the Flex Mini fell back
+## Mechanism and controlled test (2026-09-24)
 
-The trigger is established, since both flips happened while the controller was
-unavailable. The mechanism inside the switch is not, because its firmware is
-closed and it keeps no syslog.
+About 100 s after the Flex Mini loses its controller, it restarts its network
+stack and re-announces its address with a gratuitous ARP. While its management
+IP was DHCP, that announcement used the factory fallback `.20` first. It then
+asked for its real `.54` from `.20`.
 
-- **When:** on 2026-09-24 the flip came about 95 s into a controller outage. On
-  2026-09-22 it came about 2.5 minutes into doc2's backup freeze.
-- **What it did:** the Flex announced `.20`, then asked for its own real `.54`
-  from `.20`. That looks like its network setup running again with the
-  factory default applied first, before the DHCP address was reconfirmed.
-- **What stays unknown:**
-  - whether it actually sent DHCP (Kea's per-packet log is not exposed through
-    the pfSense API);
-  - why earlier controller restarts caused no flip that anyone noticed. A flip
-    only broke something if a device held `.20`, and HA did. Many past flips
-    may have gone unseen.
-- **Current exposure:** every device now has a static IP, and `.20` is held by
-  a pfSense placeholder with nothing live on it. A future flip should either not
-  happen or have nothing to collide with.
-- **How to test:** restart `unifi.service` on doc2 while running `tcpdump -nn -e
-  arp and ether src f4:e2:c6:58:fc:66` on doc1. doc1 sees the broadcast
-  gratuitous ARP.
+**Test after the switch to a static IP (Flex at `.54`):**
+- `unifi.service` on doc2 was stopped for 3 minutes (08:56:35–08:59:28 AWST),
+  with doc1 watching ARP from all five UniFi MACs and any frame mentioning `.20`.
+- At 08:58:16, 101 s into the outage, the Flex sent `who-has 192.168.1.54 tell
+  192.168.1.54` and then asked for the gateway from `.54`. This is the same event
+  as the incident, now on its own static address.
+- Nothing claimed `.20`, during the outage or in the 3.5 minutes after the
+  controller came back.
+- All five devices reconnected without rebooting.
+
+The switch's internal logic is still unknown: the firmware is closed and there is
+no syslog. Earlier controller restarts probably flipped it unnoticed, because a
+flip only broke something when a device held `.20`. To re-test, stop
+`unifi.service` on doc2 for more than 2 minutes while running this on doc1:
+
+```bash
+tcpdump -i ens18 -nn -e arp and ether src f4:e2:c6:58:fc:66
+```
+
+## Missed dependency: zigbee2mqtt
+
+The repo sweep missed tower's zigbee2mqtt container (ipvlan `.22`).
+`/mnt/user/appdata/zigbee2mqtt/configuration.yaml` pointed `mqtt.server` at
+`mqtt://192.168.1.20:1883`, HA's Mosquitto add-on. After the move it failed
+with `EHOSTUNREACH` and dropped Zigbee sensor updates from 07:43 until it was
+repointed at `.25` at about 09:05. The watch caught it as `.22` broadcasting
+`who-has .20` every second. **When moving HA again, check z2m's `mqtt.server`.**
 
 ## Tools used
 
