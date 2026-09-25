@@ -128,3 +128,23 @@ failover). `pfctl -t pfB_PRI4_v4 -T test 151.101.1.91 ...` → `0/4 match`.
 5. The failover hardening built on the wrong premise was **still worth keeping** —
    it protects against *any* cause of an origin being unreachable, this one
    included.
+
+## Recurrence log
+
+### 2026-09-25 — Shopify storefront `23.227.38.0/24`
+
+- **Symptom:** a Shopify-hosted site resolved to `23.227.38.65`; LAN could not
+  connect, other Shopify IPs worked, and the site was reachable externally.
+- **Cause:** same mechanism — `23.227.38.65/32` from `HoneyPot_Mal_v4` and
+  `23.227.38.74/32` from `HoneyPot_IPs_v4`, both merged into `pfB_PRI4_v4`.
+  `ip_block.log` had no entries for either IP (lesson 3 again); the pf table
+  test was the authoritative evidence. pfSense itself could connect (lesson 1).
+- **Fix:** ARIN confirms `23.227.32.0/19` is `SHOPIFY-NET` (Shopify, Inc.).
+  Added `23.227.38.0/24` to `v4suppression` (now `151.101.0.0/16` +
+  `23.227.38.0/24`), regenerated `pfbsuppression.txt`, deleted both IPs from the
+  live `pfB_PRI4_v4` table and `/var/db/aliastables/pfB_PRI4_v4.txt`. No state
+  flush, no Force Reload.
+- **Verified:** all 256 addresses of the /24 test `0/256` across every `pfB_*`
+  table; `.65` and `.74` complete TLS from doc1 (`HTTP/2 403` bare-IP response).
+- **Revisit:** if another Shopify range (`23.227.32.0/19`) is hit, widen the
+  suppression to the /19 rather than adding another /24.
