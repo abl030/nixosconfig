@@ -48,3 +48,16 @@ locally. The flake input now only seeds `/var/lib/mrnews/site` on a fresh host
 - Logs: `journalctl -u mrnews-deploy -u mrnews`.
 - Rolling back means pushing a signed revert to mrnews master; the deployer
   refuses non-fast-forward history.
+
+## Missing post after a brief ping (2026-09-27)
+
+The Hermes jobs use `deliver: local`, so if a job decides not to post, the only
+record of why is `~/.hermes/cron/output/<job-id>/<timestamp>.md`. On 2026-09-26
+the weekly DA job sent its Gotify brief, then noticed two omitted applications.
+It took the skill's "stop on conflict after delivery" pitfall to cover the post
+as well and skipped it. The pitfall in `margaret-river-weekly-da/SKILL.md` now
+applies only to resending the brief (planning repo `0547d70`). To recover a
+skipped post, continue the job's own session (`hermes chat --continue
+margaret-river-weekly-da …`, flags from `scripts/run-weekly-da.sh`) and ask it
+to run step 10 only. Do not reset `published.json`. The private planning repo
+pushes with the Hermes token, not nixbot.
