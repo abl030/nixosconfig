@@ -5,6 +5,8 @@ import pathlib
 import sqlite3
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 
 import psycopg2
@@ -21,8 +23,18 @@ def main() -> None:
     }[app]
     # Numeric --user alone leaves podman exec in GID 0. Match the real app group.
     gid = 100 if app in {"booklore", "readmeabook"} else uid
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}{endpoint}", timeout=15) as response:
-        assert response.status == 200
+    url = f"http://127.0.0.1:{port}{endpoint}"
+    deadline = time.monotonic() + 60
+    while True:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                assert response.status == 200
+            break
+        except urllib.error.URLError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(2, remaining))
     writable_paths = [state]
     if app == "readmeabook":
         writable_paths += ["/downloads/readmeabook", "/downloads/completed/readmeabook", "/media"]
