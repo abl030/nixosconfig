@@ -200,6 +200,21 @@
   # base.nix and docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
   services.logind.settings.Login.StopIdleSessionSec = "infinity";
 
+  # The G502 X Plus (046D:4099, Lightspeed) wakes from suspend with its HIRES_WHEEL
+  # (0x2121) mode reset to low-res while the kernel still scales by the 8x
+  # multiplier, so every notch scrolls 1/8 as far. The receiver never disconnects,
+  # so hid-logitech-hidpp never re-sends the mode. Rebinding re-runs its probe,
+  # which restores hi-res. See docs/wiki/infrastructure/epi-g502-hires-wheel-resume.md.
+  powerManagement.resumeCommands = ''
+    sleep 2
+    for dev in /sys/bus/hid/drivers/logitech-hidpp-device/0003:046D:4099.*; do
+      [ -e "$dev" ] || continue
+      id=''${dev##*/}
+      echo "$id" > /sys/bus/hid/drivers/logitech-hidpp-device/unbind || true
+      echo "$id" > /sys/bus/hid/drivers/logitech-hidpp-device/bind || true
+    done
+  '';
+
   users.users.abl030 = {
     extraGroups = ["libvirtd" "vboxusers" "dialout"];
     # Keep user@.service alive with no sessions so a detached tmux/mosh survives

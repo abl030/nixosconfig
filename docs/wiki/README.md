@@ -36,6 +36,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [framework-hibernate-ttm-oops-2026-07-09](infrastructure/framework-hibernate-ttm-oops-2026-07-09.md) — "failed hibernate resume" RCA: restore actually succeeded, then kernel 7.1.3 amdgpu/TTM NULL-deref froze the compositor; wifi-card swap exonerated; evidence-only subagent verification pattern
 - [epi-gnome-libgvc-segfault](infrastructure/epi-gnome-libgvc-segfault.md) — "my taskbar vanished" = gnome-shell NULL-deref in bundled libgvc (pipewire card with zero profiles), GNOME's OnFailure kill switch as the visible symptom; local MR !38 patch + the flake check that tells us when to drop it
 - [epi-thermals](infrastructure/epi-thermals.md) — why lm-sensors saw no motherboard fan on epi (in-tree `it87` rejects the IT8686E, `ignore_resource_conflict` for the ACPI-reserved EC at `0x0a40`), hand EC register map, and the 2026-09-07 A4-SFX cooler fault (105.9 °C, reversed fan)
+- [epi-g502-hires-wheel-resume](infrastructure/epi-g502-hires-wheel-resume.md) — "scroll wheel super slow" = G502 wakes from suspend in low-res HIRES_WHEEL mode while hidpp still scales by 8; unprivileged HID++ probe via hidraw ACL and the post-resume rebind fix
 
 ### Services
 
