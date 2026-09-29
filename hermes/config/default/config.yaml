@@ -17,7 +17,7 @@ display:
       interim_assistant_messages: true
 tts:
   use_gateway: false
-_config_version: 33
+_config_version: 48
 session_reset:
   mode: none
 image_gen:
@@ -30,10 +30,12 @@ platform_toolsets:
     - clarify
     - code_execution
     - computer_use
+    - connections
     - cronjob
     - delegation
     - file
     - image_gen
+    - mcp-nixos
     - memory
     - session_search
     - skills
@@ -42,26 +44,28 @@ platform_toolsets:
     - tts
     - vision
     - web
-    - mcp-nixos
   webhook:
-    - terminal
-    - file
-    - web
-    - skills
-    - delegation
     - code_execution
-    - session_search
+    - connections
+    - delegation
+    - file
     - memory
+    - session_search
+    - skills
+    - terminal
     - todo
+    - web
   ntfy:
     - browser
     - clarify
     - code_execution
     - computer_use
+    - connections
     - cronjob
     - delegation
     - file
     - image_gen
+    - mcp-nixos
     - memory
     - session_search
     - skills
@@ -70,7 +74,6 @@ platform_toolsets:
     - tts
     - vision
     - web
-    - mcp-nixos
 known_plugin_toolsets:
   cli:
     - spotify
