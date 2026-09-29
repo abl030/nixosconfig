@@ -236,7 +236,7 @@ in {
         environmentFile = config.sops.secrets."acme/cloudflare".path;
         dnsResolver = "1.1.1.1:53";
         extraLegoFlags = [
-          "--dns.propagation-wait"
+          "--dns.propagation.wait" # lego 5 spelling (was --dns.propagation-wait)
           "60s"
         ];
       };

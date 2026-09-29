@@ -50,8 +50,10 @@ in {
         environmentFile = config.sops.secrets."acme/cloudflare".path;
         # Use public DNS for propagation checks (bypasses Tailscale's 100.100.100.100)
         dnsResolver = "1.1.1.1:53";
+        # lego 5 renamed --dns.propagation-wait; the old spelling makes every
+        # order/renewal exit 10 before it starts.
         extraLegoFlags = [
-          "--dns.propagation-wait"
+          "--dns.propagation.wait"
           "60s"
         ];
         # Reload nginx when certs change
