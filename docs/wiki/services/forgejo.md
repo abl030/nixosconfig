@@ -28,9 +28,12 @@ write root (mirrored to GitHub). See
 
 ### Pushing LFS repos from doc1 (2026-09-24)
 
-Use `scripts/forgejo-auth.sh git-lfs-push` (same arguments as `git-push`) with
-`git-lfs` on PATH (`nix build --no-link --print-out-paths nixpkgs#git-lfs`).
-Plain `git-push` cannot carry LFS:
+Agents just run `forgejo-push [REFSPEC]` (`hosts/proxmox-vm/forgejo-push.nix`):
+its `pushModes` map sends `abl030/cullen-carbon` through
+`scripts/forgejo-auth.sh git-lfs-push` and carries `git-lfs` on PATH for the
+repo's pre-push hook (2026-09-29; before that it used plain `git-push` and every
+push adding LFS objects failed). A new LFS repo must be mapped to `git-lfs-push`
+there. Plain `git-push` cannot carry LFS:
 
 - Forgejo's LFS routes reject the `Authorization: token …` scheme (batch 401);
   they accept Basic auth with the token as password.
