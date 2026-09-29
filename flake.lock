@@ -493,29 +493,6 @@
         "type": "github"
       }
     },
-    "netwatch": {
-      "inputs": {
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1790475120,
-        "narHash": "sha256-OVnekbTTqgdcLR2qGFYO3uhQolJ/sAQecJRdJZeJgus=",
-        "owner": "matthart1983",
-        "repo": "netwatch",
-        "rev": "c354da5a7e99bd8f6f5ee07d99acabb4d75cc0d9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "matthart1983",
-        "repo": "netwatch",
-        "type": "github"
-      }
-    },
     "nixos-hardware": {
       "inputs": {
         "nixpkgs": [
@@ -788,7 +765,6 @@
         "microvm": "microvm",
         "mrnews": "mrnews",
         "musicbrainz-docker": "musicbrainz-docker",
-        "netwatch": "netwatch",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",

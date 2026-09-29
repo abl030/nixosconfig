@@ -240,19 +240,6 @@
       url = "github:abl030/cellar-manager";
       flake = false;
     };
-
-    # netwatch - real-time network diagnostics TUI (Rust)
-    # UNPINNED 2026-06-07 (#259): nixpkgs-unstable now carries the static.crates.io
-    # fix (fetchCrate #525067), so nix crate fetches no longer hit crates.io's
-    # `curl/` User-Agent 403. netwatch follows our nixpkgs, so its crate FODs now
-    # download from static.crates.io. History/rationale: docs/wiki/infrastructure/cratesio-403-ua.md
-    netwatch = {
-      url = "github:matthart1983/netwatch";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
   };
 
   outputs = inputs @ {

@@ -99,6 +99,14 @@ about 7 min at a load of 2.
 - The Hermes gateway had kept running the 2026-09-11 build because deploys
   don't restart user units; it was restarted by hand. Tracked in forgejo #230.
 
+## netwatch removed (2026-09-30)
+
+The 2026-09-29 run held `rest` again: upstream netwatch added a third procfs
+attribution test (`brokered_snapshot_attributes_without_local_fd_scan_and_rejects_stale_or_reused`)
+that fails in the build sandbox. The TUI was never used, so the input, overlay
+skips and base-profile package were removed instead of adding another skip
+(Hermes RCA PR #234 closed as superseded).
+
 ## Speed-ups (implemented 2026-09-23)
 
 1. **All groups at once, split only on failure** (`try_all_groups` in
