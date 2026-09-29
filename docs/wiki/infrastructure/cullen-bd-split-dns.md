@@ -19,6 +19,11 @@ Cullen client
 The ordinary/public DNS record remains owned by doc1. The internal work-DNS
 override is intentionally the only DNS change for Cullen clients.
 
+`carbon.ablz.au` ([dashboard](../services/cullen-carbon-dashboard.md), added
+2026-09-29) uses the identical route and needs its own work-DNS record
+(`carbon.ablz.au. A 192.168.100.128`). WSL generates one vhost per name in
+`cullenDoc1Hosts`; add future doc1-served Cullen names there.
+
 ## WSL proxy requirements
 
 The WSL vhost connects to the numeric doc1 address, rather than resolving

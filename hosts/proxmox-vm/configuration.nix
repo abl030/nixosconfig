@@ -192,6 +192,7 @@
       dadnasProxy.enable = true;
       beets.enable = true;
       bdday.enable = true;
+      cullenCarbon.enable = true;
       mrnews.enable = true;
 
       # Immich moved to doc2 (2026-02-25)

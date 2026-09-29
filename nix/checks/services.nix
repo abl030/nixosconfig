@@ -265,21 +265,26 @@
   # dashboard vhost.
   cullenBdProxyCheck = let
     wsl = self.nixosConfigurations.wsl.config;
-    bdVhost = wsl.services.nginx.virtualHosts."bd.ablz.au";
     cullenVhost = wsl.services.nginx.virtualHosts."cullen.ablz.au";
-    bdIsLocalProxyHost = lib.any (entry: entry.host == "bd.ablz.au") wsl.homelab.localProxy.hosts;
+    doc1Proxied = ["bd.ablz.au" "carbon.ablz.au"];
+    assertProxied = fqdn: let
+      vhost = wsl.services.nginx.virtualHosts.${fqdn};
+      isLocalProxyHost = lib.any (entry: entry.host == fqdn) wsl.homelab.localProxy.hosts;
+    in ''
+      test '${lib.boolToString (builtins.hasAttr fqdn wsl.security.acme.certs)}' = true
+      test ${lib.escapeShellArg vhost.useACMEHost} = ${fqdn}
+      test ${lib.escapeShellArg vhost.locations."/".proxyPass} = https://192.168.1.29:443
+      test '${lib.boolToString isLocalProxyHost}' = false
+      case ${lib.escapeShellArg vhost.locations."/".extraConfig} in
+        *'proxy_ssl_server_name on;'*'proxy_ssl_name ${fqdn};'*'proxy_ssl_verify on;'*'proxy_ssl_trusted_certificate '*';'*'proxy_ssl_verify_depth 4;'*) ;;
+        *) echo "${fqdn} proxy is missing its upstream TLS or Host boundary" >&2; exit 1 ;;
+      esac
+    '';
   in
     pkgs.runCommand "cullen-bd-proxy" {} ''
       set -euo pipefail
 
-      test '${lib.boolToString (builtins.hasAttr "bd.ablz.au" wsl.security.acme.certs)}' = true
-      test ${lib.escapeShellArg bdVhost.useACMEHost} = bd.ablz.au
-      test ${lib.escapeShellArg bdVhost.locations."/".proxyPass} = https://192.168.1.29:443
-      test '${lib.boolToString bdIsLocalProxyHost}' = false
-      case ${lib.escapeShellArg bdVhost.locations."/".extraConfig} in
-        *'proxy_ssl_server_name on;'*'proxy_ssl_name bd.ablz.au;'*'proxy_ssl_verify on;'*'proxy_ssl_trusted_certificate '*';'*'proxy_ssl_verify_depth 4;'*) ;;
-        *) echo "bd proxy is missing its upstream TLS or Host boundary" >&2; exit 1 ;;
-      esac
+      ${lib.concatMapStrings assertProxied doc1Proxied}
 
       test ${lib.escapeShellArg cullenVhost.useACMEHost} = cullen.ablz.au
       touch $out

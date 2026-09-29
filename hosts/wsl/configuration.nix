@@ -4,7 +4,12 @@
   inputs,
   hostConfig,
   ...
-}: {
+}: let
+  # doc1-served hostnames that Cullen-LAN clients reach through this box (see
+  # the vhosts below). Deliberately NOT localProxy hosts: that would take their
+  # public Cloudflare A records away from doc1.
+  cullenDoc1Hosts = ["bd.ablz.au" "carbon.ablz.au"];
+in {
   imports = [
     inputs.nixos-wsl.nixosModules.default
     ../common/desktop.nix
@@ -89,11 +94,7 @@
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
-    # Cullen-LAN clients resolve bd.ablz.au to the Windows host, whose existing
-    # :443 portproxy reaches this nginx. Keep doc1 as the only bdday authority:
-    # this vhost terminates TLS locally and proxies over the existing routed
-    # HTTPS path to doc1. It is deliberately NOT a localProxy host, which would
-    # take ownership of bd.ablz.au's public Cloudflare A record from doc1.
+    # Serves the Cullen split-horizon vhosts for cullenDoc1Hosts (below).
     nginx.enable = true;
     # cullen-dashboard syncs Vinsight via /run/secrets/mcp/vinsight.env. Base
     # default is OFF fleet-wide (#234 scoped MCP creds to doc1). WSL is the host
@@ -106,15 +107,19 @@
     };
   };
 
-  security.acme.certs."bd.ablz.au" = {domain = "bd.ablz.au";};
-  services.nginx.virtualHosts."bd.ablz.au" = {
-    useACMEHost = "bd.ablz.au";
+  # Cullen-LAN clients resolve these names to the Windows host, whose existing
+  # :443 portproxy reaches this nginx. Keep doc1 as the only authority: each
+  # vhost terminates TLS locally and proxies over the existing routed HTTPS
+  # path to doc1. See docs/wiki/infrastructure/cullen-bd-split-dns.md.
+  security.acme.certs = lib.genAttrs cullenDoc1Hosts (fqdn: {domain = fqdn;});
+  services.nginx.virtualHosts = lib.genAttrs cullenDoc1Hosts (fqdn: {
+    useACMEHost = fqdn;
     onlySSL = true;
     locations."/" = {
       proxyPass = "https://192.168.1.29:443";
       extraConfig = ''
         proxy_ssl_server_name on;
-        proxy_ssl_name bd.ablz.au;
+        proxy_ssl_name ${fqdn};
         proxy_ssl_verify on;
         # doc1's current Let’s Encrypt YE2 chain terminates at ISRG Root X1,
         # absent from WSL's generated CA bundle. Pin the public CA root (not
@@ -125,7 +130,7 @@
         proxy_ssl_verify_depth 4;
       '';
     };
-  };
+  });
 
   # Suppress duplicate filesystem metric warnings for /run/user tmpfs
   services.prometheus.exporters.node.extraFlags = [

@@ -44,6 +44,7 @@
     ./beancount.nix
     ./beets.nix
     ./bdday.nix
+    ./cullen-carbon.nix
     ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix
