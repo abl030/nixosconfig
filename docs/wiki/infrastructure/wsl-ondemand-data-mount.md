@@ -65,37 +65,56 @@ igpu/servarr `:443`, tower NFS `:2049`, doc1 SSH, Hermes webhook), with the
 `tests{}` block asserting the isolation denies. Empirically, wsl fleet-updated
 successfully over this ACL. No change needed there.
 
-## ops-sync source: direct CIFS mount (2026-09-24)
+## ops-sync source: rclone over SMB (2026-09-29)
 
-- **Status:** ✅ built; replaces the Windows Z: / drvfs source.
-- **Problem:** ops-sync read `/mnt/z/Operations & Production` via drvfs from the
-  Windows `Z:` mapping (`\\192.168.100.201\Data`). That mapping kept only a
-  username; Windows Credential Manager held no password for the server. After
-  every Windows reboot the mapping was disconnected. The `ops-sync-source-reconnect`
-  preflight's `net use` then prompted for a username (error 1223 in a
-  non-interactive process), and deleted the remembered mapping as it went. The
-  sync gave up after 5 retries (e.g. 2026-09-19, 20, 23). Repeated failed drvfs
-  probes also tripped `mnt-z.automount`'s start limit. That left the automount
-  itself failed, and resetting only `mnt-z.mount` couldn't recover it.
-- **Fix:** WSL mounts the share itself. For the length of the sync only, ops-sync
-  mounts `//192.168.100.201/Data/Operations & Production` read-only (`ro,nosuid,
-  nodev,noexec`) at `/mnt/ops-source`, and the `EXIT` trap tears it down with the
-  NFS destination. The subfolder is part of the UNC path, so nothing else on the
-  share is mounted. The Windows reconnect service and the `mnt-z` dependency are
-  gone. `wslOpsSyncSourceCheck` guards against regressing to `/mnt/z`.
-- **Credential:** `secrets/hosts/wsl/ops-sync-cifs.cred`, a sops binary holding a
-  `mount.cifs` credentials file (`username=`/`password=`). It decrypts to
-  `/run/secrets/ops-sync/cifs-credentials` (root, 0400) and is readable only by wsl
-  plus the editor and break-glass keys. **It is the file server's `administrator`
-  account** (owner's choice, so other folders can be added later). The mount is
-  read-only and subfolder-scoped, but the credential itself is not: a root
-  compromise of wsl yields admin on the Cullen file server. A dedicated read-only
-  SMB account would bound that; revisit if wsl's exposure changes.
-- **Reachability:** wsl reaches `192.168.100.201:445` directly through WSL NAT, and
-  the WSL kernel ships `cifs.ko`, which loads on demand like the NFS modules.
+- **Status:** ✅ live on wsl; verified with a full manual run on 2026-09-29.
+- **Symptom:** nightly Gotify "ops-sync skipped on wsl: Source /mnt/z/Operations
+  & Production/ not available after 5 attempts" from 2026-09-16 on. The last
+  good syncs were 09-21/22, when WSL had been restarted from the desktop.
+- **Root cause (verified 2026-09-29):** Windows starts the WSL VM at boot through
+  the `Start-NixOS-WSL` scheduled task, which uses an **S4U** logon (a batch
+  logon with no password). The VM's interop and drvfs therefore run in a logon
+  session that cannot use the saved Credential Manager login for
+  `192.168.100.201`. From that context, `net use Z: \\192.168.100.201\Data`
+  returns "The password or user name is invalid", then error 1223, so drvfs
+  reports `special device Z: does not exist`. Mapping Z: by hand in Explorer
+  cannot help, because that mapping lives in the desktop logon session, not the
+  VM's. The old reconnect preflight also ran `net use Z: /delete`, which wiped
+  the remembered mapping from `HKCU\Network`.
+- **Kernel CIFS does not work either:** commit `333dd607` (branch
+  `fix/ops-sync-cifs`, never merged until 2026-09-29) mounted the share with
+  `mount -t cifs`. On the WSL kernel `6.6.87.2-microsoft-standard-WSL2`, every
+  variant fails with `sign fail cmd 0x3` / `SMB signature verification returned
+  error = -13` / `failed to connect to IPC`. The variants tried were no domain,
+  `domain=CULLENWINES` or `WORKGROUP`, `vers=2.1`/`3.0`, `nodfs`, `seal`, and
+  `sec=ntlmssp[i]`. The credential is valid: userspace `smbclient` lists the
+  folder with it, while a wrong password gets `NT_STATUS_LOGON_FAILURE` (no guest
+  fallback). The kernel has `cmac(aes)` and `gcm(aes)`.
+- **Fix:** ops-sync runs `rclone sync` from the on-the-fly remote
+  `:smb:Data/Operations & Production` (host `192.168.100.201`) to the narrow NFS
+  mount `/mnt/ops-backup`. There is no source mount at all. The login is read
+  from the secret into `RCLONE_SMB_USER` and `RCLONE_SMB_PASS`; the password goes
+  through `rclone obscure -` on stdin, never argv, with `RCLONE_CONFIG=/dev/null`.
+  The previous rsync excludes are kept (`Thumbs.db`, `.stfolder/**`,
+  `desktop.ini`, `~$*`), and excluded files on the destination are not deleted.
+  `wslOpsSyncSourceCheck` fails if the script regresses to `/mnt/z` or
+  `mount -t cifs`.
+- **Credential:** `secrets/hosts/wsl/ops-sync-cifs.cred` is a sops binary with
+  `username=`/`password=` lines (the filename predates rclone). It decrypts to
+  `/run/secrets/ops-sync/smb-credentials` (root, 0400), and only wsl plus the
+  editor and break-glass keys can decrypt it. **It is the file server's
+  `administrator` account, by the owner's explicit choice (reconfirmed
+  2026-09-29).** A root compromise of wsl therefore yields admin on the Cullen
+  file server. A dedicated read-only SMB account (e.g. `svc-opsbackup`, read on
+  this folder only, non-expiring) would bound that; revisit if wsl's exposure
+  changes.
 - **Rotation:** re-encrypt from inside `secrets/` with
   `sops -e --input-type binary --output-type binary --filename-override hosts/wsl/ops-sync-cifs.cred <plain> > hosts/wsl/ops-sync-cifs.cred`,
   then shred the plaintext.
+- **Alternative not taken:** giving the `Start-NixOS-WSL` task a stored password
+  (logon type Password) would give the VM network credentials, so Z: could work
+  again. That stores the Windows password in Task Scheduler and keeps the job
+  dependent on Windows drive mappings.
 
 ## ⚠️ Gotcha: automount → noauto on a *live* mount fails the switch
 
@@ -124,7 +143,7 @@ already down, so a future option change won't re-trigger it.
 - `data-mount` → `nfs4 … soft,timeo=30,retrans=2`, share lists; `data-umount` →
   clean empty dir. NOPASSWD sudo rule works.
 - `data-mount-daily-umount.timer` → 17:00; `data-mount-reaper.timer` → 5-min.
-- ops-sync `After=` = `network-online` (was `+ mnt-z` until 2026-09-24; no `mnt-data`); deployed script
+- ops-sync `After=` = `network-online` (was `+ mnt-z` until 2026-09-29; no `mnt-data`); deployed script
   JIT-mounts `/mnt/ops-backup`.
 - `syncthing.service` = `not-found` on wsl; device dropped from doc1's config;
   ACL pushed to control (`gitops-pusher`: control checksum advanced, cullen out of

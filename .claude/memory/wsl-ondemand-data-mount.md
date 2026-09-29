@@ -19,8 +19,9 @@ false` on wsl; the mount + tooling live in `hosts/wsl/data-mounts.nix`:
 - ops-sync (`modules/nixos/services/mounts/ops-sync.nix`) no longer touches
   `/mnt/data`; it JIT-mounts ONLY `.../Life/Cullen/Ops Backup` at `/mnt/ops-backup`
   for the sync (EXIT-trap teardown). Unattended writer blast radius = one folder.
-  Source is a direct read-only CIFS mount of the Cullen share with a sops
-  credential (file-server admin), no longer the Windows Z:/drvfs mapping (2026-09-24).
+  Source is read with `rclone sync` from `:smb:` (userspace, sops file-server-admin
+  credential), not Windows Z:/drvfs, which fails because WSL boots under an S4U
+  task with no network creds. Kernel CIFS fails SMB signing on the WSL kernel (2026-09-29).
 - **wsl is OUT of Syncthing** (dropped `syncthingDeviceId` from hosts.nix → stops
   syncthing on wsl AND drops it as a peer everywhere). ACL: tag:cullen removed from
   the syncthing grant (its only p2p mesh path into the fleet), 22000 moved to the

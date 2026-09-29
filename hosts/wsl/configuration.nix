@@ -82,8 +82,8 @@
           mountPoint = "/mnt/z";
         };
       };
-      # Mounts the Cullen SMB share itself (read-only CIFS, sync-lifetime);
-      # no longer reads the Windows Z: mapping. Credential:
+      # Reads the Cullen SMB share with rclone (userspace, no mount); no longer
+      # reads the Windows Z: mapping. Credential:
       # secrets/hosts/wsl/ops-sync-cifs.cred.
       opsSync.enable = true;
       nfsMusic.enable = false;

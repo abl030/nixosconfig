@@ -1,4 +1,4 @@
-# Scheduled rsync of Operations & Production from the Cullen file server to
+# Scheduled rclone mirror of Operations & Production from the Cullen file server to
 # home NFS. Runs nightly, mirrors source with deletes, only copies changed files.
 #
 # forgejo#4: this runs UNATTENDED overnight on wsl — the fleet's least-trusted
@@ -9,11 +9,13 @@
 # down — so the unattended writer's blast radius is one folder, not the NAS.
 # The interactive whole-share mount lives in hosts/wsl/data-mounts.nix.
 #
-# Source: WSL mounts the SMB share itself (read-only CIFS, just the
-# Operations & Production subfolder, sync-lifetime only). It used to read the
-# Windows Z: mapping through drvfs, but that mapping holds no saved credential
-# and drops after every Windows reboot, so the sync failed until someone
-# reopened Z: by hand. See docs/wiki/infrastructure/wsl-ondemand-data-mount.md.
+# Source: WSL reads the SMB share itself with rclone's userspace SMB client
+# (no mount). It used to read the Windows Z: mapping through drvfs, but WSL
+# boots under an S4U scheduled-task logon that cannot use the saved Windows
+# credential, so Z: was invisible after every reboot. A kernel CIFS mount was
+# tried next and fails SMB signing against this server on the WSL 6.6 kernel,
+# although the credential is valid. See
+# docs/wiki/infrastructure/wsl-ondemand-data-mount.md.
 {
   config,
   lib,
@@ -22,10 +24,8 @@
 }:
 with lib; let
   cfg = config.homelab.mounts.opsSync;
-  # Ephemeral read-only source mount; the subfolder is part of the UNC path so
-  # nothing else on the file server is visible to the sync.
-  srcMount = "/mnt/ops-source";
-  src = "${srcMount}/";
+  # rclone on-the-fly remote: only this share subfolder is read.
+  src = ":smb:${cfg.sourcePath}";
   # Dedicated ephemeral mountpoint for the narrow NFS mount below; the sync
   # writes here. wsl reaches tower over the Windows host's Tailscale subnet
   # route. The remote path has a space ("Ops Backup"); mounting it in-script
@@ -33,11 +33,11 @@ with lib; let
   opsMount = "/mnt/ops-backup";
   opsRemote = "192.168.1.2:/mnt/user/data/Life/Cullen/Ops Backup";
   dest = "${opsMount}/";
-  credentials = config.sops.secrets."ops-sync/cifs-credentials".path;
+  credentials = config.sops.secrets."ops-sync/smb-credentials".path;
   sendNegativeAlert = import ../../lib/negative-alert.nix {inherit config lib pkgs;};
 in {
   options.homelab.mounts.opsSync = {
-    enable = mkEnableOption "Scheduled rsync of Operations & Production to home NFS";
+    enable = mkEnableOption "Scheduled mirror of Operations & Production to home NFS";
 
     schedule = mkOption {
       type = types.str;
@@ -45,17 +45,23 @@ in {
       description = "Systemd calendar expression for when to run the sync";
     };
 
-    sourceShare = mkOption {
+    sourceHost = mkOption {
       type = types.str;
-      default = "//192.168.100.201/Data/Operations & Production";
-      description = "SMB path (share plus subfolder) mounted read-only as the sync source";
+      default = "192.168.100.201";
+      description = "SMB file server holding the sync source";
+    };
+
+    sourcePath = mkOption {
+      type = types.str;
+      default = "Data/Operations & Production";
+      description = "Share plus subfolder read as the sync source";
     };
   };
 
   config = mkIf cfg.enable {
-    # mount.cifs `credentials=` file: username=/password= (optional domain=).
-    # Root-only; host-scoped at secrets/hosts/<host>/ops-sync-cifs.cred.
-    sops.secrets."ops-sync/cifs-credentials" = {
+    # username=/password= lines (mount.cifs credentials format, kept from the
+    # CIFS attempt). Root-only; host-scoped at secrets/hosts/<host>/ops-sync-cifs.cred.
+    sops.secrets."ops-sync/smb-credentials" = {
       sopsFile = config.homelab.secrets.sopsFile "ops-sync-cifs.cred";
       format = "binary";
       owner = "root";
@@ -63,16 +69,16 @@ in {
     };
 
     systemd.services.ops-sync = {
-      description = "Rsync Operations & Production to home NFS";
+      description = "Mirror Operations & Production to home NFS";
       after = ["network-online.target"];
       wants = ["network-online.target"];
       restartIfChanged = false;
-      # cifs-utils/nfs-utils for mount.cifs/mount.nfs (the just-in-time mounts).
-      path = [pkgs.rsync pkgs.coreutils pkgs.util-linux pkgs.cifs-utils pkgs.nfs-utils pkgs.curl];
+      # nfs-utils for mount.nfs (the just-in-time destination mount).
+      path = [pkgs.rclone pkgs.coreutils pkgs.gnused pkgs.util-linux pkgs.nfs-utils pkgs.curl];
 
       serviceConfig = {
         Type = "oneshot";
-        NoNewPrivileges = true; # rsync/zfs/ssh as root; no setuid exec (#232)
+        NoNewPrivileges = true; # rclone/mount as root; no setuid exec (#232)
         ExecStart = pkgs.writeScript "ops-sync" ''
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
@@ -90,37 +96,40 @@ in {
 
           trap 'notify "ops-sync failed on ${config.networking.hostName}" "Sync failed at line $LINENO"' ERR
 
-          # Always tear down both sync-lifetime mounts, on success OR failure, so
-          # neither share is left mounted after the sync (forgejo#4).
+          # Always tear down the narrow NFS mount, on success OR failure, so the
+          # NAS is never left mounted after the sync (forgejo#4).
           cleanup() {
-            for m in "${opsMount}" "${srcMount}"; do
-              if mountpoint -q "$m"; then
-                umount -l "$m" 2>/dev/null || true
-              fi
-            done
+            if mountpoint -q "${opsMount}"; then
+              umount -l "${opsMount}" 2>/dev/null || true
+            fi
           }
           trap cleanup EXIT
 
+          # rclone reads the SMB login from env; the password goes through
+          # `rclone obscure -` on stdin so it never appears in argv.
+          export RCLONE_CONFIG=/dev/null
+          export RCLONE_SMB_HOST=${escapeShellArg cfg.sourceHost}
+          RCLONE_SMB_USER="$(sed -n 's/^username=//p' "${credentials}")"
+          RCLONE_SMB_PASS="$(sed -n 's/^password=//p' "${credentials}" | rclone obscure -)"
+          export RCLONE_SMB_USER RCLONE_SMB_PASS
+
           source_available() {
-            mountpoint -q "${srcMount}" && return 0
-            mount -t cifs -o ro,nosuid,nodev,noexec,credentials=${credentials},iocharset=utf8,noserverino \
-              ${escapeShellArg cfg.sourceShare} "${srcMount}"
+            rclone lsf --max-depth 1 --contimeout 30s "${src}" >/dev/null
           }
 
           # Wait for source with retries (file server offline / site VPN down).
-          mkdir -p "${srcMount}"
           attempt=0
           while ! source_available; do
             attempt=$((attempt + 1))
             if [ "$attempt" -gt "$MAX_RETRIES" ]; then
-              log "Source ${cfg.sourceShare} not mountable after $MAX_RETRIES attempts — giving up"
+              log "Source ${cfg.sourceHost}/${cfg.sourcePath} not reachable after $MAX_RETRIES attempts — giving up"
               notify \
                 "ops-sync skipped on ${config.networking.hostName}" \
-                "Source ${cfg.sourceShare} not mountable after $MAX_RETRIES attempts. File server offline, route down, or credentials rejected (journalctl -u ops-sync) — will try again next scheduled run." \
+                "Source ${cfg.sourceHost}/${cfg.sourcePath} not reachable after $MAX_RETRIES attempts. File server offline, route down, or credentials rejected (journalctl -u ops-sync) — will try again next scheduled run." \
                 5
               exit 0
             fi
-            log "Source ${cfg.sourceShare} not mountable (attempt $attempt/$MAX_RETRIES), retrying in ''${RETRY_INTERVAL}s..."
+            log "Source ${cfg.sourceHost}/${cfg.sourcePath} not reachable (attempt $attempt/$MAX_RETRIES), retrying in ''${RETRY_INTERVAL}s..."
             sleep "$RETRY_INTERVAL"
           done
 
@@ -141,21 +150,25 @@ in {
             exit 1
           fi
 
-          log "Starting sync from ${cfg.sourceShare} to home NFS"
+          log "Starting sync from ${cfg.sourceHost}/${cfg.sourcePath} to home NFS"
 
-          rsync -rlptv \
-            --delete \
-            --exclude='Thumbs.db' \
-            --exclude='.stfolder' \
-            --exclude='desktop.ini' \
-            --exclude='~$*' \
-            --timeout=300 \
+          # Mirror with deletes; excluded files on the destination are kept.
+          rclone sync \
+            --exclude 'Thumbs.db' \
+            --exclude '.stfolder/**' \
+            --exclude 'desktop.ini' \
+            --exclude '~$*' \
+            --timeout 5m \
+            --contimeout 60s \
+            --log-level INFO \
+            --stats 15m \
+            --stats-one-line \
             "${src}" "${dest}"
 
           log "Sync completed successfully"
         '';
 
-        # Root: mount.cifs/mount.nfs and the root-only credentials file
+        # Root: mount.nfs and the root-only credentials file
         User = "root";
 
         # Generous timeout for large syncs over Tailscale

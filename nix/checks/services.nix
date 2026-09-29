@@ -285,24 +285,29 @@
       touch $out
     '';
 
-  # ops-sync mounts its SMB source itself (read-only CIFS, credential from a
-  # root-only host-scoped secret) instead of the Windows Z: mapping, which
-  # dropped after every Windows reboot. Guard against regressing to drvfs.
+  # ops-sync reads its SMB source with rclone's userspace client (credential
+  # from a root-only host-scoped secret). Neither the Windows Z: mapping (S4U
+  # boot logon has no network credential) nor a kernel CIFS mount (SMB signing
+  # fails on the WSL kernel) works there; guard against regressing to either.
   wslOpsSyncSourceCheck = let
     wsl = self.nixosConfigurations.wsl.config;
-    secret = wsl.sops.secrets."ops-sync/cifs-credentials";
+    secret = wsl.sops.secrets."ops-sync/smb-credentials";
   in
     pkgs.runCommand "wsl-ops-sync-source" {} ''
       ops_sync=${lib.escapeShellArg wsl.systemd.services.ops-sync.serviceConfig.ExecStart}
-      test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourceShare} = '//192.168.100.201/Data/Operations & Production'
+      test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourceHost} = 192.168.100.201
+      test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourcePath} = 'Data/Operations & Production'
       test '${lib.boolToString (lib.any (u: lib.hasPrefix "mnt-z" u) (wsl.systemd.services.ops-sync.after ++ wsl.systemd.services.ops-sync.wants))}' = false
       test ${lib.escapeShellArg secret.owner} = root
       test ${lib.escapeShellArg secret.mode} = 0400
-      ${pkgs.gnugrep}/bin/grep -F 'mount -t cifs -o ro,nosuid,nodev,noexec,credentials=${secret.path},' "$ops_sync" >/dev/null
-      if ${pkgs.gnugrep}/bin/grep -F '/mnt/z' "$ops_sync" >/dev/null; then
-        echo "ops-sync still reads the Windows Z: drvfs mount" >&2
-        exit 1
-      fi
+      ${pkgs.gnugrep}/bin/grep -F 'rclone obscure -' "$ops_sync" >/dev/null
+      ${pkgs.gnugrep}/bin/grep -F 'rclone sync' "$ops_sync" >/dev/null
+      for bad in '/mnt/z' 'mount -t cifs'; do
+        if ${pkgs.gnugrep}/bin/grep -F "$bad" "$ops_sync" >/dev/null; then
+          echo "ops-sync regressed to an unusable source path: $bad" >&2
+          exit 1
+        fi
+      done
       touch $out
     '';
 
