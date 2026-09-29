@@ -193,6 +193,7 @@
       beets.enable = true;
       bdday.enable = true;
       cullenCarbon.enable = true;
+      familyMap.enable = true;
       mrnews.enable = true;
 
       # Immich moved to doc2 (2026-02-25)

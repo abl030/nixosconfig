@@ -54,6 +54,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [home-assistant-auto-update](services/home-assistant-auto-update.md) — unattended Core/OS/add-on/HACS updates, the backup chain that makes them safe, and tower's scoped `VMBackups` NFS export
 - [indoor-water-meter](services/indoor-water-meter.md) — ESPHome GPIO27 reed-pulse water meter; bench-test evidence, persistence, calibration, and recovery
 - [cullen-carbon-dashboard](services/cullen-carbon-dashboard.md) — `carbon.ablz.au` served live from the doc1 `~/cullen-carbon` checkout (read-only bind into nginx), no rebuild per HTML change
+- [family-map](services/family-map.md) — `family.ablz.au` LAN-only Leaflet family-history map served live from doc1 `~/agents`, tiles from the tower NFS cache
 - [biodynamic-day](services/biodynamic-day.md) — consuming the `bd.ablz.au` moon-day API (why `day_type` is not the current type), the HA `ir-sensor` banner, and the Cullen laptop wallpaper **incl. how to remove it**
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
 - [yoto-share](services/yoto-share.md) — `yoto.ablz.au` tailnet audiobook catalogue and on-demand card ZIPs without stored copies; chapter splitting, limits, and access model

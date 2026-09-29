@@ -45,6 +45,7 @@
     ./beets.nix
     ./bdday.nix
     ./cullen-carbon.nix
+    ./family-map.nix
     ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix
