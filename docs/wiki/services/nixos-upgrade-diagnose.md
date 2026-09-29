@@ -14,6 +14,20 @@ When the nightly `nixos-upgrade.service` fails on any NixOS host:
 4. Only if that webhook is unreachable does the script run `claude -p --model opus --allowedTools WebFetch` locally with `diagnoseSystemPrompt` and page Gotify directly with its `Classification / Summary / Fix / Evidence` verdict. The journal (→ Loki) says which path ran: `delivered to Hermes RCA` versus `=== diagnosis for <host> ===`.
 5. If the fallback `claude` is unauthenticated, times out, or returns empty, the page carries the raw log tail — exactly the pre-diagnose behaviour. No host is worse off than before.
 
+**Tolerated switch exit 4 (never reaches diagnose).** The verified
+fleet-update path (`modules/nixos/autoupdate/fleet-update.sh`, `run_switch`)
+records success instead of failing when `switch-to-configuration` exits 4 and:
+
+- `homelab.update.tolerateUserUnitFailure` (workstations only): only
+  `systemd --user` units failed.
+- `homelab.update.tolerateTimerUnitFailure` (default on, 2026-09-30): every unit
+  in `the following units failed:` is a `Type=oneshot` triggered by a `.timer`.
+  These are nightly jobs whose own timer fired during activation (doc2's
+  `mailarchive-gmail` hit a Gmail TLS EOF mid-switch on 2026-09-30 and paged
+  "nixos-upgrade failed"). The switch did not start them and the timer retries
+  them; any other failed unit still pages. The journal logs
+  `switch exit 4 tolerated: ... only timer-triggered oneshots failed`.
+
 The `triage-overnight` skill (`.claude/skills/triage-overnight/SKILL.md`) is the morning ritual: queries Loki for both this unit and `rolling-flake-update.service`, summarises diagnoses, proposes fixes.
 
 ## Bootstrap (one-time per host)

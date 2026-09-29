@@ -78,6 +78,21 @@ in {
       default = "60min";
       description = "Maximum time allowed for the entire update operation (DNS check + rebuild + activation). Prevents hangs from stuck activations.";
     };
+    tolerateTimerUnitFailure = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Treat a verified fleet-update whose switch exits 4 ONLY because
+        timer-triggered oneshot units failed as SUCCESS instead of paging.
+        switch-to-configuration reports every unit that failed during
+        activation, including a nightly job its own timer happened to start at
+        the same moment (e.g. mailarchive-gmail hitting a transient Gmail TLS
+        error). The switch did not start those units, the generation advanced,
+        and the job's timer retries it; persistent job failures page through the
+        job's own monitoring. Any other failed unit still fails loudly. Only
+        affects the verified fleet-update path (homelab.update.verify.enforce).
+      '';
+    };
     tolerateUserUnitFailure = lib.mkOption {
       type = lib.types.bool;
       default = false;

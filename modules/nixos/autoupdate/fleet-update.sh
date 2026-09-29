@@ -41,6 +41,15 @@ NOW_OVERRIDE="${FLEET_UPDATE_NOW:-}"
 # graphical workstations via homelab.update.tolerateUserUnitFailure; run_switch
 # adds log guards so a real system-unit failure stays loud.
 TOLERATE_USER_UNIT_FAILURE="${FLEET_UPDATE_TOLERATE_USER_UNIT_FAILURE:-0}"
+# When truthy, a switch exit 4 whose ONLY failed system units are timer-triggered
+# oneshots is treated as success. switch-to-configuration reports any unit that
+# failed during activation, including a nightly job its own timer happened to
+# start at the same moment (2026-09-30: mailarchive-gmail hit a Gmail TLS EOF
+# mid-switch on doc2). The switch did not start those units, the generation
+# advanced, and the job's own timer retries it. Wired from
+# homelab.update.tolerateTimerUnitFailure.
+TOLERATE_TIMER_UNIT_FAILURE="${FLEET_UPDATE_TOLERATE_TIMER_UNIT_FAILURE:-0}"
+SYSTEMCTL_BIN="${FLEET_UPDATE_SYSTEMCTL_BIN:-systemctl}"
 
 REQUESTED_REV=""
 ACCEPT_NEW_ROOT=""
@@ -729,6 +738,35 @@ write_success_anchor() {
     date +%s >"$SUCCESS_TIMESTAMP_FILE"
 }
 
+# Succeeds only when the rebuild log names failed system units and every one of
+# them is a Type=oneshot unit triggered by a .timer. Any user-unit failure this
+# host does not already tolerate, or any other failed unit, keeps the run loud.
+only_timer_oneshots_failed() {
+    local log_file="$1"
+    local line unit type triggered
+    local -a units=()
+
+    if grep -qE 'user activation for .* failed|the following user units failed:' "$log_file" \
+        && ! is_truthy "$TOLERATE_USER_UNIT_FAILURE"; then
+        return 1
+    fi
+
+    line="$(grep -oE 'the following units failed: .*' "$log_file" | head -1 || true)"
+    [ -n "$line" ] || return 1
+    IFS=', ' read -r -a units <<<"${line#the following units failed: }"
+    [ "${#units[@]}" -gt 0 ] || return 1
+
+    for unit in "${units[@]}"; do
+        [ -n "$unit" ] || continue
+        type="$("$SYSTEMCTL_BIN" show -p Type --value -- "$unit" 2>/dev/null || true)"
+        triggered="$("$SYSTEMCTL_BIN" show -p TriggeredBy --value -- "$unit" 2>/dev/null || true)"
+        if [ "$type" != oneshot ] || ! grep -qE '(^| )[^ ]+\.timer( |$)' <<<"$triggered"; then
+            return 1
+        fi
+    done
+    return 0
+}
+
 run_switch() {
     local target="$1"
     local ref
@@ -789,6 +827,16 @@ run_switch() {
             local failed_user
             failed_user="$(grep -oE 'the following user units failed:.*' "$log_file" | head -1 || true)"
             log "switch exit 4 tolerated: system generation switched; only user-session units failed. ${failed_user:-(user activation failed)}"
+            rm -f "$log_file"
+            write_success_anchor "$target"
+            return 0
+        fi
+
+        if [ "$status" -eq 4 ] && is_truthy "$TOLERATE_TIMER_UNIT_FAILURE" \
+            && only_timer_oneshots_failed "$log_file"; then
+            local failed_timer
+            failed_timer="$(grep -oE 'the following units failed:.*' "$log_file" | head -1 || true)"
+            log "switch exit 4 tolerated: system generation switched; only timer-triggered oneshots failed (their timers retry). ${failed_timer}"
             rm -f "$log_file"
             write_success_anchor "$target"
             return 0

@@ -69,6 +69,12 @@
         then "1"
         else "0"
       }
+      export FLEET_UPDATE_TOLERATE_TIMER_UNIT_FAILURE=${
+        if config.homelab.update.tolerateTimerUnitFailure
+        then "1"
+        else "0"
+      }
+      export FLEET_UPDATE_SYSTEMCTL_BIN=${lib.escapeShellArg "${config.systemd.package}/bin/systemctl"}
       exec ${pkgs.bash}/bin/bash ${fleetUpdateSource} "$@"
     '';
   };

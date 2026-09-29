@@ -200,6 +200,27 @@
       EOF
       chmod +x "$TMPDIR/bin/nixos-rebuild"
 
+      # Switch that advanced the generation but exits 4 naming $FIXTURE_FAILED_UNITS.
+      cat > "$TMPDIR/bin/nixos-rebuild-exit4" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      echo "warning: the following units failed: $FIXTURE_FAILED_UNITS"
+      exit 4
+      EOF
+      chmod +x "$TMPDIR/bin/nixos-rebuild-exit4"
+
+      # nightly-job is a timer-triggered oneshot; anything else is a daemon.
+      cat > "$TMPDIR/bin/systemctl" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      unit="''${!#}"
+      case "$3:$unit" in
+        Type:nightly-job.service) echo oneshot ;;
+        TriggeredBy:nightly-job.service) echo nightly-job.timer ;;
+        Type:*) echo simple ;;
+        *) echo ;;
+      esac
+      EOF
+      chmod +x "$TMPDIR/bin/systemctl"
+
       make_key() {
         local name="$1"
         ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMPDIR/$name"
@@ -414,8 +435,9 @@
         FLEET_UPDATE_HOSTNAME=fixture-host \
         FLEET_UPDATE_NOW=2000000100 \
         FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS=1000 \
-        FLEET_UPDATE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild" \
+        FLEET_UPDATE_REBUILD_BIN="''${FIXTURE_REBUILD_BIN:-$TMPDIR/bin/nixos-rebuild}" \
         FLEET_UPDATE_REBUILD_FLAGS="--no-write-lock-file -L" \
+        FLEET_UPDATE_SYSTEMCTL_BIN="$TMPDIR/bin/systemctl" \
         FLEET_UPDATE_SKIP_PREFLIGHT=1 \
         FLEET_UPDATE_SUCCESS_TIMESTAMP_FILE="$TMPDIR/$name-success" \
         FLEET_UPDATE_FAILURE_LOG="$TMPDIR/$name-failure.log" \
@@ -457,6 +479,24 @@
       test "$(jq -r '.heartbeat_epoch' "$TMPDIR/state-linear/last-verified-freshness")" = "2000000000"
       test "$(cat "$TMPDIR/state-linear/highest-seen-heartbeat")" = "2000000000"
       test -s "$TMPDIR/state-linear/last-source-contact"
+
+      # A timer-launched oneshot failing mid-switch is tolerated; a daemon is not,
+      # and neither is the oneshot when the tolerance is off.
+      FIXTURE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild-exit4" FIXTURE_FAILED_UNITS="nightly-job.service" \
+        FLEET_UPDATE_TOLERATE_TIMER_UNIT_FAILURE=1 run_fleet timer-ok "$linear_remote" "$linear_base"
+      test "$(cat "$TMPDIR/timer-ok-anchor")" = "$linear_target"
+      if FIXTURE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild-exit4" FIXTURE_FAILED_UNITS="nightly-job.service, web.service" \
+        FLEET_UPDATE_TOLERATE_TIMER_UNIT_FAILURE=1 run_fleet timer-daemon "$linear_remote" "$linear_base"; then
+        echo "expected a failed daemon unit to stay loud" >&2
+        exit 1
+      fi
+      test ! -e "$TMPDIR/timer-daemon-anchor"
+      grep -q 'web.service' "$TMPDIR/timer-daemon-failure.log"
+      if FIXTURE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild-exit4" FIXTURE_FAILED_UNITS="nightly-job.service" \
+        FLEET_UPDATE_TOLERATE_TIMER_UNIT_FAILURE=0 run_fleet timer-off "$linear_remote" "$linear_base"; then
+        echo "expected timer-unit tolerance to be opt-in" >&2
+        exit 1
+      fi
 
       : > "$TMPDIR/rebuilds"
       run_fleet noop "$linear_remote" "$linear_target"
