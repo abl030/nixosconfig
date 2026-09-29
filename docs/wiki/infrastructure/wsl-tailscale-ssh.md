@@ -1,6 +1,6 @@
 # SSH into the WSL VM over Tailscale (Windows portproxy bridge)
 
-**Date:** 2026-06-06 · **Status:** working, dual entrypoints verified 2026-08-20 · **Host:** `wsl` (distro `NixOS` on `laptop-btibh4ie`)
+**Date:** 2026-06-06 · **Status:** working, dual entrypoints verified 2026-08-20; self-healing task verified 2026-09-29 · **Host:** `wsl` (distro `NixOS` on `laptop-btibh4ie`)
 
 ## Problem
 
@@ -19,31 +19,68 @@ We want to `ssh nixos@<laptop>` into the WSL VM from the tailnet. But:
 `sshd` inside WSL already listens on `0.0.0.0:22` (`homelab.ssh.enable = true`,
 keys from `hosts.nix`). The only gap is getting tailnet traffic to it.
 
-## Solution: `netsh portproxy` on the Windows host, refreshed each logon
+## Solution: `netsh portproxy` on the Windows host, self-healing task
 
-A Windows scheduled task runs `Update-WslPortproxy.ps1` at logon. The script:
+A Windows scheduled task runs `Update-WslPortproxy.ps1` at startup, at logon and
+every 15 minutes. The script:
 
 1. Discovers the current WSL `eth0` IP (eth0 only — `hostname -I` would also
-   return the docker bridge IPs `172.17/172.18`).
-2. Discovers the Windows Tailscale IP (`tailscale.exe ip -4`).
-3. Forwards **`<tailscaleIP>:22 → <wslIP>:22`**, binding the listener to the
+   return the docker bridge IPs `172.17/172.18`). Waits up to 5 min.
+2. Discovers the Windows Tailscale IP from the `Tailscale` network adapter
+   (`Get-NetIPAddress`, not `tailscale.exe`). Waits up to 10 min.
+3. Ensures **`<tailscaleIP>:22 → <wslIP>:22`**, binding the listener to the
    Tailscale IP *only* (so it never appears on the LAN or public interfaces).
-4. Re-points the pre-existing `0.0.0.0:443 → <wslIP>:443` forward to the live
-   WSL IP (it had the IP hardcoded and would break on reboot).
+   It then **checks that a listener actually exists** on that address and port,
+   and deletes and re-adds the rule until one does (up to 5 tries).
+4. Does the same for the pre-existing `0.0.0.0:443 → <wslIP>:443` forward.
 5. Ensures an inbound firewall allow: TCP 22, LocalAddress = Tailscale IP,
    RemoteAddress = `100.64.0.0/10` (tailnet CGNAT range). Defense in depth.
 
+When everything is already correct the run is a no-op, so the 15-minute
+repetition never disturbs a working forward. Each run appends one line to
+`last-run.log` next to the script (trimmed to about 200 lines).
+
+### Incident 2026-09-23 → 29: rule present, nothing listening
+
+`ssh wsl` timed out for six days after a Windows reboot, although
+`netsh interface portproxy show v4tov4` still listed
+`100.75.246.114:22 → <wslIP>:22` with the correct WSL IP.
+
+- IP Helper (`iphlpsvc`) binds a portproxy listener **once**. At boot the
+  Tailscale address did not exist yet, so the bind to `100.75.246.114:22` failed
+  and was never retried. Only `127.0.0.1:22` (WSL's own localhost relay) was
+  listening; the `0.0.0.0:443` forward was unaffected.
+- The old logon-only task waited just 60 s for `tailscale.exe ip -4`, gave up
+  (`LastTaskResult = 1`), and exited before re-adding the rule. Re-adding would
+  have forced a fresh bind.
+- **Diagnose:** `netstat -ano -p tcp | findstr LISTENING | findstr ":22 "` must
+  show `100.75.246.114:22` (owned by the IP Helper svchost). A rule without a
+  listener is this failure.
+- **Fix:** the listener check, longer waits, and startup plus 15-minute triggers
+  described above. Verified by deleting the `:22` rule and running the task,
+  which logged `fixing forward … listening=False` and restored `ssh wsl`.
+
 ### Locations (Windows side, NOT in this repo)
 
-- Script: `C:\Users\abl030\wsl-portproxy\Update-WslPortproxy.ps1`
-- Scheduled task: `WSL-Tailscale-Portproxy` — runs as user `abl030`,
-  trigger **At logon**, **Run with highest privileges**.
+- Script: `C:\Users\abl030\wsl-portproxy\Update-WslPortproxy.ps1` (the
+  pre-2026-09-29 version is kept as `Update-WslPortproxy.ps1.bak`)
+- Task registration: `C:\Users\abl030\wsl-portproxy\Register-PortproxyTask.ps1`;
+  the previous task definition is exported as `task-backup.xml` there.
+- Scheduled task: `WSL-Tailscale-Portproxy` — runs as user `abl030` with
+  **S4U** logon ("run whether logged on or not", no stored password) and
+  **highest privileges**. Triggers: **at startup** (1 min delay), **at logon**,
+  and **every 15 minutes**. `IgnoreNew` for overlapping runs, 20-minute limit.
+- Rollback: `Register-ScheduledTask -TaskName WSL-Tailscale-Portproxy -Xml (Get-Content task-backup.xml -Raw) -Force`
+  and restore the `.bak` script.
 
 ### Why run as the user (not SYSTEM)
 
 SYSTEM cannot see a per-user WSL distro, so `wsl.exe -d NixOS` fails as SYSTEM.
 The task runs as `abl030`; "highest privileges" lets it run `netsh` / firewall
-cmdlets silently (the account is a local admin), no UAC prompt.
+cmdlets silently (the account is a local admin), no UAC prompt. S4U works for
+`wsl.exe`: the `Start-NixOS-WSL` boot task uses the same logon type. S4U has
+no network credentials, which doesn't matter here (see
+[`wsl-ondemand-data-mount.md`](wsl-ondemand-data-mount.md) for where it does).
 
 ## Two intentional tailnet SSH entrypoints
 
@@ -90,12 +127,12 @@ be reachable on the laptop's LAN addresses.
 
 ## Limitations / footguns
 
-- **Trigger is "at logon."** After a cold reboot with nobody logged into Windows,
-  WSL won't start and SSH is unreachable until someone logs in. Acceptable for a
-  laptop. For true headless, switch the task to "run whether logged on or not"
-  with stored creds (finicky with WSL profile loading, but doable).
-- `wsl --shutdown` mid-session changes the WSL IP and the forward goes stale until
-  next logon. Re-run: `Start-ScheduledTask -TaskName 'WSL-Tailscale-Portproxy'`.
+- A cold reboot with nobody logged in is covered: `Start-NixOS-WSL` boots the
+  VM at startup, and this task runs at startup too (S4U).
+- `wsl --shutdown` mid-session changes the WSL IP. The forward heals within 15
+  minutes; to fix it immediately, run
+  `Start-ScheduledTask -TaskName 'WSL-Tailscale-Portproxy'` (or
+  `schtasks /run /tn WSL-Tailscale-Portproxy` over `ssh wsl-laptop`).
 - **Not** WSL "mirrored" networking mode: cleaner conceptually but bigger blast
   radius (collides with docker bridges, can disturb the working NFS subnet route).
   Portproxy is surgical and matches the existing 443 forward pattern on this box.
