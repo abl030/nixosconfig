@@ -40,11 +40,11 @@
     "cellar-manager": {
       "flake": false,
       "locked": {
-        "lastModified": 1790050801,
-        "narHash": "sha256-T3rw1IOB9vMGHTQgrcDkKw9hPD0J33RRT/u3cd61EV0=",
+        "lastModified": 1790651659,
+        "narHash": "sha256-pero7zB5fo+BqXHPJzq47HM+QcZyy6oX4LUI1NeEWp0=",
         "owner": "abl030",
         "repo": "cellar-manager",
-        "rev": "52bfaa9804d1e84f5e00ec4d98d3c9238574fcfb",
+        "rev": "c1cdda698da4ea0cee2ce8f21b623efc0c42b423",
         "type": "github"
       },
       "original": {
@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790604529,
-        "narHash": "sha256-1SGoZlR+tfeH5lRJ/g80dajeCO1wqS7txEFGJmyrNXo=",
+        "lastModified": 1790632628,
+        "narHash": "sha256-f6TYeZcVjDluBwE4RUP7cCmvphucwHw4kYFvdj+DbUE=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "fc5fe1a2d34f779d760c371d5d8355f94815ba55",
+        "rev": "7f63807394a0e2d4851a47905f20f1a0e5767cb4",
         "type": "github"
       },
       "original": {
@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790605117,
-        "narHash": "sha256-hzVwqYmUU/bu8inY432SCIPZl/MItg8LvU5WBfI0aGY=",
+        "lastModified": 1790782474,
+        "narHash": "sha256-3O60AEH1kdsOuCvwpjjAdFxbuaJCAtHUUAiuqACA21Q=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "8f21606116c39ba13ecaa158a4ae7e7ffb900f4f",
+        "rev": "6ec05205a943cf813bd56c3c79d64bcf922dac67",
         "type": "github"
       },
       "original": {
@@ -446,11 +446,11 @@
         "papermod": "papermod"
       },
       "locked": {
-        "lastModified": 1790552510,
-        "narHash": "sha256-33htOe3sx+lMGGCTwzeH+Keg27N9cxgKBIvjg3GAc2w=",
+        "lastModified": 1790640397,
+        "narHash": "sha256-gvOlTIIsc/63ncm1aBXkNYUA4lJg900udVlpZXRec4I=",
         "ref": "refs/heads/master",
-        "rev": "11b64cb6856fa062f38bd7befa7d6ee4ceaf9de9",
-        "revCount": 30,
+        "rev": "ef10df0449bfae31952d93ead59ab1f8b86898af",
+        "revCount": 31,
         "type": "git",
         "url": "https://git.ablz.au/abl030/mrnews"
       },
@@ -500,11 +500,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790321948,
-        "narHash": "sha256-mZGHLGi217oLIwzDM4PNRZeCNa6g2WBXURyXbNMFs7Y=",
+        "lastModified": 1790722812,
+        "narHash": "sha256-XwFt1uLyaBCQU1/nUeGqeBnqNXPVgGRnz20YVYdmF6Y=",
         "owner": "NixOS",
         "repo": "nixos-hardware",
-        "rev": "30d48a0ec6035f8140d0125af274f0de95f1e9b5",
+        "rev": "06f9ecaea5f64b6ff61cf42cb32f21621c4fa14a",
         "type": "github"
       },
       "original": {
@@ -967,11 +967,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1790546981,
-        "narHash": "sha256-LiXU+nqvL/YKiw9FzakdYbEdh+ZKgoI/XmYCg0ep7V0=",
+        "lastModified": 1790719765,
+        "narHash": "sha256-P1sZjDAHYJHJ5MAISe3CgOsbTbeHFCJwZhsg0VzvJLk=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "8db7179f1d7240a90afee0bc2f90ba33bbc6f34c",
+        "rev": "7f1b69b1a2c6b2ac04a29cb1d8eef2274a7a0ff9",
         "type": "github"
       },
       "original": {
