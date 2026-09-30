@@ -75,9 +75,15 @@ pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+
 
 ### Tempo trace sources
 
-Immich is the only trace source (2026-09-30). Its exporter was hardcoded to
-`192.168.1.33:4317` (igpu, pre-LGTM-move) and silently dropped every trace; it
-now targets loopback `127.0.0.1:4318` on doc2. Gotcha for future sources: the
+Immich is the only configured trace source (2026-09-30). Its exporter was
+hardcoded to `192.168.1.33:4317` (igpu, pre-LGTM-move); it now targets loopback
+`127.0.0.1:4318` on doc2. **Tempo still receives no Immich spans**, and that is
+upstream: Immich 3.2.2 calls `bootstrapTelemetry()` from `app.common.js` at
+runtime, after `@nestjs/core`/`http`/`pg` are already loaded, so the
+require-hook instrumentations patch nothing (Prometheus metrics are unaffected).
+Verified the pipe itself on doc2 by running Immich's bundled `sdk-node` with the
+service's exact OTEL env: the manual span landed in Tempo. Revisit on an Immich
+bump: search `{resource.service.name="immich"}`. Gotcha for future sources: the
 OpenTelemetry Node SDK (`sdk-node`) defaults to OTLP **http/protobuf**, which
 belongs on Tempo's HTTP receiver (4318), not the gRPC port (4317). Query with
 `{resource.service.name="immich"}` in Grafana Explore → Tempo, or
