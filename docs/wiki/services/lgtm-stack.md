@@ -73,9 +73,16 @@ Next sync rebuilds the cache from the host's desired_hosts only. Nothing to clea
 
 pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+port string only. Short names and FQDNs both fail silently. We use `192.168.1.35:1514` literally.
 
-### Tempo is still empty
+### Tempo trace sources
 
-No apps in our fleet push OTEL traces. Most homelab apps only expose Prometheus metrics. Tempo infrastructure + OTLP receivers are ready for when something lands.
+Immich is the only trace source (2026-09-30). Its exporter was hardcoded to
+`192.168.1.33:4317` (igpu, pre-LGTM-move) and silently dropped every trace; it
+now targets loopback `127.0.0.1:4318` on doc2. Gotcha for future sources: the
+OpenTelemetry Node SDK (`sdk-node`) defaults to OTLP **http/protobuf**, which
+belongs on Tempo's HTTP receiver (4318), not the gRPC port (4317). Query with
+`{resource.service.name="immich"}` in Grafana Explore → Tempo, or
+`https://tempo.ablz.au/api/search`. Most other homelab apps only expose
+Prometheus metrics.
 
 ### Tempo 3.0 config migration (2026-06-14)
 

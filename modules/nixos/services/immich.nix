@@ -5,6 +5,7 @@
   ...
 }: let
   cfg = config.homelab.services.immich;
+  lokiCfg = config.homelab.services.loki;
 
   # #257 sandbox paths (see immich-server / immich-machine-learning below).
   mediaLocation = config.services.immich.mediaLocation;
@@ -131,14 +132,23 @@ in {
 
       secretsFile = config.sops.secrets."immich/env".path;
 
-      environment = {
-        IMMICH_TELEMETRY_INCLUDE = "all";
-        OTEL_EXPORTER_OTLP_ENDPOINT = "http://192.168.1.33:4317";
-        OTEL_TRACES_EXPORTER = "otlp";
-        OTEL_SERVICE_NAME = "immich";
-        IMMICH_METRICS = "true";
-        IMMICH_METRICS_PORT = "8081";
-      };
+      environment =
+        {
+          IMMICH_TELEMETRY_INCLUDE = "all";
+          IMMICH_METRICS = "true";
+          IMMICH_METRICS_PORT = "8081";
+        }
+        # Traces go to the co-located Tempo (LGTM stack) over loopback. Immich's
+        # NodeSDK speaks OTLP http/protobuf by default, so this must be Tempo's
+        # OTLP *HTTP* port, not the 4317 gRPC one. The old hardcoded
+        # igpu:4317 endpoint silently dropped every trace (wrong host after the
+        # LGTM move to doc2, wrong protocol for the port).
+        // lib.optionalAttrs lokiCfg.enable {
+          OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:${toString lokiCfg.tempoOtlpHttpPort}";
+          OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
+          OTEL_TRACES_EXPORTER = "otlp";
+          OTEL_SERVICE_NAME = "immich";
+        };
     };
 
     # Neutralize upstream's unguarded postgresql-setup service (nixpkgs #388806).
