@@ -41,13 +41,27 @@ browser → doc1 nginx :443 family.ablz.au (localProxy TLS/ACME, LAN DNS)
   `/mnt/data`, so this module no longer sets `RequiresMountsFor` (the podcast
   vhost still does).
 
-## Access: LAN only, deliberately
+## Access: LAN plus one tailnet share, never public
 
 The 1953–2026 Landgate imagery is a private research copy and must not be
-served publicly (the site's own `config.js`/README say so). Keep this on
-`homelab.localProxy` (RFC1918 DNS). Do not add a Cloudflare tunnel, a public
-proxy, or a tailscale-share without first removing or replacing the Landgate
-layers.
+served publicly. The site's README allows "LAN/VPN/auth only". `family.ablz.au`
+stays on `homelab.localProxy` (RFC1918 DNS). Do not add a Cloudflare tunnel or
+any public proxy without first removing or replacing the Landgate layers.
+
+**Tailnet share for Dad (2026-10-01):** `familymap.ablz.au` is a
+`homelab.tailscaleShare.family-map` node (`familymap`, `tag:share`) on **doc2**,
+not doc1. Its Caddy reverse-proxies over the LAN to `https://family.ablz.au`
+with `upstreamHostHeader = true`, so doc1's nginx vhost and allowlist still
+apply. It lives on doc2 so the bastion gets no podman runtime and no
+auto-updated images. Access control is node sharing: share the `familymap`
+machine only with family tailnets (Tailscale admin → Machines → familymap →
+Share). The existing `autogroup:shared → tag:share` TCP 80/443 grant covers
+sharees, so no ACL change was needed. Revoke a sharee in the same admin page.
+
+```text
+Dad's tailnet → familymap (ts-family-map, doc2) → caddy-family-map
+             → https://family.ablz.au (doc1 192.168.1.29, LAN) → 127.0.0.1:8852
+```
 
 ## Operations
 

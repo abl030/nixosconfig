@@ -138,7 +138,10 @@
   # them. See docs/wiki/services/yoto-share.md.
   mkSiteBody = cfg:
     if cfg.serveDir == null
-    then "reverse_proxy ${cfg.upstream}"
+    then
+      if cfg.upstreamHostHeader
+      then "reverse_proxy ${cfg.upstream} {\n    header_up Host {upstream_hostport}\n  }"
+      else "reverse_proxy ${cfg.upstream}"
     else
       lib.concatStringsSep "\n  " [
         "root * /srv"
@@ -216,6 +219,18 @@ in {
 
             Mutually exclusive with serveDir: an instance is either a reverse
             proxy or a static file share.
+          '';
+        };
+
+        upstreamHostHeader = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Send the upstream's own host as the Host header instead of the
+            share FQDN. Needed when the upstream is a name-based vhost on
+            another machine, e.g. https://family.ablz.au on doc1's LAN nginx
+            proxied from a doc2 share. Caddy already sets TLS SNI from the
+            upstream hostname.
           '';
         };
 

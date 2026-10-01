@@ -1,7 +1,9 @@
 # Barrett-Lennard family-history map: the static Leaflet site the family-history
 # agent builds in ~/agents, served live from that checkout with its aerial tiles
 # read from a local tile cache (built from masters on the tower NFS share). LAN-only: the Landgate imagery is a private
-# research copy and must not be public. See docs/wiki/services/family-map.md.
+# research copy and must not be public. Shared to Dad's tailnet as
+# familymap.ablz.au via a doc2 tailscaleShare proxying this vhost (doc2 config).
+# See docs/wiki/services/family-map.md.
 {
   config,
   lib,

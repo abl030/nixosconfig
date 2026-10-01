@@ -556,6 +556,23 @@
       monitorName = "Overseerr (Tailnet)";
       monitorPath = "/api/v1/status";
     };
+
+    # Family-history map (doc1, LAN-only family.ablz.au) shared to Dad's
+    # tailnet. The sidecar lives here, not on doc1, so the bastion gets no
+    # container runtime or auto-updated images; Caddy proxies over the LAN to
+    # doc1's existing vhost. See docs/wiki/services/family-map.md.
+    tailscaleShare.family-map = {
+      enable = true;
+      fqdn = "familymap.ablz.au";
+      upstream = "https://family.ablz.au";
+      upstreamHostHeader = true;
+      dataDir = "/mnt/virtio/tailscale-share/family-map";
+      hostname = "familymap";
+      tags = ["tag:share"];
+      authKeySecret = null;
+      monitorName = "Family map (Tailnet)";
+      monitorPath = "/tiles/manifest.json";
+    };
   };
 
   # Cratedigger — host-specific app tuning. Everything else lives in the

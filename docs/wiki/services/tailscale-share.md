@@ -86,6 +86,12 @@ on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = f
 | Yoto | `doc2` | `yoto.ablz.au` | `/mnt/virtio/tailscale-share/yoto` |
 | Yoto WebDAV | `doc2` | `yotodav.ablz.au` | `/mnt/virtio/tailscale-share/yotodav` |
 | Jellyfin | `igpu` | `jellyfinn.ablz.au` | `/mnt/virtio/jellyfin/ts` |
+| Family map (proxies doc1's `family.ablz.au`) | `doc2` | `familymap.ablz.au` | `/mnt/virtio/tailscale-share/family-map` |
+
+`upstreamHostHeader = true` (added 2026-10-01 for the family map) sends
+`header_up Host {upstream_hostport}`, so a share can proxy a name-based vhost on
+another host, such as a doc1 LAN `localProxy` site. Use this option to keep
+podman and the sidecar images off the bastion.
 
 The Overseerr share state was moved on 2026-05-14 from `/mnt/virtio/overseerr/ts` because `/mnt/virtio/overseerr` is owned by `seerr`. Keeping share state there would let a compromised Overseerr process rename or replace the sidecar state directory.
 
