@@ -1,6 +1,6 @@
 # Barrett-Lennard family-history map: the static Leaflet site the family-history
 # agent builds in ~/agents, served live from that checkout with its aerial tiles
-# read from the tower NFS tile cache. LAN-only: the Landgate imagery is a private
+# read from a local tile cache (built from masters on the tower NFS share). LAN-only: the Landgate imagery is a private
 # research copy and must not be public. See docs/wiki/services/family-map.md.
 {
   config,
@@ -27,8 +27,15 @@ in {
 
     tilesDir = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/data/Life/Andy/Genealogy/Barrett-Lennard/Maps/tiles";
-      description = "NFS tile cache that site/tiles symlinks to locally.";
+      default = "/var/lib/family-map/tiles";
+      description = ''
+        Generated aerial tile cache on local disk (doc1's root is Proxmox NVMe).
+        The masters it is built from stay on the NAS; the tiles are regenerable,
+        so this is not backed up. Local because the build writes ~80k small files
+        a year and NFS manages ~6 creates/s against ~7,000 locally (2026-10-01).
+        The build's scratch (.build-tmp) lives inside it so each year's swap is an
+        atomic rename on one filesystem. site/tiles symlinks here for local use.
+      '';
     };
 
     fqdn = lib.mkOption {
@@ -45,13 +52,20 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Local tile cache, written by the family-history agent's build_tiles.py
+    # (runs as abl030) and read by nginx.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/family-map 0755 abl030 users - -"
+      "d ${cfg.tilesDir} 0755 abl030 users - -"
+    ];
+
     # nginx runs ProtectHome=true and masks /mnt (nginx.nix, #257). Bind only
     # the maps directory (not site/: site/data/* are relative symlinks into
     # ../../data) and the tile cache, read-only. Directory binds, so git and
     # tile rebuilds replacing files stay visible. "-" keeps nginx starting if
-    # either is absent; the Kuma monitors then fail instead.
+    # either is absent; the Kuma monitors then fail instead. Nothing here needs
+    # /mnt/data any more (the podcast vhost still sets RequiresMountsFor itself).
     systemd.services.nginx = {
-      unitConfig.RequiresMountsFor = ["/mnt/data"];
       serviceConfig.BindReadOnlyPaths = [
         "-${cfg.mapsDir}:${servedMaps}"
         "-${cfg.tilesDir}:${servedTiles}"
