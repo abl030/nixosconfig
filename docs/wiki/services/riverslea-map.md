@@ -14,15 +14,16 @@ on the next load with no rebuild.
 ```text
 browser → doc1 nginx :443 riverslea.ablz.au (localProxy TLS/ACME, LAN DNS)
         → 127.0.0.1:8853 static server
-            /, *.js, *.css, data/*.geojson|md, data/eras.json, vendor/leaflet/*  → /run/riverslea-map/site
-            /tiles/<year>/<z>/<x>/<y>.png, /tiles/manifest.json                    → /run/riverslea-map-tiles
+            /, *.js, *.css, data/*.geojson|md, vendor/leaflet/*  → /run/riverslea-map/site
+            /tiles/<year>/<z>/<x>/<y>.png, /tiles/manifest.json   → /run/riverslea-map-tiles
 ```
 
 - The whole repo is bound read-only (not just `site/`) because `site/data` is a
-  relative symlink to `../data`. Only the files the page loads are allowlisted:
-  `data/*.geojson|md` plus `data/eras.json` (the era list `app.js` fetches).
-  Other `data/*.json` (build inputs), `data/cache/`, `tools/`, `docs/` and the
-  README all 404.
+  relative symlink to `../data`. Only the files the page loads are allowlisted,
+  exactly as family-map: `data/*.geojson|md`. That is why the era list ships as
+  `data/eras.geojson`. `data/*.json` (build inputs such as
+  `research-features.json`), `data/cache/`, `tools/`, `docs/` and the README
+  all 404.
 - `site/tiles` is an absolute symlink for local `python3 -m http.server` use;
   point it at `/var/lib/riverslea-map/tiles`. nginx ignores it and serves
   `/tiles/` from a separate read-only bind of the tile cache.
@@ -41,8 +42,8 @@ or replacing the Landgate layers.
 ## Operations
 
 - New GeoJSON files are picked up once listed in `site/config.js` and present
-  in `data/` (served names must match `[A-Za-z0-9._-]+\.(geojson|md)`). A new
-  JSON file the page needs requires its own allowlist entry in
+  in `data/` (served names must match `[A-Za-z0-9._-]+\.(geojson|md)`). Give any
+  new page-loaded JSON a `.geojson` name rather than widening the allowlist in
   `modules/nixos/services/riverslea-map.nix`.
 - If `~/riverslea-map` or the tiles directory is deleted and recreated, nginx
   holds the old mount: `sudo systemctl restart nginx`.
@@ -55,8 +56,8 @@ or replacing the Landgate layers.
 
 ```bash
 curl -fsS -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/                        # 200
-curl -fsS -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/data/eras.json          # 200
-curl -fsS -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/tiles/manifest.json     # 200 once built
+curl -fsS -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/data/eras.geojson       # 200
+curl -fsS -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/tiles/manifest.json     # 200
 curl -s   -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/../README.md            # 404
 curl -s   -o /dev/null -w '%{http_code}\n' https://riverslea.ablz.au/data/research-features.json # 404
 ```

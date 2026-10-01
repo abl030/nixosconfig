@@ -89,11 +89,6 @@ in {
         "~ ^/data/[A-Za-z0-9._-]+\\.(geojson|md)$".extraConfig = ''
           add_header Cache-Control "no-cache" always;
         '';
-        # The era list (dates + story text) is the one JSON file the page
-        # loads; other data/*.json are build inputs and stay unserved.
-        "= /data/eras.json".extraConfig = ''
-          add_header Cache-Control "no-cache" always;
-        '';
         "~ ^/vendor/leaflet/[A-Za-z0-9._/-]+\\.(js|css|png)$" = {};
         "= /tiles/manifest.json" = {
           alias = "${servedTiles}/manifest.json";
