@@ -237,12 +237,17 @@
         # inactive. An activation that passed ExecCondition just before the hold
         # was written may finish, but it is stopped before this function returns
         # and therefore before any destructive remote import begins.
-        local attempts=0
+        #
+        # The budget must outlast a full pipeline run (oneshot, near
+        # continuous, shown as `activating` while running) plus the importer's
+        # graceful drain. A fixed 120 s budget lost that race on 2026-10-02:
+        # discogs-import gave up mid-run and left its fail-closed hold parked
+        # until a human noticed.
+        local deadline=$((SECONDS + ${toString cfg.metadataGate.stopTimeoutSeconds}))
         local state unit
         local unsettled
         local to_stop
-        while ((attempts < 120)); do
-          ((attempts += 1))
+        while ((SECONDS < deadline)); do
           unsettled=false
           to_stop=()
           for unit in "''${guarded_units[@]}"; do
@@ -648,6 +653,14 @@ in {
         type = lib.types.ints.positive;
         default = 10;
         description = "Maximum seconds each metadata gate HTTP probe may take.";
+      };
+
+      stopTimeoutSeconds = lib.mkOption {
+        type = lib.types.ints.positive;
+        # Upstream caps a pipeline run at TimeoutStartSec=1h and the importer
+        # drain at TimeoutStopSec=10min; leave margin over both.
+        default = 4500;
+        description = "Maximum seconds a hold waits for in-flight guarded units (including a running pipeline cycle) to go inactive before failing.";
       };
 
       remoteDiscogsImportHost = lib.mkOption {
@@ -1125,6 +1138,16 @@ in {
       }
     ];
 
+    # Anonymous gateway exemption; 204 when the web backend is serving. A
+    # metadata-gate hold also makes this fail, which is intended: a hold that
+    # outlives its owner is an outage (2026-10-02 had no monitor at all).
+    homelab.monitoring.monitors = [
+      {
+        name = "Cratedigger";
+        url = "https://${webHostName}/healthz";
+      }
+    ];
+
     # See #253 audit + rules-doc "Per-service errorPatterns".
     # cratedigger-web and -importer are intentionally SKIPPED — the web
     # service emits thousands of [ERROR] beets-distance API lines per
@@ -1155,6 +1178,16 @@ in {
         severity = "critical";
         summary = "schema migration failed — app likely won't start";
         # Single-shot: migration unit exits on first failure.
+        threshold = 0;
+      }
+      {
+        name = "Cratedigger Discogs import left hold";
+        unit = "discogs-import.service";
+        # Every failure path fails closed and keeps the discogs-import hold,
+        # which parks the whole pipeline and web UI until released by hand.
+        pattern = "(?i)hold retained|timed out waiting for guarded|failed to query guarded unit";
+        severity = "critical";
+        summary = "monthly Discogs import failed; cratedigger is held — fix, then rerun discogs-import or release the hold";
         threshold = 0;
       }
     ];
