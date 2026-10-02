@@ -288,7 +288,7 @@ The service no longer exists because it was a transient closeout unit, but the j
 - **Photos maintenance owner**: `root@kopia`. This must match the migrated source identity (`overrideHostname = "kopia"; overrideUsername = "root"`); otherwise manual full maintenance exits with `maintenance must be run by designated user: root@doc2`.
 - **Both kopia instances share `secrets/kopia.env`** — adding/removing creds touches both services. Verify both instances after env changes.
 - **Future Wasabi key rotation**: requires rewriting both `secrets/kopia.env` (sops) AND `/mnt/virtio/kopia/photos/repository.config` on doc2. Updating sops alone is insufficient because kopia reads S3 creds from the persisted config, not env, after initial connect. See the rotation playbook below.
-- **NFS watchdog**: `homelab.nfsWatchdog` probes the mum NFS path every 5 min; restarts `kopia-mum.service` if the mount goes stale. Configured automatically by the module when an instance references `/mnt/mum`.
+- **NFS watchdog**: `homelab.nfsWatchdog` probes the mum NFS path every 5 min; restarts `kopia-mum.service` if the mount goes stale. Configured automatically by the module when an instance references `/mnt/mum`. On the kopia LXC, prom owns that mount, so a restart cannot repair it; it only recycles the daemon. `kopia-verify-<name>` therefore uses `Wants=` rather than `Requires=` on the server, so a watchdog restart no longer SIGTERMs a multi-hour verify. On 2026-10-02 one slow `/mnt/mum` stat killed the mum verify 6.7 h in.
 
 ## Wasabi key rotation playbook
 

@@ -477,7 +477,13 @@ in {
           lib.nameValuePair "kopia-verify-${name}" {
             description = "Kopia snapshot verify for ${name}";
             after = ["kopia-${name}.service"];
-            requires = ["kopia-${name}.service"];
+            # wants, NOT requires: the verify is a standalone `kopia` CLI run
+            # against the repository config and never talks to the server.
+            # Requires= propagates a server restart into SIGTERM on the verify;
+            # on 2026-10-02 the NFS watchdog restarted kopia-mum over one slow
+            # /mnt/mum stat and killed a 6.7h-old verify (result=signal page).
+            # A genuinely broken repository still fails the verify on its own.
+            wants = ["kopia-${name}.service"];
             unitConfig.OnFailure = ["kopia-verify-${name}-notify-failure.service"];
             environment.HOME = cfg.dataDir;
             # The verify is a long oneshot (killed runs have exceeded 2h) whose
