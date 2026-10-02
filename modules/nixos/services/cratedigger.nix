@@ -109,6 +109,10 @@
   metadataGateGuardedUnits = [
     "cratedigger.timer"
     "cratedigger.service"
+    # Stop the activation source as well as the socket-activated service.
+    # Otherwise gateway traffic repeatedly retriggers the held service until
+    # both units hit the start limit, which also makes NixOS activation fail.
+    "cratedigger-web.socket"
     "cratedigger-web.service"
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
@@ -125,6 +129,7 @@
     # are still honoured by resume_if_clear before anything starts.
     "cratedigger.service"
     "cratedigger.timer"
+    "cratedigger-web.socket"
     "cratedigger-web.service"
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
@@ -732,6 +737,7 @@ in {
           == [
             "cratedigger.timer"
             "cratedigger.service"
+            "cratedigger-web.socket"
             "cratedigger-web.service"
             "cratedigger-importer.service"
             "cratedigger-import-preview-worker.service"
@@ -745,12 +751,19 @@ in {
           == [
             "cratedigger.service"
             "cratedigger.timer"
+            "cratedigger-web.socket"
             "cratedigger-web.service"
             "cratedigger-importer.service"
             "cratedigger-import-preview-worker.service"
             "cratedigger-youtube-ingest.service"
           ];
         message = "metadata gate resume must restore every ordinary Cratedigger producer";
+      }
+      {
+        assertion =
+          (config.systemd.sockets.cratedigger-web.unitConfig.ConditionPathExistsGlob or null)
+          == "!${metadataGateHoldDir}/*";
+        message = "metadata gate holds must prevent activation from reopening the Cratedigger web socket";
       }
       {
         assertion =
@@ -1107,6 +1120,12 @@ in {
           };
         };
       };
+
+      # An existing hold must also block activation from re-opening the socket.
+      # ExecCondition on the service alone is insufficient: each request queued
+      # by the socket attempts another service start and eventually fails both
+      # units with start-limit-hit.
+      sockets.cratedigger-web.unitConfig.ConditionPathExistsGlob = "!${metadataGateHoldDir}/*";
     };
 
     users = {
