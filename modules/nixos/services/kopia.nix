@@ -771,6 +771,14 @@ in {
         hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
       in
         lib.nameValuePair "kopia-${name}" {
+          # /mnt/mum is NFS-over-Tailscale to a residential Synology; under
+          # verify load a healthy stat has taken 15-38 s (2026-10-01/02). A
+          # false trip restarts the server mid-snapshot, and on the kopia LXC
+          # prom owns the mount, so the restart cannot repair it anyway.
+          timeout =
+            if hasMntMum
+            then 60
+            else 10;
           path =
             if hasMntMum
             then "/mnt/mum"

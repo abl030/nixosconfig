@@ -35,6 +35,15 @@
         default = "5min";
         description = "How often to check (systemd OnUnitActiveSec format).";
       };
+      timeout = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 10;
+        description = ''
+          Seconds the stat probe may take before the path counts as stale.
+          Raise it for a slow-but-alive path (WAN NFS) where a restart costs
+          more than a missed blip; a genuinely dead mount still trips.
+        '';
+      };
     };
   });
 in {
@@ -51,9 +60,13 @@ in {
         serviceConfig = {
           Type = "oneshot";
           NoNewPrivileges = true; # stat + systemctl only; no setuid exec (#232)
+          # Leave room past the probe timeout: a stat stuck in uninterruptible
+          # NFS I/O ignores SIGTERM, and systemd's 90s default would otherwise
+          # kill the watchdog before it can act on a long probe.
+          TimeoutStartSec = entry.timeout + 120;
           ExecStart = pkgs.writeShellScript "${name}-nfs-watchdog" ''
             svc=${lib.escapeShellArg entry.unit}
-            if ! timeout 10 stat ${lib.escapeShellArg entry.path} >/dev/null 2>&1; then
+            if ! timeout ${toString entry.timeout} stat ${lib.escapeShellArg entry.path} >/dev/null 2>&1; then
               # NFS path is dead. Clear any start-limit-hit residue before
               # restarting so the watchdog isn't gagged by systemd burst caps
               # during a long outage (services like paperless / podman exhaust
