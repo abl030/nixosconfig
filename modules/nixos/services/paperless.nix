@@ -229,6 +229,13 @@ in {
         {
           host = "paperless.ablz.au";
           port = 28981;
+          # Family-history archive keeps full-resolution originals (scanned
+          # service files, slideshows) that run to hundreds of MB; nginx's
+          # 10m default 413'd post_document uploads. Unlimited, as immich/
+          # forgejo/komga. No proxyTimeout: nginx buffers the whole body
+          # before proxying, and post_document only stashes the file and
+          # queues a consume task, so the response is fast regardless of size.
+          maxBodySize = "0";
         }
       ];
 
