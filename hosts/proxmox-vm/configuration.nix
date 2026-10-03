@@ -8,6 +8,7 @@
     ./hardware-configuration.nix
     ./forgejo-push.nix
     ./hermes-gateway.nix
+    ./agent-browser.nix
     ../../modules/nixos/services/podcast.nix
   ];
 
