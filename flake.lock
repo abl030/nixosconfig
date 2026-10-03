@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790957451,
-        "narHash": "sha256-pJ/K2dxbcc6TtflF57i4fq8OF736PE3xHHTocEBqXY0=",
+        "lastModified": 1791043703,
+        "narHash": "sha256-bKqUknS0LlDW44V4LrrLf85bJpzOC3QmdRmIRmA0E7Q=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "009afb3ac5405274f6efc749c1421d0117868010",
+        "rev": "3251a180f01ad21ae059862997307bf75f3e3f0a",
         "type": "github"
       },
       "original": {
@@ -446,11 +446,11 @@
         "papermod": "papermod"
       },
       "locked": {
-        "lastModified": 1790935628,
-        "narHash": "sha256-6i8HwCm9trZNNA/pR2SkACnA2/9Ja3FCiu1kY28b24g=",
+        "lastModified": 1790989533,
+        "narHash": "sha256-oo1hH3KiPpOuci//I2IzylUotmBHPMEE/ulekQmd0uA=",
         "ref": "refs/heads/master",
-        "rev": "e2d5b7933b01ccaab2f6497620ca2bbc75390d25",
-        "revCount": 33,
+        "rev": "57657417458769caf4fbfbd4979eb8c9e3d04a46",
+        "revCount": 34,
         "type": "git",
         "url": "https://git.ablz.au/abl030/mrnews"
       },
@@ -967,11 +967,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1790892581,
-        "narHash": "sha256-Lf4i1aUgR9ZLAmkN/eIFu5c1B4I99MPSsUPMyg0Y1vU=",
+        "lastModified": 1790978976,
+        "narHash": "sha256-YCwL4cCQV7w2bXC4ya5Ex7rBpKyGIZHGxeZmHrUujvo=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "fa260f91cc24f8535f9aa57e83a04b98fbb98027",
+        "rev": "b88ebfa5ba836f6a61089f4bb5ee0723c9deead6",
         "type": "github"
       },
       "original": {
