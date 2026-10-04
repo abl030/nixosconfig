@@ -157,6 +157,11 @@ in {
         PAPERLESS_CONSUMER_POLLING = 60;
         PAPERLESS_TIME_ZONE = "Australia/Perth";
         PAPERLESS_PRE_CONSUME_SCRIPT = "${blankStrip}/bin/paperless-strip-blank-pages";
+        # Default is one celery worker, so agent upload bursts queued for ~10 min
+        # (median JPEG wait 580 s, 2026-10-04) while doc2's other cores idled.
+        # 3 workers x 3 threads = 9 of 12 cores, RAM headroom ~12 GB.
+        PAPERLESS_TASK_WORKERS = 3;
+        PAPERLESS_THREADS_PER_WORKER = 3;
       };
     };
 
