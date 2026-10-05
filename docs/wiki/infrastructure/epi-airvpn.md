@@ -1,6 +1,6 @@
 # AirVPN on epi
 
-Date: 2026-10-05. Status: implementation and live verification in progress.
+Date: 2026-10-05. Status: deployed and live verified.
 
 `hosts/epi/airvpn.nix` defines an on-demand NetworkManager WireGuard profile
 from the owner's AirVPN Asia UDP/1637 configuration. It has no boot autoconnect.
@@ -47,3 +47,20 @@ effect; the VPN interface does not grant blanket inbound trust.
 Rollback: `airvpn off`, remove the import in `hosts/epi/configuration.nix`,
 land the signed rollback and deploy it through the verified fleet path.
 Never remove an active guard before deliberately disconnecting the VPN.
+
+## 2026-10-05 activation fix
+
+The original guard required `meta skuid 0` on WireGuard transport. Kernel
+WireGuard packets have no socket UID, so the guard rejected the handshake
+itself. Match the privileged mark 51820, pinned endpoint 103.230.144.102 and
+UDP port 1637 instead. No general WAN exception is needed.
+
+The profile also needs explicit routing domains for the internal zones above:
+Tailscale's domain otherwise wins over the VPN's `~.` for MagicDNS, sending
+systemd-resolved directly into the DNS guard. Unbound's internal forwarding
+already worked; the missing routing domains prevented resolved from using it.
+
+Live checks confirmed a WireGuard handshake, public IPv4 103.230.144.105,
+tunneled IPv6, public and internal DNS, and continued SSH access. Disconnecting
+the interface with the guard active blocked direct IPv4, IPv6 and public DNS;
+`airvpn off` restored normal WAN access.

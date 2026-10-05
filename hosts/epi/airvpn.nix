@@ -22,8 +22,9 @@
         tcp dport { 53, 853 } reject
         oifname "tailscale0" accept
         ip daddr { 192.168.1.0/24, 10.20.0.0/24 } accept
-        # Only encrypted WireGuard transport can use this bypass mark.
-        meta skuid 0 meta mark 51820 udp dport 1637 accept
+        # Kernel WireGuard packets have no socket UID. Match their privileged
+        # mark and pinned endpoint instead; see the epi-airvpn incident note.
+        ip daddr 103.230.144.102 meta mark 51820 udp dport 1637 accept
         # Tailscale uses this mark to keep its transport outside VPN routing.
         meta skuid 0 meta mark & 0xff0000 == 0x80000 accept
         udp sport 68 udp dport 67 accept
@@ -112,7 +113,7 @@ in {
           method = "manual";
           address1 = "10.136.18.126/32";
           dns = "127.0.0.55;";
-          dns-search = "~.;";
+          dns-search = "~.;~ablz.au;~local.com;~1.168.192.in-addr.arpa;~tail13796.ts.net;";
           dns-priority = -50;
         };
         ipv6 = {
