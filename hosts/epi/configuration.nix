@@ -6,6 +6,7 @@
 }: {
   imports = [
     ./hardware-configuration.nix
+    ./airvpn.nix
     ../common/desktop.nix # Includes Printing, Fonts, Spotify
     ../common/realtime-audio.nix # Moonlight audio-thread rtprio (anti-stutter)
   ];
