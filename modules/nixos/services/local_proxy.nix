@@ -377,8 +377,8 @@ in {
           };
           maxBodySize = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
-            default = null;
-            description = "Nginx client_max_body_size for this host (e.g., \"0\" for unlimited, \"50G\"). Null uses nginx default (1m).";
+            default = "100M";
+            description = "Nginx client_max_body_size for this host (e.g., \"0\" for unlimited, \"50G\"). Defaults to 100M; null inherits the global nginx limit.";
           };
           proxyTimeout = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
