@@ -26,6 +26,16 @@
   anyTailscaleOnly = lib.any (e: e.tailscaleOnly or false) hostEntries;
   anyLanHost = lib.any (e: ! (e.tailscaleOnly or false)) hostEntries;
 
+  backendKeys = map (entry: let
+    scheme =
+      if entry.https or false
+      then "https"
+      else "http";
+  in "${scheme}://${entry.upstreamHost}:${toString entry.port}") hostEntries;
+  duplicateBackendKeys = lib.unique (lib.filter (
+    key: lib.count (candidate: candidate == key) backendKeys > 1
+  ) backendKeys);
+
   dnsSyncScript = pkgs.writeShellScript "homelab-dns-sync" ''
     set -euo pipefail
 
@@ -421,6 +431,13 @@ in {
       {
         assertion = !anyTailscaleOnly || (cfg.tailscaleIp != null && cfg.tailscaleIp != "");
         message = "homelab.localProxy.tailscaleIp must be set when any host has tailscaleOnly = true.";
+      }
+      {
+        # localProxy preserves the public Host header. Sharing one backend
+        # socket between nginx vhosts therefore falls through to whichever
+        # backend server block is first instead of selecting by public FQDN.
+        assertion = duplicateBackendKeys == [];
+        message = "homelab.localProxy backend sockets must be unique; duplicates: ${lib.concatStringsSep ", " duplicateBackendKeys}";
       }
     ];
 
