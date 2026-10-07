@@ -36,7 +36,7 @@ in {
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 8853;
+      default = 8854;
       description = "Loopback HTTP port of the static nginx server behind localProxy.";
     };
   };
