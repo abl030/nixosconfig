@@ -46,6 +46,7 @@
     ./bdday.nix
     ./cullen-carbon.nix
     ./family-map.nix
+    ./family-archive.nix
     ./riverslea-map.nix
     ./byparr.nix
     ./unifi-controller.nix
