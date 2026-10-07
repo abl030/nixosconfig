@@ -1,8 +1,8 @@
 # Family-history map (`family.ablz.au`)
 
 **Status:** deployed 2026-09-29 on doc1 (`homelab.services.familyMap`)
-**Source:** `~/agents/docs/wiki/family-history/maps/site/` on doc1 (repo
-`git.ablz.au/abl030/agents`, built by the family-history agent); aerial tiles
+**Source:** `~/family-history/maps/site/` on doc1 (repo
+`git.ablz.au/abl030/family-history`, built by the family-history agent); aerial tiles
 in `/var/lib/family-map/tiles` on doc1's local NVMe (not in git, not backed up:
 regenerable from the masters in `/mnt/data/Life/Andy/Genealogy/Barrett-Lennard/Maps/masters`
 on tower NFS)
@@ -10,9 +10,9 @@ on tower NFS)
 ## Design
 
 Same shape as [cullen-carbon-dashboard](cullen-carbon-dashboard.md): a static
-site served live from the working checkout, so pulling or editing `~/agents`
+site served live from the working checkout, so pulling or editing `~/family-history`
 on doc1 is live on the next load with no rebuild. Whatever is in the main
-`~/agents` checkout is served; work in an `~/agents` worktree goes live once
+`~/family-history` checkout is served; work in a `~/family-history` worktree goes live once
 merged and the main checkout is fast-forwarded.
 
 ```text
@@ -68,11 +68,11 @@ Dad's tailnet → familymap (ts-family-map, doc2) → caddy-family-map
 - New GeoJSON or `eras-additions-*.md` files are picked up automatically once
   listed in `config.js` and symlinked into `site/data/` (served names must match
   `[A-Za-z0-9._-]+\.(geojson|md)`).
-- If `~/agents/docs/wiki/family-history/maps` or the tiles directory is deleted
+- If `~/family-history/maps` or the tiles directory is deleted
   and recreated as a directory, nginx holds the old mount:
   `sudo systemctl restart nginx`.
 - Kuma monitors: `Family map` (page) and `Family map tiles` (manifest, now local; no longer fails when the NAS is down).
-- Rebuild tiles: in `~/agents/docs/wiki/family-history/maps`, `nix-shell -p gdal "python3.withPackages(ps: [ps.pillow ps.numpy ps.scipy])" --run "python3 tools/build_tiles.py --years 1942"` (writes to `/var/lib/family-map/tiles`). An old NFS copy of the tiles may remain at `/mnt/data/.../Maps/tiles`; delete it on the tower itself, not over NFS.
+- Rebuild tiles: in `~/family-history/maps`, `nix-shell -p gdal "python3.withPackages(ps: [ps.pillow ps.numpy ps.scipy])" --run "python3 tools/build_tiles.py --years 1942"` (writes to `/var/lib/family-map/tiles`). An old NFS copy of the tiles may remain at `/mnt/data/.../Maps/tiles`; delete it on the tower itself, not over NFS.
 
 ## Verify
 

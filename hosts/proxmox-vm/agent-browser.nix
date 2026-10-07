@@ -1,6 +1,6 @@
 # Agent research browser on doc1: a persistent headed Chrome on Xvfb that the
-# ~/agents chrome-devtools MCP attaches to, plus the scoped Bitwarden Secrets
-# Manager token `~/agents/bin/agent-login` uses to log it in to genealogy
+# ~/family-history chrome-devtools MCP attaches to, plus the scoped Bitwarden Secrets
+# Manager token `~/family-history/bin/agent-login` uses to log it in to genealogy
 # sites without credentials ever entering an LLM context.
 # Rationale, threat model, rotation and switch-over:
 # docs/wiki/services/agent-browser.md.
@@ -13,7 +13,7 @@
   user = "abl030";
   display = ":99";
   port = "9222";
-  # Same profile the ad-hoc ~/agents/bin/agent-chrome launcher has always used,
+  # Same profile the ad-hoc ~/family-history/bin/agent-chrome launcher has always used,
   # so banked logins carry over.
   profile = "%h/.cache/chrome-devtools-mcp/chrome-profile-stable";
 
@@ -94,7 +94,7 @@ in {
     serviceConfig = {
       Environment = ["DISPLAY=${display}"];
       ExecCondition = "${portFree}";
-      # Same flags as ~/agents/bin/agent-chrome: no --enable-automation, so
+      # Same flags as ~/family-history/bin/agent-chrome: no --enable-automation, so
       # navigator.webdriver stays false and there is no automation infobar.
       # --remote-debugging-port binds 127.0.0.1 only.
       ExecStart = lib.concatStringsSep " " [

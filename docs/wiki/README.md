@@ -55,7 +55,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [indoor-water-meter](services/indoor-water-meter.md) — ESPHome GPIO27 reed-pulse water meter; bench-test evidence, persistence, calibration, and recovery
 - [cullen-carbon-dashboard](services/cullen-carbon-dashboard.md) — `carbon.ablz.au` served live from the doc1 `~/cullen-carbon` checkout (read-only bind into nginx), no rebuild per HTML change
 - [agent-browser](services/agent-browser.md) — doc1 agent research Chrome (headed on Xvfb, user units) and `agent-login`: Bitwarden Secrets Manager-backed genealogy-site logins that never put a password in model context; threat model, rotation, switch-over
-- [family-map](services/family-map.md) — `family.ablz.au` LAN-only Leaflet family-history map served live from doc1 `~/agents`, tiles from local `/var/lib/family-map/tiles`
+- [family-map](services/family-map.md) — `family.ablz.au` LAN-only Leaflet family-history map served live from doc1 `~/family-history`, tiles from local `/var/lib/family-map/tiles`
 - [riverslea-map](services/riverslea-map.md) — `riverslea.ablz.au` LAN-only Leaflet Riverslea historical map served live from doc1 `~/riverslea-map`, tiles from local `/var/lib/riverslea-map/tiles`
 - [biodynamic-day](services/biodynamic-day.md) — consuming the `bd.ablz.au` moon-day API (why `day_type` is not the current type), the HA `ir-sensor` banner, and the Cullen laptop wallpaper **incl. how to remove it**
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration

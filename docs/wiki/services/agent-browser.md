@@ -6,12 +6,12 @@ Secrets Manager machine account and stores its token (steps below).
 **Module:** `hosts/proxmox-vm/agent-browser.nix`
 **Secret:** `secrets/hosts/proxmox-vm/bitwarden-agent-research.yaml` (key `token`)
 → `/run/secrets/bitwarden/agent-research-token` (abl030, 0400)
-**Operator docs / helper:** `~/agents/BROWSER.md`, `~/agents/bin/agent-login`,
-`~/agents/bin/agent-login.sites.json` (private `abl030/agents` repo)
+**Operator docs / helper:** `~/family-history/BROWSER.md`, `~/family-history/bin/agent-login`,
+`~/family-history/bin/agent-login.sites.json` (private `abl030/family-history` repo)
 
 ## What it is
 
-The family-history agents in `~/agents` drive a real Chrome through the
+The family-history agents in `~/family-history` drive a real Chrome through the
 `chrome-devtools` MCP, attached to `127.0.0.1:9222`. doc1 has no screen, so the
 Chrome is *headed* on a private Xvfb display `:99` (never `--headless`: a
 `HeadlessChrome` UA is bot-blocked on sight, see the trap note in BROWSER.md).
@@ -21,7 +21,7 @@ Two pieces live here:
 1. **`agent-xvfb.service` + `agent-chrome.service`** (abl030 user units, pinned
    by `ConditionUser`). Linger (configuration.nix) starts them at boot. Same
    profile (`~/.cache/chrome-devtools-mcp/chrome-profile-stable`), port and
-   flags as the old ad-hoc `~/agents/bin/agent-chrome`. The packages are
+   flags as the old ad-hoc `~/family-history/bin/agent-chrome`. The packages are
    referenced from the units, so the system closure GC-roots them; the old
    `~/.cache/agent-chrome/gcroots` symlinks are obsolete after the switch-over.
    Each unit has an `ExecCondition` that *skips* it when an ad-hoc Xvfb still
@@ -85,8 +85,8 @@ logins there too. Options considered (2026-10-03):
    `cd ~/nixosconfig/secrets && sops hosts/proxmox-vm/bitwarden-agent-research.yaml`
    and replace the `PLACEHOLDER-…` value of `token:` with the access token.
    Commit that file (ciphertext only), push, `sudo fleet-update`.
-5. Test: `~/agents/bin/agent-login --check familysearch`, then
-   `~/agents/bin/agent-login familysearch`.
+5. Test: `~/family-history/bin/agent-login --check familysearch`, then
+   `~/family-history/bin/agent-login familysearch`.
 
 EU-region accounts: also set `BWS_SERVER_URL=https://vault.bitwarden.eu`
 in the environment (bws reads it). The default is the US cloud.
@@ -107,7 +107,7 @@ in the environment (bws reads it). The default is the US cloud.
 ## Switch-over from the ad-hoc Chrome (one-time, pending)
 
 After this module deployed (2026-10-03), the ad-hoc Chrome started by
-`~/agents/bin/agent-chrome` was still running and in use, so the units were
+`~/family-history/bin/agent-chrome` was still running and in use, so the units were
 skipped by their `ExecCondition`s. When no agent is mid-browse:
 
 ```sh
@@ -121,7 +121,7 @@ curl -s localhost:9222/json/version | grep -c HeadlessChrome   # must print 0
 rm -rf ~/.cache/agent-chrome/gcroots                            # old GC-root hack
 ```
 
-After a reboot the units own it anyway. `~/agents/bin/agent-chrome` starts the
+After a reboot the units own it anyway. `~/family-history/bin/agent-chrome` starts the
 unit when it exists. On doc1, nothing else should bind 9222. In particular,
 nixosconfig's `scripts/playwright-chromium.sh` uses the same port with a
 different profile.

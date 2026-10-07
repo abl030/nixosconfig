@@ -7,7 +7,8 @@
 **Related:** #223, #235, #270
 
 Forgejo runs at https://git.ablz.au on doc2. It hosts the private repos
-`abl030/books` (beancount ledger) and `abl030/agents`, and — as of 2026-06-10 —
+`abl030/books` (beancount ledger), `abl030/agents` and (since 2026-10-07)
+`abl030/family-history`, and — as of 2026-06-10 —
 the **public** `abl030/nixosconfig`, which is becoming the signed-fleet-deploys
 write root (mirrored to GitHub). See
 [signed-fleet-deploys.md](../infrastructure/signed-fleet-deploys.md) and the

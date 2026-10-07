@@ -1,5 +1,5 @@
 # Barrett-Lennard family-history map: the static Leaflet site the family-history
-# agent builds in ~/agents, served live from that checkout with its aerial tiles
+# agent builds in ~/family-history, served live from that checkout with its aerial tiles
 # read from a local tile cache (built from masters on the tower NFS share). LAN-only: the Landgate imagery is a private
 # research copy and must not be public. Shared to Dad's tailnet as
 # familymap.ablz.au via a doc2 tailscaleShare proxying this vhost (doc2 config).
@@ -19,7 +19,7 @@ in {
 
     mapsDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/abl030/agents/docs/wiki/family-history/maps";
+      default = "/home/abl030/family-history/maps";
       description = ''
         Live checkout directory holding site/ and the data/ its GeoJSON
         symlinks point into. Bound read-only into nginx; only the site's own
