@@ -207,26 +207,30 @@ in {
         # silently skips a missing/contested source (the paperless EROFS class).
         # forgejo-dump.service is wholly unhardened (ProtectSystem=no) and sees
         # every /mnt/* export RW. Replace both with a blank /mnt + fail-loud
-        # BindPaths binding only the two paths forgejo needs: its virtiofs
-        # stateDir (repos, app.ini, .secrets/) and its NFS dump dir.
-        # RequiresMountsFor orders each unit after the backing mounts so the
-        # fail-loud binds can't race them at boot.
+        # BindPaths binding only what each unit needs: the virtiofs stateDir
+        # (repos, app.ini, .secrets/) for both, plus the NFS dump dir for
+        # forgejo-dump only. RequiresMountsFor orders each unit after its
+        # backing mounts so the fail-loud binds can't race them at boot.
+        # The git server itself must not require tower's NFS: on 2026-10-08 a
+        # power cut left tower off and took git.ablz.au (pushes, signed fleet
+        # deploys) down with it. See docs/wiki/services/forgejo.md.
         # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
         forgejo = {
-          unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+          unitConfig.RequiresMountsFor = [cfg.dataDir];
           serviceConfig = {
             LoadCredential = [
               "repository-signing-key:${config.sops.secrets."forgejo/merge-signing-key".path}"
               "repository-signing-key.pub:${mergeSigningPublicKey}"
             ];
             TemporaryFileSystem = "/mnt";
-            BindPaths = [cfg.dataDir dumpDir];
-            # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
-            # dump dir — all under our two BindPaths, already rw). Under the
+            BindPaths = [cfg.dataDir];
+            # Drop upstream's ReadWritePaths (custom, repositories, data/lfs are
+            # under the stateDir BindPath, already rw; the dump dir is only
+            # written by forgejo-dump, which binds it itself). Under the
             # blank /mnt tmpfs those become self-binds, and any entry whose dir
             # is absent (data/lfs before LFS was enabled) can't be skip-if-missing
             # the way it is in the host namespace → 226/NAMESPACE. BindPaths makes
-            # the whole stateDir + dump dir rw, so this list is pure redundancy.
+            # the whole stateDir rw, so this list is pure redundancy.
             ReadWritePaths = lib.mkForce [];
           };
         };

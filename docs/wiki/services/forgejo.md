@@ -316,6 +316,14 @@ Daily dumps land in:
 /mnt/data/Life/Andy/Code/forgejo-dumps
 ```
 
+That directory is on tower's NFS. Only `forgejo-dump.service` requires and
+binds it. `forgejo.service` depends only on its virtiofs stateDir, so a tower
+outage pauses dumps but leaves git, pushes, and signed fleet deploys working.
+On 2026-10-08 a power cut left tower off. At that point `forgejo.service`
+still had `RequiresMountsFor` on the dump dir, so it failed at doc2 boot with
+`result 'dependency'`. It stayed down until tower was powered on and someone ran
+`systemctl start forgejo` by hand.
+
 Retention (added 2026-09-24, when LFS made dumps grow): `forgejo-dump-prune`
 runs as the dump unit's `ExecStartPost`, so only after a successful new dump.
 It keeps the newest 14 dumps plus the earliest dump of each of the newest 12
