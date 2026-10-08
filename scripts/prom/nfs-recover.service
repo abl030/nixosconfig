@@ -1,0 +1,10 @@
+# prom: /etc/systemd/system/nfs-recover.service — see scripts/prom/nfs-recover.sh
+[Unit]
+Description=Recover NFS mounts that missed boot and their cancelled guests
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nfs-recover
+TimeoutStartSec=5min

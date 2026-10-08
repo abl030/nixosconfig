@@ -91,7 +91,9 @@ needs the same capture.
 
 ## Management
 prom's host config is installed directly **on the box**. Repeatable host-level
-artifacts may be tracked under `scripts/` and are linked from this page. Kernel,
+artifacts may be tracked under `scripts/` and are linked from this page
+(currently `scripts/prom/nfs-recover.*`, see
+[tower-boot-race.md](tower-boot-race.md)). Kernel,
 storage, and boot configuration remains hand-managed through
 `/etc/kernel/cmdline`, `proxmox-boot-tool`, `zpool`, and the udev rule above.
 **The old `ansible/prom_prox/nvme.yml` + `nvme_readme.txt` NVMe-power playbook is

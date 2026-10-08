@@ -9,5 +9,6 @@
     ./drvfs.nix
     ./ops-sync.nix
     ./nfs-music.nix
+    ./tower-nfs-recover.nix
   ];
 }

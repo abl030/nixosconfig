@@ -1,0 +1,10 @@
+# prom: /etc/systemd/system/nfs-recover.timer — see scripts/prom/nfs-recover.sh
+[Unit]
+Description=Periodically recover NFS mounts that missed boot
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=2min
+
+[Install]
+WantedBy=timers.target
