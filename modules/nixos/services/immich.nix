@@ -102,6 +102,17 @@ in {
       default = "/var/lib/immich-server";
       description = "Directory for Immich server state (contains postgres subdirectory)";
     };
+    readOnlyLibraryPaths = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = ["/mnt/data/Life/Andy/Genealogy/Archive"];
+      description = ''
+        Folders bound read-only into immich-server's private /mnt, for use as
+        external libraries (indexed in place, never written). systemd splits
+        on spaces, so bind a parent of any folder whose name has one and point
+        the library's import path at the folder itself.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -191,13 +202,16 @@ in {
         # ProtectSystem here (immich-server's full writable-path set is
         # unpinned) — the /mnt narrowing is the #257 win.
         # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
-        unitConfig.RequiresMountsFor = [mediaLocation];
+        unitConfig.RequiresMountsFor = [mediaLocation] ++ cfg.readOnlyLibraryPaths;
         serviceConfig = {
           # Inject pgpass into immich-server's EnvironmentFile after immich/env
           # (which `secretsFile` populates). Later entries win in systemd.
           EnvironmentFile = lib.mkAfter [config.sops.secrets."immich-pgpass".path];
           TemporaryFileSystem = "/mnt";
           BindPaths = [mediaLocation];
+          # External libraries: read-only, so a bug or a compromised server
+          # can index them but never alter the originals.
+          BindReadOnlyPaths = cfg.readOnlyLibraryPaths;
         };
       };
 

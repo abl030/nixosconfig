@@ -49,6 +49,22 @@ Useful endpoints:
 
 The asset id is the UUID in the web URL — no separate lookup needed.
 
+## Read-only external libraries (family history)
+
+`homelab.services.immich.readOnlyLibraryPaths` binds folders read-only into
+immich-server's private `/mnt` (#257 sandbox), for Immich external libraries.
+Immich indexes them in place and runs face recognition, but can't write to
+them. On doc2 (2026-10-08) these are the genealogy source archive
+(`/mnt/data/Life/Andy/Genealogy/Archive`) and `Photos_Do_Not_Import`, which
+holds Fynes Barrett-Lennard's scanned slides. The parent is bound because
+"Dad's Photos" has a space, which systemd treats as a separator. Both
+libraries belong to Andy's account, so their faces cluster with the people
+already named there. Their assets are bulk-set to `visibility: archive`, which
+keeps them off the timeline but leaves them in People, search and albums.
+Adding a path means a doc2 deploy: a bind path that's missing on the host
+stops immich-server from starting. The family-history repo (`fh faces`) reads
+the face data back over the API.
+
 ## The API key
 
 Stored sops-encrypted, **doc1-scope only**, at

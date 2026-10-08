@@ -300,6 +300,14 @@
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";
+        # External libraries for the family-history face work (2026-10-08):
+        # the genealogy source archive, and Fynes's scanned slides in
+        # "Photos_Do_Not_Import/Dad's Photos" (parent bound: the folder name
+        # has a space). Assets are set to archived so they stay off the timeline.
+        readOnlyLibraryPaths = [
+          "/mnt/data/Life/Andy/Genealogy/Archive"
+          "/mnt/data/Life/Photos_Do_Not_Import"
+        ];
       };
       gotify = {
         enable = true;
