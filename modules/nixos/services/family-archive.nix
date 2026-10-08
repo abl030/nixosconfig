@@ -53,6 +53,10 @@ in {
       "-${cfg.siteDir}:${servedSite}"
       "-${cfg.originalsDir}:${servedOriginals}"
     ];
+    # Ordering only, never Requires: on a normal boot let the NFS mount land
+    # before nginx builds its namespace so the originals bind isn't skipped;
+    # if tower is down the mount job fails and nginx starts anyway.
+    systemd.services.nginx.after = lib.optional (lib.hasPrefix "/mnt/data/" cfg.originalsDir) "mnt-data.mount";
 
     services.nginx.virtualHosts."family-archive-static" = {
       listen = [

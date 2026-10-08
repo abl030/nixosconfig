@@ -8,6 +8,16 @@
   podcastDir = "/mnt/data/Media/Podcasts";
 
   domain = "podcast.ablz.au";
+  staticPort = 9010;
+  podcastMimeTypes = pkgs.writeText "podcast-mime.types" ''
+    application/rss+xml xml
+    audio/mpeg mp3
+    audio/mp4 m4a
+    text/plain description txt
+    image/jpeg jpg jpeg
+    image/png png
+    image/webp webp
+  '';
   gotifyUrl = "https://gotify.ablz.au/message";
   gotifyToken = "AwE0qWRpsCU9tPk";
 
@@ -268,44 +278,60 @@ in {
   # 6. SOPS Secret
   # REMOVED: Managed centrally by homelab.nginx
 
-  # #257: homelab.nginx blanks /mnt by default (secure-by-default). This vhost
-  # serves static files from podcastDir on NFS, so bind the data share back
-  # into nginx's sandbox and order nginx after the mount.
+  # The podcast files live on tower NFS, but doc1's nginx fronts every doc1 site
+  # (nix-mirror included) and must not depend on tower. Serve them from a
+  # loopback-only static server that owns the NFS dependency; nginx proxies to
+  # it. Tower down = podcast.ablz.au 502s, nothing else. Until 2026-10-08 nginx
+  # itself had RequiresMountsFor=/mnt/data, so a power cut that left tower off
+  # took all of doc1's nginx down. See docs/wiki/infrastructure/tower-boot-race.md.
   #
-  # forgejo#3: bind the stable NFS *mount root* (/mnt/data) read-only, NOT the
+  # #257: /mnt is blanked and only the data share is bound back, read-only.
+  # forgejo#3: bind the stable NFS *mount root* (/mnt/data), NOT the
   # podcastDir leaf. Unraid's /mnt/user shfs reassigns the Podcasts directory
   # inode on every write (yt-dlp drops straight into it, plus the mover), so
-  # that subdir's NFS filehandle flaps stale. Binding the leaf directly made
-  # systemd resolve a stale handle during mount-namespace setup on every nginx
-  # (re)start — status=226/NAMESPACE — so switch-to-configuration exited
-  # non-zero and EVERY deploy reported failure (the running nginx was fine; only
-  # restart was blocked). The mount-root handle is fixed at mount time and stays
-  # valid; nginx resolves the podcast subdir lazily at request time, which
-  # already self-heals. Read-only because the webserver only reads — the
-  # downloader (webhook.service) writes in its own namespace — so widening
-  # leaf→root doesn't hand nginx write access to the whole share.
-  # Co-located here so the hole travels with the vhost.
-  systemd.services.nginx = {
+  # that subdir's NFS filehandle flaps stale and a leaf bind fails namespace
+  # setup (226/NAMESPACE). The mount-root handle is fixed at mount time; the
+  # server resolves the podcast subdir lazily per request. Read-only because
+  # it only reads — the downloader (webhook.service) writes in its own namespace.
+  systemd.services.podcast-static = {
+    description = "Static file server for podcast.ablz.au (loopback)";
+    wantedBy = ["multi-user.target"];
     unitConfig.RequiresMountsFor = ["/mnt/data"];
-    serviceConfig.BindReadOnlyPaths = ["/mnt/data"];
+    serviceConfig = {
+      ExecStart = lib.concatStringsSep " " [
+        (lib.getExe pkgs.darkhttpd)
+        podcastDir
+        "--addr 127.0.0.1"
+        "--port ${toString staticPort}"
+        "--no-server-id"
+        "--mimetypes ${podcastMimeTypes}"
+      ];
+      DynamicUser = true;
+      Restart = "always";
+      RestartSec = 10;
+      TemporaryFileSystem = "/mnt";
+      BindReadOnlyPaths = ["/mnt/data"];
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      ProtectHome = true;
+      PrivateTmp = true;
+      PrivateDevices = true;
+      RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
+      CapabilityBoundingSet = "";
+    };
   };
+
+  homelab.nfsWatchdog.podcast-static.path = podcastDir;
 
   # 7. Nginx Configuration
   services.nginx = {
     virtualHosts."${domain}" = {
       forceSSL = true;
       useACMEHost = domain;
-      root = podcastDir;
 
-      locations."/" = {
-        extraConfig = "autoindex on;";
-      };
-
-      locations."~ \.xml$" = {
-        extraConfig = ''
-          types { application/rss+xml xml; }
-        '';
-      };
+      # darkhttpd lists directories itself (the old nginx autoindex) and maps
+      # .xml to application/rss+xml via podcastMimeTypes.
+      locations."/".proxyPass = "http://127.0.0.1:${toString staticPort}";
     };
   };
 

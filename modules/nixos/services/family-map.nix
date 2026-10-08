@@ -66,7 +66,7 @@ in {
     # ../../data) and the tile cache, read-only. Directory binds, so git and
     # tile rebuilds replacing files stay visible. "-" keeps nginx starting if
     # either is absent; the Kuma monitors then fail instead. Nothing here needs
-    # /mnt/data any more (the podcast vhost still sets RequiresMountsFor itself).
+    # /mnt/data any more.
     systemd.services.nginx = {
       serviceConfig.BindReadOnlyPaths = [
         "-${cfg.mapsDir}:${servedMaps}"
