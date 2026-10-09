@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791323936,
-        "narHash": "sha256-3nlaEXLXasbXfgPYHC8SsBJYZdgPcrtCf3+WhxPV2lc=",
+        "lastModified": 1791496685,
+        "narHash": "sha256-8UQCkrWCd2JCeFUlytLTu51oOqc5KjhqN8wL6BOZm88=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "dfc4cd0b1c82bfa9435afa33ce983b99af251fd3",
+        "rev": "5158a3a0c3d6a2ffb308663b1ad25eda589e9906",
         "type": "github"
       },
       "original": {
@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1791476205,
-        "narHash": "sha256-+CK2yQMLSb9aziEhPhvzb2izSHnhQ66Kksx2lV+/gTw=",
+        "lastModified": 1791559161,
+        "narHash": "sha256-7LNlqwo7vCoZMcBvnUU9ITb2mtTPZMPVU924yEeZD/o=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "aa74e184ea779994af642ab4f888e10a95415d90",
+        "rev": "e0550c97bbd916cd5ff8fa0450e6291c31921b94",
         "type": "github"
       },
       "original": {
@@ -425,11 +425,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1791472515,
-        "narHash": "sha256-U9djtZHWp7NmK4umatdJaS11cgAUDtWPsAx4iljkcRY=",
+        "lastModified": 1791551030,
+        "narHash": "sha256-jTx3O3MKqPjv+cDfBFQ5zlKECBEwzF91scC+mSumZyE=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "45c1f41ed587b0be10afeb7c253b68f6d9dfff68",
+        "rev": "f13928fe9900e91709d7ce581eefa47eaafa79e1",
         "type": "github"
       },
       "original": {
@@ -446,11 +446,11 @@
         "papermod": "papermod"
       },
       "locked": {
-        "lastModified": 1791245177,
-        "narHash": "sha256-1NKAOU/9wHIBv3kFX8uitPvtzQQFyqe/pOItYs1pV6k=",
+        "lastModified": 1791504363,
+        "narHash": "sha256-IR+PICXztYxWPVm5qQtEfFtT1uXV+4/1VuDtyTJYK5M=",
         "ref": "refs/heads/master",
-        "rev": "1196f845d050210f6c18bd2e2933bdb396f9b3c9",
-        "revCount": 35,
+        "rev": "efb66cbe199c9d484e0fdd34e331b1dbb63094ca",
+        "revCount": 36,
         "type": "git",
         "url": "https://git.ablz.au/abl030/mrnews"
       },
@@ -967,11 +967,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1791410965,
-        "narHash": "sha256-P9DS9hyqCtOT0gFGmTP93xBbrhooQs+5VacZ95C5i/I=",
+        "lastModified": 1791497365,
+        "narHash": "sha256-O7T7HVSXSaCCa6Hr5wuxYL6ZWa6PMAzqzVka0FCyPHw=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "8f208659a3eba61a503ca62879f7e48900d30903",
+        "rev": "d8db85ad6a4d6d00f171c984b6945ba01e81f541",
         "type": "github"
       },
       "original": {
