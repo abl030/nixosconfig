@@ -871,7 +871,8 @@ homelab.tailscaleShare.<name> = {
 - `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP (and an AAAA record with `publishIpv6`; see `docs/wiki/services/tailscale-share.md` → *Sharee-side IPv4 remapping*)
 - `homelab.monitoring.monitors` entry — Uptime Kuma checks the tailscale-served HTTPS URL itself, not just the LAN/localProxy URL
 - sops secret `tailscale-share/<name>/authkey` — sourced from `secrets/hosts/<hostname>/<name>-tailscale-authkey.env`
-  unless `authKeySecret = null`, which uses Tailscale's interactive first-run login URL and persists the resulting node state.
+  unless `authKeySecret = null`, which uses Tailscale's interactive first-run login and persists the resulting node state.
+  Enrol it after the deploy with `sudo tailscale-share-login <name>` on the host, never from `podman logs`.
 
 ### Secret
 
@@ -903,7 +904,7 @@ Caddyfile and verify from the tailscale sidecar after deploy.
 ### Checklist additions for tailscaleShare
 
 - [ ] Secret file named `<name>-tailscale-authkey.env` (with `.env` extension) in `secrets/hosts/<hostname>/`
-  or `authKeySecret = null` with the first-run login URL captured from `podman-ts-<name>.service`
+  or `authKeySecret = null`, enrolled after the deploy with `sudo tailscale-share-login <name>`
 - [ ] `upstream` uses `http://host.docker.internal:<port>`, not `127.0.0.1`
 - [ ] `firewallPorts` set to the upstream service's port
 - [ ] `dataDir` subdirs (`ts-state/`, `caddy-data/`, `caddy-config/`) survive any rsync operations (use `--exclude ts/` or similar if rsyncing the parent)

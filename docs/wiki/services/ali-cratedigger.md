@@ -90,10 +90,10 @@ policy.
 First deployment of the new application node:
 
 ```bash
-podman logs ts-ali-music
+sudo tailscale-share-login ali-music
 ```
 
-Open the printed login URL, confirm the node is tagged `tag:share`, then share
+Open the printed login URL (held open until approved), confirm the node is tagged `tag:share`, then share
 `ali-music` with Ali's tailnet account. The existing `yoto` node must remain
 shared with her so she can download the finished ZIPs.
 

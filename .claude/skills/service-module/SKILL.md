@@ -16,7 +16,7 @@ Read it before doing the work. It is long; you do not need to memorise it — gr
 - `Module Structure` — the `homelab.services.<name>` skeleton.
 - `Database Container Pattern (mk-pg-container)` and `(mk-mariadb-container)` — including the `restartTriggers` rule (host-side unit, NOT inner toplevel), `passwordFile` requirement, schema-ownership invariant, and audit-logging behaviour.
 - `Infrastructure Wiring` — `localProxy`, `monitoring.monitors`, `deepProbes`, `errorPatterns`, `nfsWatchdog`, sops.
-- `External Sharing (tailscaleShare)` — when LAN proxy isn't enough.
+- `External Sharing (tailscaleShare)` — when LAN proxy isn't enough. To enrol a share with `authKeySecret = null`, run `sudo tailscale-share-login <name>` on the host after the deploy and send the user the URL it prints. The URL in `podman logs` changes every time the container restarts.
 - `Anti-Patterns` — concrete failure modes we have already hit; check before introducing something that looks like one.
 - `Sandbox patterns — ReadWritePaths vs BindPaths` and `TemporaryFileSystem=/mnt` — for NFS-backed or space-bearing paths.
 - `Checklist` — run through this before you call the work done.

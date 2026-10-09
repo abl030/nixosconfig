@@ -247,7 +247,11 @@ The narrowed pattern (committed `modules/nixos/services/tailscale-share.nix:260-
 
 - Do not put a share `dataDir` under an upstream service-owned directory. Use a root-owned parent so the upstream app cannot replace sidecar state.
 - Share sidecars set `TS_AUTH_ONCE=true` because `TS_STATE_DIR` is persistent. This preserves the enrolled identity when Podman replaces a container instead of forcing another interactive login.
-- A first-run interactive login (`authKeySecret = null`) must complete before containerboot's login attempt times out. If it enters a one-minute restart loop, stop the generated Caddy/Tailscale units, run `tailscaled` against the same persistent `ts-state` mount, complete one manual `tailscale up`, then restore the generated units. Do not delete `ts-state` or expose the upstream as a workaround.
+- **First login (`authKeySecret = null`): always run `sudo tailscale-share-login <name>` on the host after the deploy.** Never send a human the URL from `podman logs ts-<name>`. The generated unit restarts when containerboot's login times out, and each restart mints a new URL, so the URL that gets approved is already dead. This was learned on shelfarr (2026-09-14) and again on `familysources` (2026-10-09).
+  - What the helper does: it stops the generated units, holds one `tailscaled` on the same `ts-state`, and prints one URL. It waits up to an hour, then starts `ts-<name>`, `caddy-<name>` and DNS sync.
+  - It also starts units that a `switch` left inactive. doc2's switch didn't start a new share's units on 2026-10-09.
+  - It does nothing if the node is already logged in.
+  - Never run two daemons on one `ts-state`. Don't delete `ts-state` or expose the upstream as a workaround.
 - Do not enable Caddy admin, Caddy reload sockets, or Tailscale access to Caddy state unless the threat model is rewritten first.
 - `NET_ADMIN` remains scoped to the Tailscale sidecar for `/dev/net/tun`; Caddy should not have it.
 - Image pinning remains separate Tier 4 work in issue #232.

@@ -309,8 +309,8 @@ in {
             the admin console (overseer, audiobookshelf, jellyfin) are unaffected.
 
             NOTE: changing an existing node's tags replaces user ownership with
-            tag ownership, which forces re-authentication — the container will
-            print a fresh login URL in `podman logs ts-<name>`.
+            tag ownership, which forces re-authentication: run
+            `sudo tailscale-share-login <name>` on the host.
           '';
         };
 
@@ -319,8 +319,11 @@ in {
           default = "${name}-tailscale-authkey.env";
           description = ''
             Sops dotenv file containing TS_AUTHKEY for this share. Set to null
-            for first-run interactive Tailscale login; the ts container will
-            print the login URL and persist state under dataDir/ts-state.
+            for first-run interactive Tailscale login, persisted under
+            dataDir/ts-state. Enrol it with `sudo tailscale-share-login <name>`
+            on the host after the deploy — NOT from `podman logs ts-<name>`:
+            the generated unit restarts on login timeout and every restart
+            mints a new URL, so the one a human approves is already dead.
           '';
         };
 
@@ -613,6 +616,86 @@ in {
         };
       })
       instances);
+
+    # First-run interactive login (authKeySecret = null). The generated ts unit
+    # restarts on containerboot's login timeout and every restart mints a new
+    # auth URL, so a human approving the URL they were sent lands on a dead
+    # attempt. This holds one tailscaled on the share's own state dir until the
+    # URL is approved, then starts the generated units.
+    # See docs/wiki/services/tailscale-share.md ("First login").
+    environment.systemPackages = lib.optional (instances != {}) (pkgs.writeShellApplication {
+      name = "tailscale-share-login";
+      runtimeInputs = [config.virtualisation.podman.package pkgs.jq pkgs.coreutils config.systemd.package];
+      text = ''
+        name="''${1:-}"
+        case "$name" in
+        ${lib.concatStrings (lib.mapAttrsToList (n: c: ''
+            ${lib.escapeShellArg n})
+              state=${lib.escapeShellArg "${c.dataDir}/ts-state"}
+              image=${lib.escapeShellArg config.virtualisation.oci-containers.containers."ts-${n}".image}
+              hostname=${lib.escapeShellArg c.hostname}
+              extra=${lib.escapeShellArg config.virtualisation.oci-containers.containers."ts-${n}".environment.TS_EXTRA_ARGS}
+              ;;
+          '')
+          instances)}
+          *)
+            echo "usage: sudo tailscale-share-login <name>" >&2
+            echo "instances: ${lib.concatStringsSep " " (lib.attrNames instances)}" >&2
+            exit 2
+            ;;
+        esac
+        if [ "$(id -u)" -ne 0 ]; then
+          echo "tailscale-share-login: run with sudo" >&2
+          exit 1
+        fi
+
+        backend() { podman exec "$1" tailscale status --json 2>/dev/null | jq -r '.BackendState // ""' 2>/dev/null || true; }
+
+        if [ "$(backend "ts-$name")" = Running ]; then
+          echo "ts-$name is already logged in: $(podman exec "ts-$name" tailscale ip -4)"
+          exit 0
+        fi
+
+        holder="ts-$name-login"
+        trap 'podman rm -f "$holder" >/dev/null 2>&1 || true' EXIT
+        systemctl stop "podman-caddy-$name.service" "podman-ts-$name.service" "tailscale-share-dns-sync-$name.service"
+        podman rm -f "$holder" >/dev/null 2>&1 || true
+        podman run -d --rm --name "$holder" --cap-add=NET_ADMIN \
+          -v /dev/net/tun:/dev/net/tun -v "$state:/var/lib/tailscale" \
+          --entrypoint tailscaled "$image" --statedir=/var/lib/tailscale >/dev/null
+
+        for _ in $(seq 30); do
+          [ -n "$(backend "$holder")" ] && break
+          sleep 1
+        done
+        # shellcheck disable=SC2086 # extra is a flag list
+        podman exec -d "$holder" tailscale up --hostname="$hostname" $extra
+
+        shown=""
+        for _ in $(seq 1800); do
+          json=$(podman exec "$holder" tailscale status --json 2>/dev/null || true)
+          st=$(printf '%s' "$json" | jq -r '.BackendState // ""' 2>/dev/null || true)
+          [ "$st" = Running ] && break
+          url=$(printf '%s' "$json" | jq -r '.AuthURL // ""' 2>/dev/null || true)
+          if [ -n "$url" ] && [ "$url" != "$shown" ]; then
+            echo "Approve $hostname ($extra) at: $url"
+            echo "(held open; waiting up to 1h)"
+            shown="$url"
+          fi
+          sleep 2
+        done
+        if [ "$st" != Running ]; then
+          echo "tailscale-share-login: not approved within 1h; units left stopped" >&2
+          exit 1
+        fi
+        echo "logged in: $(podman exec "$holder" tailscale ip -4 | head -1)"
+        podman stop "$holder" >/dev/null
+        systemctl start "podman-ts-$name.service"
+        systemctl start "podman-caddy-$name.service"
+        systemctl restart "tailscale-share-dns-sync-$name.service"
+        echo "ts-$name, caddy-$name and DNS sync started"
+      '';
+    });
 
     # Per-instance sops secrets for tailscale auth keys
     # Secret file must be dotenv format: TS_AUTHKEY=tskey-auth-...

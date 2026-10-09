@@ -9,7 +9,7 @@
 - `audiobook.ablz.au` is the normal LAN/localProxy route on doc2.
 - `audiobooks.ablz.au` is the inter-tailnet route via `homelab.tailscaleShare.audiobookshelf`.
 
-The Tailscale sidecar uses interactive first-run login (`authKeySecret = null`) and persists node state under `/mnt/virtio/tailscale-share/audiobookshelf/ts-state`. After first login, restart `tailscale-share-dns-sync-audiobookshelf.service` if the DNS record has not yet been synced.
+The Tailscale sidecar uses interactive first-run login (`authKeySecret = null`) and persists node state under `/mnt/virtio/tailscale-share/audiobookshelf/ts-state`. To re-enrol it, run `sudo tailscale-share-login audiobookshelf`, which also restarts DNS sync.
 
 ## What worked
 

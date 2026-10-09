@@ -244,9 +244,8 @@ through the actual HTTPS hostname; anonymous API requests return HTTP 401.
 Use `fleet-deploy doc2` from doc1 after a signed Forgejo push. Verify the active
 revision and `podman-shelfarr`, `podman-ts-shelfarr`, `podman-caddy-shelfarr`,
 `tailscale-share-dns-sync-shelfarr` and `deep-probe-shelfarr-write-path` units.
-Interactive first-run Tailscale authentication prints a login URL in
-`sudo podman logs ts-shelfarr`. Complete that login, then restart DNS sync if its
-bounded first-run wait has expired. See [Tailscale sharing](tailscale-share.md).
+For interactive first-run Tailscale authentication, `sudo tailscale-share-login shelfarr`
+holds one login URL open, then starts the sidecars and DNS sync. See [Tailscale sharing](tailscale-share.md).
 
 To roll back, disable `homelab.services.shelfarr.enable`, commit/sign/push and
 deploy doc2. Keep state and imported books. Revoke the dedicated ABS key/account
