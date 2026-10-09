@@ -69,6 +69,8 @@
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "caddy":         "100.96.32.96",   // edge-proxy LXC (CT 108) — legacy proxies to mum's gear + Cullen solar
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
+    "mumrouter":     "100.125.152.70", // mum's OpenWrt router (tag:edge) — masquerades her LAN onto the tailnet
+    "familysources": "100.82.33.96",   // family source archive share (doc2); mumrouter pinhole
     "s-a55":         "100.102.60.123", // phone, trusted personal client
     "s-a55-v6":      "fd7a:115c:a1e0::5301:3c7b",
     "yoto":          "100.125.110.111", // read-only Yoto file share; exact Cullen-laptop pinhole
@@ -128,6 +130,13 @@
     { "src": ["caddy"], "dst": ["kerrynas"], "ip": ["tcp:5000"] },
     { "src": ["caddy"], "dst": ["192.168.4.1/32"], "ip": ["tcp:80"] },
     { "src": ["caddy"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+
+    // mumrouter (mum's OpenWrt, tag:edge) masquerades every device on her LAN
+    // onto the tailnet as this one identity. It gets exact tailscaleShare nodes
+    // on 80/443 and nothing else: no routes, no fleet, no DNS. Add a service =
+    // add its share node here + tests + the router's dnsmasq rebind_domain.
+    // See docs/wiki/infrastructure/mum-site-gateway.md.
+    { "src": ["mumrouter"], "dst": ["familysources"], "ip": ["tcp:80", "tcp:443"] },
 
     // === doc1 (bastion) — unrestricted tailnet EGRESS ======================
     // doc1 is the most-privileged node already (fleet SSH key, sole Forgejo
@@ -440,6 +449,15 @@
     { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "water-meter:6053", "water-meter:3232"], "deny": ["192.168.100.140:443", "192.168.100.90:6053", "water-meter:80"] },
     // caddy edge proxy → mum's DSM/router + Cullen solar dashboards, nothing wider.
     { "src": "caddy", "proto": "tcp", "accept": ["kerrynas:5000", "192.168.4.1:80", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443", "kerrynas:22"] },
+    // mumrouter (all of mum's LAN) → its exact share pinholes only.
+    { "src": "mumrouter", "proto": "tcp",
+      "accept": ["familysources:80", "familysources:443"],
+      "deny": ["familysources:22", "familysources:8080", "yoto:443", "ali-music:443", "tag:server:443", "tag:server:22",
+               "doc1:22", "doc2:443", "pfsense:53", "kerrynas:5000", "kerrynas:2049", "framework:22", "imagegen:443",
+               "192.168.1.29:443", "192.168.1.2:2049", "192.168.1.1:443", "192.168.2.1:443"] },
+    { "src": "mumrouter", "proto": "udp", "deny": ["pfsense:53"] },
+    // doc1 administers the router over the tailnet (bastion egress is "*").
+    { "src": "doc1", "proto": "tcp", "accept": ["mumrouter:22"] },
     // Every personal identity gets Dad's web ports, with no adjacent-port grant.
     { "src": "framework", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
     { "src": "framework-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },

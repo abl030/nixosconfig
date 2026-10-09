@@ -1,7 +1,10 @@
 # Mum's site gateway (OpenWrt `mumrouter` → tailnet pinholes)
 
 - **Date:** 2026-10-09
-- **Status:** ✅ router on the tailnet; first pinhole (`familysources.ablz.au`) being rolled out.
+- **Status:** ✅ live. `mumrouter` is on the tailnet. The `familysources.ablz.au` pinhole is applied and fetched OK from the
+  router itself (DNS, routing, ACL). LAN-client forwarding was checked as fw4 rules, not
+  yet as a real device request: check `nft list chain inet fw4 srcnat_tailscale` counters
+  after Mum's first use.
 - **Related:** [tailscale-acl](tailscale-acl.md), [tailscale-share](../services/tailscale-share.md),
   [family-archive](../services/family-archive.md), [raspberrypi-dad-pizero](raspberrypi-dad-pizero.md).
 
@@ -54,11 +57,15 @@ advertised by `kerrynas`, back over the tailnet and break her LAN).
 
 1. If it has no share node yet, add a `homelab.tailscaleShare.<name>` on doc2
    (`publishIpv6 = false`: fw4 masquerades IPv4 only, so an AAAA would just stall
-   Mum's dual-stack clients). Deploy and approve the node's login.
+   Mum's dual-stack clients). Deploy, then on doc2 run `sudo tailscale-share-login <name>`
+   and approve the one URL it prints.
 2. Add the node's IP to `hosts` in `tailscale/acl.hujson`, one grant
    `mumrouter → <node>` on `tcp:80`/`tcp:443`, and accept/deny tests. Apply from doc1.
 3. On the router: add the FQDN to `rebind_domain`, `uci commit dhcp`,
    `/etc/init.d/dnsmasq reload`.
+
+Mum's NAS (`kerrynas`) is the one device on her LAN that does **not** go through
+the router identity: it runs its own Tailscale, so it would need its own grant.
 
 Remove = delete the grant (and the rebind entry). Revoke everything at once by
 removing `mumrouter`'s grants, or `tailscale down` on the router.
