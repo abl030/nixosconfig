@@ -21,8 +21,11 @@ browser → doc1 nginx :443 sources.ablz.au (localProxy TLS/ACME, LAN DNS)
 - Originals are served straight from the NAS rather than copied. Saved web
   pages (`.html` originals) get a CSP `sandbox` header, so third-party markup
   can't run scripts or reach the origin.
-- LAN-only: the archive holds certificates and papers of living people. It is
-  deliberately **not** on the doc2 tailscale share that gives Dad the map.
+- LAN-only by default: the archive holds certificates and papers of living
+  people. It is **not** on the doc2 tailscale share that gives Dad the map.
+  Since 2026-10-09 Mum's house gets it through its own share node,
+  `familysources.ablz.au` (doc2), granted only to her router
+  (`mumrouter`). See [mum-site-gateway](../infrastructure/mum-site-gateway.md).
 - nginx binds both paths with `-`, so a NAS outage doesn't stop nginx; the
   originals return 404 until nginx restarts after the NAS is back.
 

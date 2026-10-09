@@ -581,6 +581,25 @@
       monitorName = "Family map (Tailnet)";
       monitorPath = "/tiles/manifest.json";
     };
+
+    # Family source archive (doc1, LAN-only sources.ablz.au) for Mum's house.
+    # Her OpenWrt router (mumrouter, tag:edge) masquerades her whole LAN onto
+    # the tailnet; one ACL grant lets it reach this node and nothing else.
+    # IPv4 only: her LAN has no IPv6 path into the tailnet (fw4 masquerades
+    # v4 only), so an AAAA record would only stall clients.
+    # See docs/wiki/infrastructure/mum-site-gateway.md.
+    tailscaleShare.family-sources = {
+      enable = true;
+      fqdn = "familysources.ablz.au";
+      upstream = "https://sources.ablz.au";
+      upstreamHostHeader = true;
+      dataDir = "/mnt/virtio/tailscale-share/family-sources";
+      hostname = "familysources";
+      tags = ["tag:share"];
+      authKeySecret = null;
+      publishIpv6 = false;
+      monitorName = "Family sources (Tailnet)";
+    };
   };
 
   # Cratedigger — host-specific app tuning. Everything else lives in the
