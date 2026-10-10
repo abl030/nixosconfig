@@ -146,7 +146,8 @@ in {
           name = "Shelfarr write-path";
           command = "${pkgs.callPackage ./probes/check-shelfarr.nix {}}/bin/check-shelfarr";
           interval = "5m";
-          intervalSecs = 300;
+          # Keep Kuma's heartbeat deadline clear of the timer/runtime boundary.
+          intervalSecs = 450;
         }
       ];
       # Initial fingerprints from SQLite and Shelfarr's queue supervisor.
