@@ -14,16 +14,27 @@
   aiNotificationInstructions = pkgs.writeText "ai-notification-instructions.md" (
     builtins.readFile ../ai-notification-instructions.md
   );
+  codexOrchestrationInstructions = pkgs.writeText "codex-orchestration-instructions.md" (
+    builtins.readFile ../codex-orchestration-instructions.md
+  );
   codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON (
     {
       analytics.enabled = false;
       features =
         {
           memories = true;
+          multi_agent = true;
         }
         // lib.optionalAttrs (hostname == "proxmox-vm") {
           hooks = true;
         };
+      "features.multi_agent_v2" = {
+        enabled = true;
+        wait_agent_enabled = true;
+        min_wait_timeout_ms = 300000;
+        default_wait_timeout_ms = 600000;
+        max_wait_timeout_ms = 1200000;
+      };
       memories = {
         generate_memories = true;
         use_memories = true;
@@ -46,11 +57,22 @@
       };
     }
     // {
-      __root__ = lib.optionalAttrs (hostname == "proxmox-vm") {
-        # The native completion callback runs outside Codex's network sandbox and
-        # publishes only explicit semantic markers from the final response.
-        notify = ["${aiGotifyNotify}/bin/ai-gotify-notify" "codex-notify"];
-      };
+      __root__ =
+        {
+          # Restart/resume diagnosis: docs/wiki/claude-code/codex-agent-dashboard.md.
+          # Keep CLI and separately managed daemons consistent after restart/resume.
+          # Explicit client permission profiles can still override these defaults.
+          approval_policy = "never";
+          sandbox_mode = "danger-full-access";
+          model = "gpt-6.1-sol";
+          model_context_window = 872000;
+          model_auto_compact_token_limit = 697600;
+        }
+        // lib.optionalAttrs (hostname == "proxmox-vm") {
+          # The native completion callback runs outside Codex's network sandbox and
+          # publishes only explicit semantic markers from the final response.
+          notify = ["${aiGotifyNotify}/bin/ai-gotify-notify" "codex-notify"];
+        };
     }
   ));
 in {
@@ -87,6 +109,9 @@ in {
   #   * [analytics] enabled = false  — opt out of client-side analytics. Pair
   #     with the ChatGPT Data Controls toggle + privacy.openai.com opt-out;
   #     true ZDR isn't a Pro/consumer feature.
+  #   * root permissions/model      — user-requested unrestricted execution and
+  #     larger GPT-6.1 Sol context; explicit client overrides still win.
+  #   * [features.multi_agent_v2]    — event-driven waits of 5/10/20 minutes.
   #   * [features]/[memories]        — local cross-session recall, excluding
   #     tasks that used external MCP/web/tool-search context.
   #   * [mcp_servers.mcp-nixos]      — the same shared mcp-nixos Claude gets, so
@@ -102,6 +127,12 @@ in {
     [ -f "$CODEX_CONFIG" ] || run ${pkgs.coreutils}/bin/touch "$CODEX_CONFIG"
     run ${pkgs.python3}/bin/python3 ${../../scripts/merge-toml-settings.py} \
       "$CODEX_CONFIG" ${codexManagedSettings}
+  '';
+
+  home.activation.codexOrchestration = lib.hm.dag.entryAfter ["codexConfig"] ''
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-markdown-block.py} \
+      "${config.home.homeDirectory}/.codex/AGENTS.md" \
+      "HOMELAB CODEX ORCHESTRATION" ${codexOrchestrationInstructions}
   '';
 
   # One shared semantic policy for both clients. Keep their global instruction
