@@ -105,7 +105,8 @@ in {
           name = "Bookkeep trial state";
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial bookkeep ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
-          intervalSecs = 300;
+          # Keep Kuma's deadline clear of the timer completion boundary.
+          intervalSecs = 450;
           requiresUnit = ["podman-bookkeep.service"];
         }
       ];
