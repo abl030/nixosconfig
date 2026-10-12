@@ -180,16 +180,19 @@ in {
       })
     ' "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && run mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
 
-    # --- auto-memory: point Claude at the git-tracked .claude/memory dir ------
+    # --- auto-memory: point Claude at each repo's git-tracked memory dir ------
     # Project-scoped via the (gitignored) settings.local.json; idempotent and
-    # preserves any other local keys (e.g. permission allow-lists).
-    REPO="${config.home.homeDirectory}/nixosconfig"
-    if [ -d "$REPO/.claude" ]; then
-      LOCAL="$REPO/.claude/settings.local.json"
-      [ -f "$LOCAL" ] || run sh -c "echo '{}' > '$LOCAL'"
-      run ${pkgs.jq}/bin/jq --arg dir "$REPO/.claude/memory" \
-        '.autoMemoryDirectory = $dir' "$LOCAL" > "$LOCAL.tmp" && run mv "$LOCAL.tmp" "$LOCAL"
-    fi
+    # preserves any other local keys (e.g. permission allow-lists). Codex reads
+    # the same files via AGENTS.md. In cullen-assistant .claude/memory is a
+    # symlink to its top-level memory/, so resolve it.
+    for REPO in "${config.home.homeDirectory}/nixosconfig" "${config.home.homeDirectory}/cullen-assistant"; do
+      if [ -d "$REPO/.claude/memory" ]; then
+        LOCAL="$REPO/.claude/settings.local.json"
+        [ -f "$LOCAL" ] || run sh -c "echo '{}' > '$LOCAL'"
+        run ${pkgs.jq}/bin/jq --arg dir "$(readlink -f "$REPO/.claude/memory")" \
+          '.autoMemoryDirectory = $dir' "$LOCAL" > "$LOCAL.tmp" && run mv "$LOCAL.tmp" "$LOCAL"
+      fi
+    done
   '';
 
   home.packages = [

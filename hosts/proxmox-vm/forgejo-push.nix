@@ -24,6 +24,8 @@
   pushModes = {
     "https://git.ablz.au/abl030/nixosconfig.git" = "git-push";
     "https://git.ablz.au/abl030/cullen-carbon.git" = "git-lfs-push";
+    # Agent-maintained Cullen assistant workspace (~/cullen-assistant).
+    "https://git.ablz.au/abl030/cullen-assistant.git" = "git-push";
   };
   tokenFile = config.sops.secrets."forgejo/nixbot-token".path;
 

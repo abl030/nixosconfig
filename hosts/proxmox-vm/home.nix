@@ -7,6 +7,13 @@
   home.packages = [
     pkgs.officecli
     (pkgs.python3.withPackages (pythonPackages: [pythonPackages.openpyxl]))
+    # Data tools for the Cullen assistant (~/cullen-assistant): the Ezy DuckDB
+    # snapshot, SQLite pulls, PDF attachments, docx/csv wrangling.
+    pkgs.duckdb
+    pkgs.sqlite
+    pkgs.poppler-utils
+    pkgs.pandoc
+    pkgs.csvkit
   ];
 
   # Dad's incoming NAS share needs doc1's private user-owned Tailscale daemon.

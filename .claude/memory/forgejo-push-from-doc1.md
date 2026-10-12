@@ -12,8 +12,9 @@ checkout or any worktree of it, then `forgejo-ls-remote` to confirm the remote
 SHA. These fixed-argument front ends (`hosts/proxmox-vm/forgejo-push.nix`, #227)
 work inside Claude Code's background-job worktree guard, which refuses the raw
 form below. They act on whichever repo `origin` points at, if it is in the
-module's `allowedUrls` (nixosconfig, cullen-carbon as of 2026-09-29). A new repo
-needs both an `allowedUrls` entry and nixbot added as a write collaborator.
+module's `pushModes` (nixosconfig, cullen-carbon, cullen-assistant as of
+2026-10-12). A new repo needs both a `pushModes` entry and nixbot added as a
+write collaborator.
 
 Both call the checked-in executable boundary. It validates the exact fetch/push
 URL sets before reading the 0400 nixbot token and disables tracing in the
