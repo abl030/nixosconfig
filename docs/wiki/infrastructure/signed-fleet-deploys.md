@@ -100,9 +100,11 @@ Landed (Phase D, 2026-06-10; mirror completed 2026-07-02):
 
 Not yet landed:
 
-- Per-machine dev-push credential helper (declarative, in the HM git module) +
-  epimetheus/framework/wsl writer tokens + remote repoints — doc1 done; the
-  other pushers onboard when next at the machine.
+- Per-machine dev-push credential helper + epimetheus/framework/wsl writer
+  tokens + remote repoints — the other pushers onboard when next at the machine.
+  doc1 is done: since 2026-10-12 a system credential helper (nixbot token, not a
+  separate `doc1-writer` token, which was never provisioned) gives plain git
+  access; see [services/forgejo.md](../services/forgejo.md) "Plain git from doc1".
 - U11 docs sweep — the full grep of `github:abl030/nixosconfig` across wiki /
   readme / skills (CLAUDE.md + service-deploy already updated).
 

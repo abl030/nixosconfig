@@ -1,4 +1,6 @@
-# `forgejo-push` / `forgejo-ls-remote`: fixed-argument front ends for
+# doc1's Forgejo git access. Plain git (clone/fetch/pull/push) works through
+# the system credential helper at the bottom of this file. Additionally,
+# `forgejo-push` / `forgejo-ls-remote` are fixed-argument front ends for
 # scripts/forgejo-auth.sh on doc1 (#227). They always act on the checkout that
 # contains $PWD, with the nixbot token baked in. The checkout's `origin` URL
 # must be one of `pushModes` below (nixbot must also be a write collaborator
@@ -28,6 +30,13 @@
     "https://git.ablz.au/abl030/cullen-assistant.git" = "git-push";
   };
   tokenFile = config.sops.secrets."forgejo/nixbot-token".path;
+
+  # Plain-git credential helper: answers `get` for https://git.ablz.au only
+  # (forgejo-auth.sh git-credential), re-reading the 0400 token file each time;
+  # store/erase are ignored so nothing persists it. Git appends the operation.
+  forgejoGitCredential = pkgs.writeShellScript "forgejo-git-credential" ''
+    exec ${forgejoAuth} git-credential --token-file ${tokenFile} "$@"
+  '';
 
   mkForgejoCommand = {
     name,
@@ -80,5 +89,24 @@ in {
       argFlag = "--ref";
       argDefault = "refs/heads/master";
     })
+    # LFS repos (cullen-carbon) need git-lfs for checkout/pull/push with plain git.
+    pkgs.git-lfs
   ];
+
+  # Plain `git clone/fetch/pull/push` against git.ablz.au from doc1, for every
+  # repo nixbot can reach (nixosconfig, cullen-carbon, cullen-assistant...).
+  # Same token and same Forgejo-side limits as forgejo-push (per-repo
+  # collaborator rights, master branch protection); the token file is already
+  # abl030-owned, so this exposes it to nothing new. Lives in /etc/gitconfig so
+  # it applies to every checkout and worktree. The leading "" drops any helper
+  # inherited for this URL. HTTP/1.1: git-lfs 3.7.1 panics on HTTP/2 uploads to
+  # this server. Never set GIT_TRANSFER_TRACE against it (Forgejo echoes the
+  # credential into LFS batch bodies). See docs/wiki/services/forgejo.md.
+  programs.git = {
+    enable = true;
+    config = {
+      credential."https://git.ablz.au".helper = ["" "${forgejoGitCredential}"];
+      http."https://git.ablz.au".version = "HTTP/1.1";
+    };
+  };
 }

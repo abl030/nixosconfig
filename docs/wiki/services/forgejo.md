@@ -27,6 +27,37 @@ write root (mirrored to GitHub). See
   Objects: `/mnt/virtio/forgejo/data/lfs`; included in the daily dump, so dump size
   grows with LFS content; see the retention note under "Dumps And Restore".
 
+### Plain git from doc1 (2026-10-12)
+
+doc1 can use ordinary `git clone/fetch/pull/push` against `https://git.ablz.au`
+for every repo nixbot can reach, private and LFS repos included. Until
+2026-10-12 doc1 could push only via `forgejo-push` and could not fetch private
+repos at all; nobody else could write, so it went unnoticed until the
+agent-maintained `cullen-assistant` repo needed pulls.
+
+- `/etc/gitconfig` (from `hosts/proxmox-vm/forgejo-push.nix`) sets
+  `credential."https://git.ablz.au".helper` to a wrapper around
+  `scripts/forgejo-auth.sh git-credential --token-file /run/secrets/forgejo/nixbot-token`.
+  - It answers only `get` for `https` + `git.ablz.au`.
+  - It re-reads and validates the token file each time.
+  - It ignores `store` and `erase`, so no helper persists the token.
+- `http."https://git.ablz.au".version = HTTP/1.1` (git-lfs HTTP/2 bug, below),
+  and `git-lfs` is on PATH.
+- **Authority is unchanged.** The token file was already readable by
+  `abl030`, and nixbot's rights are still bounded by Forgejo: per-repo
+  collaborator grants, and on master the push whitelist plus a block on
+  force-push and deletion.
+- **Deliberately lost:** `forgejo-push`'s exact-origin-URL allowlist no longer
+  stands between a doc1 shell and the token. Forgejo-side permissions are the
+  boundary.
+- **Revisit** if doc1 ever runs untrusted code as `abl030`. If so, move the
+  helper behind a dedicated user, or switch to repo-scoped tokens (v15).
+- To make a new private repo pullable from doc1: add `nixbot` as a collaborator
+  (read for pull, write for push). Add it to `pushModes` only if
+  worktree-guarded agents need `forgejo-push`.
+- Never set `GIT_TRANSFER_TRACE`/`GIT_CURL_VERBOSE` against this host (see
+  the LFS note below).
+
 ### Pushing LFS repos from doc1 (2026-09-24)
 
 Agents just run `forgejo-push [REFSPEC]` (`hosts/proxmox-vm/forgejo-push.nix`):

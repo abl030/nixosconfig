@@ -1,11 +1,20 @@
 ---
 name: forgejo-push-from-doc1
-description: How to push to Forgejo (git.ablz.au) from doc1 when abl030 has no https credentials
+description: How to pull/push Forgejo (git.ablz.au) repos from doc1 — plain git works; forgejo-push for worktree-guarded jobs
 metadata: 
   node_type: memory
   type: project
   originSessionId: 1db6d98d-bee4-4bb8-add1-bf0f900a64ec
 ---
+
+**Since 2026-10-12, plain git works on doc1.** Use `git pull` / `git push` /
+`git clone` against `https://git.ablz.au/...` for every repo nixbot can reach,
+private and LFS repos included. A system credential helper in `/etc/gitconfig`
+answers from the nixbot token. See `docs/wiki/services/forgejo.md`, "Plain git
+from doc1". A new private repo needs nixbot as a collaborator.
+
+The front ends below still work. They are the shape the worktree guard accepts
+without a git operand. Use them when plain `git -C /abs/path push` is refused.
 
 On doc1, run `forgejo-push [REFSPEC]` (default `HEAD:master`) from inside the
 checkout or any worktree of it, then `forgejo-ls-remote` to confirm the remote

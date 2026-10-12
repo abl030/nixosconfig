@@ -43,17 +43,21 @@ Before any `nixos-rebuild switch`, run `hostname` again and use the actual host 
   `docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md` and
   `docs/wiki/infrastructure/signed-fleet-deploys.md`.
 
-On doc1, Forgejo push authentication uses the `abl030`-owned 0400 nixbot token as an
-HTTP header, never in argv or the remote URL. From inside the checkout (or any
-worktree of it), run:
+On doc1, plain `git clone/fetch/pull/push` against `https://git.ablz.au` just
+works, for every repo nixbot can reach (including private ones such as
+cullen-carbon and cullen-assistant, LFS included). A system credential helper
+answers from the `abl030`-owned 0400 nixbot token, so the token is never in argv,
+git config or a remote URL. In a worktree-guarded background job, or from
+inside the checkout (or any worktree of it), the fixed-argument front ends also
+work:
 
 ```bash
 forgejo-push              # default refspec HEAD:master
 forgejo-ls-remote         # verify the remote master SHA afterward
 ```
 
-Both are fixed-argument front ends for `scripts/forgejo-auth.sh`
-(`hosts/proxmox-vm/forgejo-push.nix`), which does the remote-URL and token checks.
+All of these live in `hosts/proxmox-vm/forgejo-push.nix` on top of
+`scripts/forgejo-auth.sh`.
 
 In a Claude Code background job isolated in a worktree, a built-in guard refuses
 commands it cannot prove leave git alone. Permission allow rules do not override
