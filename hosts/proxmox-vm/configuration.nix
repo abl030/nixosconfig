@@ -42,6 +42,16 @@
   # NOTE: this key carries the owner's full Immich privileges (it is not
   # read-only, and Immich has no scoped API keys), so it stays doc1-only like the
   # other control-plane credentials rather than going fleet-wide.
+  # Cullen SonicWall (192.168.100.14) SonicOS API login: a local user in the
+  # SonicWALL Read-Only Admins group, no OTP. Read by cullen-assistant
+  # scripts/sonicwall (GET-only). Read-only on the firewall side, doc1-only here.
+  sops.secrets."sonicwall-api.env" = {
+    sopsFile = config.homelab.secrets.sopsFile "sonicwall-api.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   sops.secrets."immich/api-token" = {
     sopsFile = config.homelab.secrets.sopsFile "immich-api-token.yaml";
     format = "yaml";
