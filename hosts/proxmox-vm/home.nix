@@ -14,6 +14,8 @@
     pkgs.poppler-utils
     pkgs.pandoc
     pkgs.csvkit
+    # Headless recalculation/conversion of xlsx/docx (soffice --headless).
+    pkgs.libreoffice
   ];
 
   # Dad's incoming NAS share needs doc1's private user-owned Tailscale daemon.
