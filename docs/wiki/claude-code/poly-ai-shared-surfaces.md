@@ -45,6 +45,12 @@ stale or missing outputs.
 
 ## Skills
 
+As of 2026-10-12, Compound Engineering is removed from Codex. Home Manager
+removes its plugin and marketplace settings, cached plugin, legacy standalone
+skills and agents, install manifest, and global compatibility instruction block.
+Other Codex plugins remain runtime-managed. Claude's Compound Engineering plugin
+is retained independently.
+
 Current Codex discovers repository skills from `.agents/skills`; Claude Code
 discovers them from `.claude/skills`. The symlink exposes the same `SKILL.md`
 files to both. The old `.codex/skills` adapter was removed after a Codex

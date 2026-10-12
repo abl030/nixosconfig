@@ -47,9 +47,16 @@
         command = "uvx";
         args = ["mcp-nixos"];
       };
-      __remove_sections__ = lib.optionals (hostname == "wsl") [
-        "mcp_servers.vinsight"
-      ];
+      __remove_sections__ =
+        [
+          "plugins.\"compound-engineering@compound-engineering-plugin\""
+          "plugins.\"compound-engineering@everyinc-compound-engineering\""
+          "plugins.\"compound-engineering@homelab-ce\""
+          "marketplaces.compound-engineering-plugin"
+        ]
+        ++ lib.optionals (hostname == "wsl") [
+          "mcp_servers.vinsight"
+        ];
     }
     // lib.optionalAttrs (builtins.elem hostname ["proxmox-vm" "wsl"]) {
       "projects.\"${config.home.homeDirectory}/cellar-manager\"" = {
@@ -91,8 +98,8 @@ in {
   # seize config.toml as a read-only store symlink. The activation below instead
   # merges only our managed keys while preserving Codex/plugin runtime state.
   #
-  # Codex plugins remain runtime-managed in ~/.codex/config.toml; Home Manager
-  # must not own or reset them. Project skills and custom agents are shared from
+  # Codex plugins remain runtime-managed, except the explicitly retired Compound
+  # Engineering integration. Project skills and custom agents are shared from
   # the repository instead; see docs/wiki/claude-code/poly-ai-shared-surfaces.md.
   programs.codex = {
     enable = true;
@@ -127,6 +134,13 @@ in {
     [ -f "$CODEX_CONFIG" ] || run ${pkgs.coreutils}/bin/touch "$CODEX_CONFIG"
     run ${pkgs.python3}/bin/python3 ${../../scripts/merge-toml-settings.py} \
       "$CODEX_CONFIG" ${codexManagedSettings}
+  '';
+
+  # Remove both the legacy standalone install and the Codex marketplace plugin.
+  # Claude's independently managed plugin is intentionally retained.
+  home.activation.codexRemoveCompoundEngineering = lib.hm.dag.entryAfter ["codexConfig"] ''
+    run ${pkgs.python3}/bin/python3 ${../../scripts/remove-codex-compound-engineering.py} \
+      "${config.home.homeDirectory}/.codex"
   '';
 
   home.activation.codexOrchestration = lib.hm.dag.entryAfter ["codexConfig"] ''
