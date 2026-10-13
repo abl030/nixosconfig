@@ -11,7 +11,7 @@ assert lib.assertMsg
 "mongodb80 is currently packaged only for x86_64-linux (the UniFi host architecture)";
   stdenv.mkDerivation (finalAttrs: {
     pname = "mongodb-ce";
-    version = "8.0.32";
+    version = "8.0.34";
     strictDeps = true;
 
     # This is the official MongoDB Community Edition Ubuntu 24.04 tarball. It is
@@ -20,7 +20,7 @@ assert lib.assertMsg
     # source checkout: the latter is the linker-OOM failure this package removes.
     src = fetchurl {
       url = "https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2404-${finalAttrs.version}.tgz";
-      hash = "sha256-tBG+F8Me8kl2ftkZdNh24AfJGv1fReFTQFfSR+ranw0=";
+      hash = "sha256-PlXNz3AT+8gF0p2BlSMN9LI8dohzPuFa1YrGvCpBZhE=";
     };
 
     nativeBuildInputs = [autoPatchelfHook];
@@ -44,7 +44,7 @@ assert lib.assertMsg
     passthru = {
       mongodbSeries = "8.0";
       sourceUrl = "https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2404-${finalAttrs.version}.tgz";
-      sourceHash = "sha256-tBG+F8Me8kl2ftkZdNh24AfJGv1fReFTQFfSR+ranw0=";
+      sourceHash = "sha256-PlXNz3AT+8gF0p2BlSMN9LI8dohzPuFa1YrGvCpBZhE=";
     };
 
     meta = {
