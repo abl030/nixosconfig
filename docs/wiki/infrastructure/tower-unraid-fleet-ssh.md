@@ -6,7 +6,7 @@ tower was moved from **Tailscale-SSH-only** onto the **standard doc1-bastion fle
 model**: native OpenSSH, key-only root, reached with the fleet identity from doc1 exactly
 like every NixOS sibling. The Tailscale plugin's `--ssh` is **disabled**.
 
-Why: uniformity (the Unraid control agent + `service-debug`/`service-deploy` skills treat
+Why: uniformity (the Unraid control agent and `service-deploy` skill treat
 tower like any host) and it let us **revert the ACL ssh-block root widening** (commit
 `c6d75b84`, reverted by `27c90f67`). doc1→tower now rides the existing `tag:server` mesh
 grant (`ip *`), not a special Tailscale-SSH rule.
