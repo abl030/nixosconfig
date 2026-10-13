@@ -78,7 +78,7 @@ in {
 
     tankControllerEndpoint = lib.mkOption {
       type = lib.types.str;
-      default = "opc.tcp://192.168.100.119:4840";
+      default = "opc.tcp://192.168.107.194:4840";
       description = "Read-only Fermecraft OPC UA endpoint for tank telemetry.";
     };
   };
@@ -181,7 +181,7 @@ in {
         ReadWritePaths = [cfg.stateDir];
         RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
         IPAddressDeny = "any";
-        IPAddressAllow = "192.168.100.119";
+        IPAddressAllow = "192.168.107.194";
         RestrictNamespaces = true;
         LockPersonality = true;
         SystemCallArchitectures = "native";

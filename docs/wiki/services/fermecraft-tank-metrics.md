@@ -1,9 +1,11 @@
 # Fermecraft tank metrics
 
-- **Date:** 2026-09-21
+- **Date:** 2026-09-21; network move 2026-10-13
 - **Status:** One-minute OPC UA collection and the tank thermal-performance
-  dashboard are live on WSL through the temporary, laptop-source-pinned
-  SiteManager forwarding rule. The permanent VLAN remains external follow-up.
+  dashboard are live on WSL. Since 2026-10-13 the SiteManager UPLINK sits on the
+  dedicated cooling VLAN (SonicWall X6, DMZ zone, `192.168.107.0/24`) at
+  `192.168.107.194`. The laptop-only SonicWall pinhole and LAN→DMZ default-deny
+  are still to be applied (see "Permanent network design").
 - **External coordination:** Cullen IT will create the permanent UPLINK VLAN and
   SonicWall policy. Fermecraft controls the SiteManager/GateManager configuration.
 
@@ -37,7 +39,9 @@ two networks:
 ```text
 Cullen LAN (192.168.100.0/24)
   |
-  | SiteManager UPLINK: 192.168.100.119
+  | SonicWall X6 "DMZ - Cooling" 192.168.107.1/24 (DMZ zone)
+  | UniFi: cooling VLAN via US-48-G1 port 36 -> 8-port switch port 8
+  | SiteManager UPLINK: 192.168.107.194 (DHCP from SonicWall)
   v
 Secomea SiteManager 1549 (firewall/NAT boundary)
   |
@@ -59,7 +63,17 @@ deliberately not recorded here. Change it in coordination with Fermecraft, and
 do not copy it into the repository, a ticket, shell history, or collector
 configuration.
 
-## Current temporary access path
+## Access path
+
+History: until 2026-10-13 the UPLINK was on the Cullen LAN at
+`192.168.100.119` (CW-DC01 DHCP). Cullen IT (Dunsborough Computers) moved it to
+SonicWall X6. The UniFi VLAN didn't pass traffic until they removed a
+restriction on US-48-G1 port 36 (the uplink to the 8-port switch). Diagnose that
+segment with `reporting/interfaces/ipv4/statistics` on the SonicWall: X6
+`tx_unicast` rising means it is talking to something. In that test `rx_broadcast`
+stayed 0 even when DHCP was working, so don't treat 0 as proof of no traffic.
+Nothing NATs LAN→DMZ, so the SiteManager still sees the laptop as
+`192.168.100.128` and agent #05's source pin still applies.
 
 SiteManager agent `#05`, named `OPCUA-Forward`, is active with this exact rule:
 
@@ -71,19 +85,20 @@ This means:
 
 - only the Cullen Windows/WSL laptop at `192.168.100.128` may originate the
   connection;
-- clients connect to `opc.tcp://192.168.100.119:4840`;
+- clients connect to `opc.tcp://192.168.107.194:4840` (UPLINK address);
 - the SiteManager forwards that TCP connection to `10.60.0.1:4840` on DEV1;
 - the rest of `10.60.0.0/24` is not routed or exposed; and
 - no SiteManager source-translation, whole-subnet routing, or all-ports agent is
   enabled.
 
-This is a temporary design and not a substitute for the VLAN. Source-IP pinning
-limits accidental access, but every ordinary Cullen client still shares the
-SiteManager's current UPLINK broadcast domain, and OPC UA itself is anonymous.
+The UPLINK no longer shares a broadcast domain with Cullen clients. Until the
+SonicWall pinhole lands, LAN→DMZ and WLAN→DMZ are still the default
+allow-any, so the SiteManager source pin is the only thing stopping other
+clients, and OPC UA itself is anonymous.
 
 ### End-to-end proof
 
-Before the rule existed, TCP connection to `192.168.100.119:4840` was refused.
+(Commissioned on the old LAN address.) Before the rule existed, TCP connection to the UPLINK's `:4840` was refused.
 After saving it:
 
 - TCP `4840` connected from `192.168.100.128`;
@@ -101,7 +116,7 @@ of the permanent path and does not advertise the control subnet over Tailscale.
 Quick positive probe from the pinned laptop:
 
 ```bash
-nc -vz -w 5 192.168.100.119 4840
+nc -vz -w 5 192.168.107.194 4840
 ```
 
 Do not broaden the source address merely to make this probe work from another
