@@ -4,8 +4,9 @@
 - **Status:** One-minute OPC UA collection and the tank thermal-performance
   dashboard are live on WSL. Since 2026-10-13 the SiteManager UPLINK sits on the
   dedicated cooling VLAN (SonicWall X6, DMZ zone, `192.168.107.0/24`) at
-  `192.168.107.194`. The laptop-only SonicWall pinhole and LAN→DMZ default-deny
-  are still to be applied (see "Permanent network design").
+  `192.168.107.194` (static DHCP entry). SonicWall policy applied 2026-10-13:
+  LAN→DMZ allow only `AndyMachine` (192.168.100.128) → SiteManager on TCP 4840 +
+  HTTPS (priority 9); the LAN→DMZ and WLAN→DMZ default rules were changed to discard.
 - **External coordination:** Cullen IT will create the permanent UPLINK VLAN and
   SonicWall policy. Fermecraft controls the SiteManager/GateManager configuration.
 
@@ -91,10 +92,10 @@ This means:
 - no SiteManager source-translation, whole-subnet routing, or all-ports agent is
   enabled.
 
-The UPLINK no longer shares a broadcast domain with Cullen clients. Until the
-SonicWall pinhole lands, LAN→DMZ and WLAN→DMZ are still the default
-allow-any, so the SiteManager source pin is the only thing stopping other
-clients, and OPC UA itself is anonymous.
+The UPLINK no longer shares a broadcast domain with Cullen clients, and the
+SonicWall admits only the laptop (.128) on TCP 4840/443. The SiteManager's
+own source pin is a second layer. OPC UA itself is still anonymous. A
+negative test from CW-DC01 is refused on both ports.
 
 ### End-to-end proof
 
