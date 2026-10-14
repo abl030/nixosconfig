@@ -32,7 +32,10 @@
       name = "${d} registration";
       url = "https://${d}";
       interval = "24h";
-      conditions = ["[DOMAIN_EXPIRATION] > 720h"]; # 30 days
+      # 10 days. Webcentral auto-renews ~15 days before expiry (2025 invoice:
+      # 25 Oct for a 9 Nov expiry), so 30 days paged on every healthy renewal.
+      # 10 days still leaves time to act if a renewal really failed.
+      conditions = ["[DOMAIN_EXPIRATION] > 240h"];
       alerts = [{type = "custom";}];
     })
     allDomains;
