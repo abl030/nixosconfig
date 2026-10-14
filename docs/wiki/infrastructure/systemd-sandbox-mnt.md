@@ -47,8 +47,8 @@ For each paperless systemd unit:
 serviceConfig = {
   TemporaryFileSystem = "/mnt";
   BindPaths = [
-    ''/mnt/data/Life/Meg\ and\ Andy/Paperless/Documents:/mnt/paperless-media''
-    ''/mnt/data/Life/Meg\ and\ Andy/Scans:/mnt/paperless-consume''
+    ''/mnt/data/Life/Meg\x20and\x20Andy/Paperless/Documents:/mnt/paperless-media''
+    ''/mnt/data/Life/Meg\x20and\x20Andy/Scans:/mnt/paperless-consume''
     "/mnt/virtio/paperless"
   ];
 };
@@ -62,14 +62,14 @@ The errorPattern entries for paperless include `Failed at step NAMESPACE` on eve
 
 ### Escaping spaces in `BindPaths`
 
-The source path `/mnt/data/Life/Meg and Andy/...` contains literal spaces. Two escape forms were tested:
+The source path `/mnt/data/Life/Meg and Andy/...` contains literal spaces. The generated directive must survive systemd's whitespace splitting:
 
 | Form | In unit file | Works |
 |---|---|---|
-| `\x20` | `BindPaths=/.../Meg\x20and\x20Andy/...` | **No** — taken as literal `\x20` by the BindPaths parser, source not found |
-| `\ ` | `BindPaths=/.../Meg\ and\ Andy/...` | **Yes** — systemd unescapes to a literal space at parse time |
+| `\x20` | `BindPaths=/.../Meg\x20and\x20Andy/...` | **Yes** — decoded to a literal space after tokenization |
+| `\ ` | `BindPaths=/.../Meg\ and\ Andy/...` | **No** — split into three malformed bind definitions |
 
-In Nix, the indented-string form `''/.../Meg\ and\ Andy/...''` writes the unit value as `\ ` directly (single backslash followed by space). Plain `"..."` strings work too with `\\ ` (the doubled backslash collapses to one).
+In Nix, the indented-string form `''/.../Meg\x20and\x20Andy/...''` writes the unit value as `\x20` directly. Plain `"..."` strings work too with `\\x20` (the doubled backslash collapses to one).
 
 ### What about the upstream module's `ReadWritePaths`?
 

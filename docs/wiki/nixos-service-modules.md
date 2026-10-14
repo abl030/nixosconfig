@@ -1129,10 +1129,10 @@ serviceConfig = {
 Combined with `BindPaths=` this gives both least-privilege scope **and**
 fail-loud failure if a bind source goes away.
 
-Spaces in `BindPaths=` sources: escape as `\ ` (backslash-space) in the unit
-value. In Nix, the indented-string form `''/path/with\ space''` writes the
-right bytes directly. `\x20` does **not** work — the BindPaths parser takes
-it literally.
+Spaces in `BindPaths=` sources: escape as `\x20` in the unit value. In Nix,
+the indented-string form `''/path/with\x20space''` writes the right bytes
+directly. Backslash-space does **not** quote the whitespace: systemd splits it
+into separate bind definitions and ignores them.
 
 #### Default for new doc2 services (#257)
 
