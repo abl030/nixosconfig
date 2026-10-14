@@ -64,6 +64,22 @@
     STORM_FLUSH_SECS = int(os.environ.get("STORM_FLUSH_SECS", "120"))
     STORM_QUIET_SECS = int(os.environ.get("STORM_QUIET_SECS", "180"))
     RCA_BATCH_SECS = int(os.environ.get("RCA_BATCH_SECS", "600"))
+    # Kuma re-sends DOWN every resendInterval while a monitor stays down (2-4h).
+    # Only the first DOWN pages loudly and goes to RCA; repeats are quiet until
+    # KUMA_REESCALATE_SECS has passed, then one loud page + fresh RCA again.
+    # State is in-memory: a bridge restart treats the next repeat as a first DOWN.
+    KUMA_REESCALATE_SECS = int(os.environ.get("KUMA_REESCALATE_SECS", "86400"))
+    KUMA_REPEAT_PRIORITY = int(os.environ.get("KUMA_REPEAT_PRIORITY", "4"))
+    _kuma_lock = threading.Lock()
+    _kuma_down = {}  # monitor name -> [first DOWN ts, last loud page ts]
+
+    def _fmt_age(secs):
+        secs = int(secs)
+        if secs >= 86400:
+            return f"{secs // 86400}d{(secs % 86400) // 3600}h"
+        if secs >= 3600:
+            return f"{secs // 3600}h{(secs % 3600) // 60:02d}m"
+        return f"{secs // 60}m"
 
     def read_token():
         try:
@@ -388,7 +404,11 @@
         if status_code == 1:
             print(f"[bridge] kuma recovery: {mon_name} UP",
                   file=sys.stderr, flush=True)
+            with _kuma_lock:
+                down = _kuma_down.pop(mon_name, None)
             body = "✅ back online"
+            if down is not None:
+                body += f" after {_fmt_age(time.time() - down[0])}"
             if ping is not None:
                 body += f" · ping {ping}ms"
             if hb_time:
@@ -404,10 +424,40 @@
                   file=sys.stderr, flush=True)
             return
 
-        print(f"[bridge] kuma alert: {mon_name} type={mon_type} {status_str}",
+        now = time.time()
+        with _kuma_lock:
+            down = _kuma_down.get(mon_name)
+            if down is None:
+                _kuma_down[mon_name] = [now, now]
+                repeat = None
+            elif now - down[1] >= KUMA_REESCALATE_SECS:
+                down[1] = now
+                repeat = "loud"
+            else:
+                repeat = "quiet"
+            first_down = (down or [now])[0]
+        age = _fmt_age(now - first_down)
+
+        # Still-DOWN resend inside the re-escalation window: a quiet reminder,
+        # straight to Gotify (no RCA, no storm count). The first page and its
+        # RCA already said everything; nothing has changed since.
+        if repeat == "quiet":
+            print(f"[bridge] kuma repeat (quiet): {mon_name} DOWN {age}",
+                  file=sys.stderr, flush=True)
+            body = f"still DOWN for {age}; the first page and its RCA still apply"
+            if heartbeat_msg:
+                body += f"\n{heartbeat_msg[:300]}"
+            gotify_push(f"[still down] {mon_name} ({age})", body,
+                        priority=KUMA_REPEAT_PRIORITY)
+            return
+
+        suffix = f" (re-escalation, down {age})" if repeat else ""
+        print(f"[bridge] kuma alert: {mon_name} type={mon_type} {status_str}{suffix}",
               file=sys.stderr, flush=True)
 
         ctx = "## Kuma monitor DOWN\n"
+        if repeat:
+            ctx += f"still DOWN for {age}: daily re-escalation of an unresolved outage\n"
         ctx += f"monitor: {mon_name}\n"
         ctx += f"type: {mon_type}\n"
         if mon_url:
@@ -438,6 +488,8 @@
 
         summary = format_message(ctx)
         title = f"[critical] {mon_name} DOWN"
+        if repeat:
+            title = f"[critical] {mon_name} still DOWN ({age})"
         dispatch(title, summary, priority=8)
 
     def handle_alert(alert):
@@ -645,6 +697,16 @@ in {
       default = 180;
       description = "A storm ends (final digest flushed) after this many seconds with no new pages.";
     };
+    kumaReescalateSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 86400;
+      description = ''
+        While a Kuma monitor stays DOWN, its resends (every resendInterval) go
+        out as quiet priority-4 reminders with no RCA. After this many seconds
+        since the last loud page, one resend pages at priority 8 with a fresh
+        RCA again, so a long outage cannot go silent. Recovery clears the state.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -673,6 +735,7 @@ in {
           STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
           STORM_QUIET_SECS = toString cfg.stormQuietSecs;
           RCA_BATCH_SECS = toString cfg.rcaBatchSecs;
+          KUMA_REESCALATE_SECS = toString cfg.kumaReescalateSecs;
         }
         // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
           RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;

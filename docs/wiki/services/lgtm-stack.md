@@ -367,7 +367,16 @@ Grafana and Kuma both have verbose default webhook payloads. `modules/nixos/serv
 
 **Journal access for Kuma push enrichment.** The bridge queries the existing fleet Loki endpoint for the generated unit name and preserves each matching stream's `host` label. It also runs with `SupplementaryGroups = ["systemd-journal"]` and a systemd-containing `PATH`, so a local probe journal remains available as a fallback without sudo. The service's sops-decrypted Gotify token is owned by the bridge user.
 
-**Re-alert cadence:** the bridge itself doesn't dedupe — Grafana's notification policy (`repeat_interval = "24h"`) and Kuma's per-monitor `resendInterval` do that. Effective re-page cadence is documented in the next subsection.
+**Re-alert cadence:** Grafana repeats are governed by its notification policy (`repeat_interval = "24h"`). Kuma re-sends DOWN every `resendInterval` (about 2h for deep probes, 4h for HTTP monitors). Since 2026-10-14 the bridge de-escalates those Kuma resends:
+
+- **First DOWN:** pages at priority 8 and enters RCA.
+- **Further resends:** go straight to Gotify as quiet priority-4 `[still down] <monitor> (<age>)` reminders, with no RCA and no count toward the storm damper.
+- **Daily re-escalation:** once `kumaReescalateSecs` (default 24h) has passed since the last loud page, one resend pages at priority 8 with a fresh RCA.
+- **Recovery** clears the state and reports the outage duration.
+
+**Why:** between 2026-10-11 and 2026-10-14, one dead Storyteller Readium process and two expired Tailscale share nodes produced about 80 priority-8 pages, each followed by an RCA saying "prior disposition unchanged".
+
+**Caveats:** the state is in-memory, so a bridge restart treats the next resend as a first DOWN. A lost UP webhook would make a new outage within 24h quiet. Kuma sends UP reliably on a real transition, so this is accepted. The effective Kuma re-page cadence is documented in the next subsection.
 
 **probeSlug must stay in sync** between `monitoring_sync.nix` (Nix-side, used to build push monitor names) and `alert-bridge.nix` (Python-side, used to reverse-map names to systemd units). If you change one, change both. The exact replacements: `/` → `-`, `space` → `-`, `(` → ``, `)` → ``, `—` → `-`, `[` → ``, `]` → ``, then lowercase.
 
