@@ -312,6 +312,11 @@
   systemd.user.services.tmux = {
     description = "Durable tmux server (user@.service-scoped; survives idle-session reap)";
     wantedBy = ["default.target"];
+    # A config switch must not restart the server: any store-path change in the
+    # unit (tmux, coreutils, systemd bump) made switch-to-configuration stop and
+    # restart it, killing every pane (2026-10-15 nightly upgrade). The new unit
+    # definition takes effect at the next reboot instead.
+    restartIfChanged = false;
     serviceConfig = {
       Type = "forking";
       Environment = "TMUX_TMPDIR=%t";

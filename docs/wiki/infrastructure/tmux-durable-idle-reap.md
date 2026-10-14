@@ -162,6 +162,12 @@ Two consequences worth knowing:
   that `new-session -A` would stop the unit failing but would **not** fix the
   cgroup: the server only lands in `user@.service` if this unit is the one that
   creates it.
+- **A config switch no longer restarts it (2026-10-15).** Before
+  `restartIfChanged = false`, any nixpkgs bump that changed a store path in the
+  unit (tmux, coreutils, systemd in `PATH`) made `switch-to-configuration`
+  log `stopping the following user units: ... tmux.service` during the nightly
+  upgrade and kill every pane. A kernel-change night still reboots doc1 via
+  smart-upgrade and takes the sessions down; that is accepted behaviour.
 - **A manager death is now attributable.** `homelab.killTrace` audits every
   SIGKILL syscall and snapshots forensics when `user@1000.service` fails — see
   [kill-trace-forensics.md](kill-trace-forensics.md).
