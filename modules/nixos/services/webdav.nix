@@ -34,18 +34,17 @@ in {
     # #257: was unhardened with the full /mnt/* tree RW-visible. The server
     # serves exactly `directory` above, so blank /mnt and bind back only the
     # Zotero Library subdir (rw — permissions=CRUD). The source path has a
-    # literal space, escaped `\ ` per systemd.exec(5); bound to the same
+    # literal space, escaped as `\x20` per systemd.syntax(7); bound to the same
     # space-bearing path so the `directory` setting needs no change.
     # ProtectSystem=strict on top (simple Go file server, writes only there).
     # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
     systemd.services.webdav = {
       after = ["mnt-data.mount"];
       requires = ["mnt-data.mount"];
-      unitConfig.RequiresMountsFor = ["/mnt/data/Life/Andy/Education/Zotero Library"];
       serviceConfig = {
         ProtectSystem = "strict";
         TemporaryFileSystem = "/mnt";
-        BindPaths = [''/mnt/data/Life/Andy/Education/Zotero\ Library''];
+        BindPaths = [''/mnt/data/Life/Andy/Education/Zotero\x20Library''];
       };
     };
 

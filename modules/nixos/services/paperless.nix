@@ -14,13 +14,13 @@
   };
 
   # Real Paperless storage paths live on tower NFS under a path with spaces.
-  # The space-bearing source paths are escaped per systemd.exec(5) (backslash-
-  # space) and bound to space-free destinations inside the unit's sandboxed
+  # The space-bearing source paths use systemd's \x20 escaping and are bound
+  # to space-free destinations inside the unit's sandboxed
   # /mnt tmpfs — see sandbox below. Upstream paperless's `mediaDir` /
   # `consumptionDir` then point at the space-free destinations directly, no
   # symlinks required.
-  realMediaDir = ''/mnt/data/Life/Meg\ and\ Andy/Paperless/Documents'';
-  realScansDir = ''/mnt/data/Life/Meg\ and\ Andy/Scans'';
+  realMediaDir = ''/mnt/data/Life/Meg\x20and\x20Andy/Paperless/Documents'';
+  realScansDir = ''/mnt/data/Life/Meg\x20and\x20Andy/Scans'';
   mediaDir = "/mnt/paperless-media";
   consumeDir = "/mnt/paperless-consume";
 
