@@ -306,7 +306,10 @@ in {
             it, including inter-tailnet shared-in users.
 
             Default [] leaves TS_EXTRA_ARGS untouched, so nodes tagged by hand in
-            the admin console (overseer, audiobookshelf, jellyfin) are unaffected.
+            the admin console (audiobookshelf, yoto) are unaffected. A node tagged
+            by hand after a user-owned enrolment KEEPS its 180-day key expiry
+            (overseer and jellyfin expired 2026-10-11/12); declare the tag so the
+            enrolment itself is tag-owned, or disable expiry in the console.
 
             NOTE: changing an existing node's tags replaces user ownership with
             tag ownership, which forces re-authentication: run

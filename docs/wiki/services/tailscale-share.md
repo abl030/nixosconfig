@@ -252,6 +252,7 @@ The narrowed pattern (committed `modules/nixos/services/tailscale-share.nix:260-
   - It also starts units that a `switch` left inactive. doc2's switch didn't start a new share's units on 2026-10-09.
   - It does nothing if the node is already logged in.
   - Never run two daemons on one `ts-state`. Don't delete `ts-state` or expose the upstream as a workaround.
+- **Node key expiry (2026-10-14).** A share enrolled user-owned and then tagged by hand in the admin console keeps the user key's 180-day expiry. Overseer expired on 2026-10-11 and Jellyfin on 2026-10-12, and their retired auth keys could not re-enrol them. Both now declare `tags = ["tag:share"]` with `authKeySecret = null`, so `tailscale-share-login` re-enrols them tag-owned with no expiry. Audiobookshelf (expiry 2026-11-10) and Yoto (2027-02-18) had expiry disabled in the console instead. To audit: `sudo podman exec ts-<name> tailscale status --json | jq .Self.KeyExpiry` (`null` = never). Symptoms of an expired node: a `(Tailnet) DOWN` page while the app answers locally, and a failed `tailscale-share-dns-sync-<name>`, which makes `switch` exit 4 and the rolling push-deploy time out.
 - Do not enable Caddy admin, Caddy reload sockets, or Tailscale access to Caddy state unless the threat model is rewritten first.
 - `NET_ADMIN` remains scoped to the Tailscale sidecar for `/dev/net/tun`; Caddy should not have it.
 - Image pinning remains separate Tier 4 work in issue #232.

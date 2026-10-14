@@ -557,6 +557,11 @@
       # Overseerr process must not be able to rename or replace TS/Caddy state.
       dataDir = "/mnt/virtio/tailscale-share/overseerr";
       hostname = "overseer";
+      # Tag-owned interactive enrolment: the original auth key is retired and
+      # the hand-tagged user-owned node kept a 180-day key expiry (expired
+      # 2026-10-11). Re-enrol with `sudo tailscale-share-login overseerr`.
+      tags = ["tag:share"];
+      authKeySecret = null;
       # A sharee's tailnet re-addressed this node (100.70.211.50 there, .51
       # here), so the A record alone fails for them. Trial of the AAAA path.
       publishIpv6 = true;

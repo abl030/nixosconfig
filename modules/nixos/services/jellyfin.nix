@@ -352,7 +352,9 @@ in {
         ];
 
         # Inter-tailnet: jellyfinn.ablz.au via dedicated tailscale node + caddy.
-        # Reuses the sops auth key at secrets/hosts/igpu/jellyfin-tailscale-authkey.env.
+        # Tag-owned interactive enrolment: the original auth key is retired and
+        # a hand-tagged user-owned node kept a 180-day key expiry (expired
+        # 2026-10-12). Re-enrol with `sudo tailscale-share-login jellyfin`.
         tailscaleShare.jellyfin = {
           enable = true;
           fqdn = cfg.tailscaleFqdn;
@@ -362,6 +364,8 @@ in {
           # Sibling of jellyfin's data/config/log; mixed owner subdirs (see header).
           dataDir = "${cfg.dataRoot}/ts";
           hostname = "jellyfin";
+          tags = ["tag:share"];
+          authKeySecret = null;
           firewallPorts = [cfg.port];
           monitorName = "Jellyfin (Tailnet)";
           monitorPath = "/System/Info/Public";
