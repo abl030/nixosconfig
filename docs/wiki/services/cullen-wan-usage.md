@@ -36,6 +36,13 @@ SNMP is read-only v2c on X0 only, source group "Andy laptop" (audit IDs 298–30
 The ping probes run on wsl because they must leave from the Cullen site; their
 route follows Andy's laptop policy routes on the SonicWall.
 
+## Keeping wsl running
+
+The ping collector only runs while the WSL VM runs. The Windows task
+`Start-NixOS-WSL` holds it open (`sleep infinity`, re-triggered every 15 min);
+see `docs/wiki/infrastructure/wsl-tailscale-ssh.md`. If pings stop, check
+`wsl -l -v` on the laptop before suspecting the service.
+
 ## Operations
 
 ```bash

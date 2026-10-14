@@ -127,6 +127,15 @@ be reachable on the laptop's LAN addresses.
 
 ## Limitations / footguns
 
+- **2026-10-15 fix:** `Start-NixOS-WSL` used to run `wsl.exe … -c "exit 0"`, which
+  boots the VM, but WSL stops an idle distro seconds later once no Windows-side
+  process is attached. After a Windows Update reboot (14 Oct 17:30) WSL stayed
+  stopped overnight and the `cullen-wan-ping` collector died. The task now runs
+  `wsl.exe -d NixOS -u root -e /bin/sh -c "exec sleep infinity"` (it holds the
+  instance open), with `ExecutionTimeLimit` PT0S (was PT72H), `MultipleInstances`
+  IgnoreNew, and triggers at startup plus every 15 min (re-launches only if not
+  running). Still S4U, so no window. Prior definition saved in cullen-assistant
+  scratch/2026-10-15-wsl-keepalive/. Check: task State `Running`, `wsl -l -v` Running.
 - A cold reboot with nobody logged in is covered: `Start-NixOS-WSL` boots the
   VM at startup, and this task runs at startup too (S4U).
 - `wsl --shutdown` mid-session changes the WSL IP. The forward heals within 15
