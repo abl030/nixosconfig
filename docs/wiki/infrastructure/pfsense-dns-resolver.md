@@ -44,7 +44,15 @@ Verify from a fleet host with both paths: GUI/SSH on `192.168.1.1` succeed, the 
 2. **`tailscaled` uses TCP/53 for forwarded queries in our environment.** Each NixOS host holds ~4 persistent ESTABLISHED TCP connections to pfSense's :53 at idle (sample on any fleet host: `sudo ss -tnp '( dport = :53 )'` — process is `tailscaled-wra…`). Public Tailscale docs and [tailscale#11632](https://github.com/tailscale/tailscale/issues/11632) suggest UDP-only forwarding; empirically wrong for our config. ~10 hosts × ~4 connections = ~40 persistent TCP slots needed.
 3. **ntopng runs on pfSense itself, not on doc2.** doc2 only runs the Go `ntopng-exporter` (HTTP scraper, no DNS). All ntopng `--dns-mode` settings are pfSense-side.
 4. **The wiki note in `modules/nixos/services/loki.nix:427-429` is load-bearing**: `service ntopng onestart` silently starts ntopng without SSL. Always restart via `/usr/local/etc/rc.d/ntopng.sh restart` so the ntopng-exporter on doc2 can still reach the HTTPS endpoint.
-5. **pfSense filter logs ship to Loki; unbound and system logs do not.** Investigating unbound issues requires the pfsense subagent or direct SSH — `loki` will not show you what unbound is doing. See [lgtm-stack](../services/lgtm-stack.md) for current shipping config.
+5. **DNSBL feeds can sinkhole shared cloud hostnames (2026-10-14).**
+   - **What happened:** the `Phishing_Army` feed (group `DNSBL_Firebog_Malicious`) added the exact entry `storage.googleapis.com` in its 04:30 update.
+   - **Effect:** lookups returned `0.0.0.0`, so a client connected to *itself*. On doc1 that meant nginx's default `bd.ablz.au` certificate, which surfaced as `x509: certificate is valid for bd.ablz.au, not storage.googleapis.com`.
+   - **What broke:** every Go module download, because `proxy.golang.org` redirects to that host. The nightly rolling update's `core` group failed on `sops-install-secrets-…-go-modules`.
+   - **Fix:** `storage.googleapis.com` was added to the DNSBL whitelist **without a leading dot**, then DNSBL was reloaded (takes about 45 minutes).
+     - The leading dot matters: `.storage.googleapis.com` would also whitelist bucket subdomains the same feed lists as phishing.
+     - The pre-change backup is `/cf/conf/backup/config.xml.pre-googleapis-whitelist-20261014-134209` on pfSense.
+   - **Tell:** if a TLS error names one of *our* hostnames for a public destination, check `dig <host>` against `dig @1.1.1.1 <host>` first. See also the [Fastly block incident](pfblockerng-fastly-block-incident-2026-06-07.md).
+6. **pfSense filter logs ship to Loki; unbound and system logs do not.** Investigating unbound issues requires the pfsense subagent or direct SSH — `loki` will not show you what unbound is doing. See [lgtm-stack](../services/lgtm-stack.md) for current shipping config.
 
 ## Tunables we set (2026-05-23)
 
