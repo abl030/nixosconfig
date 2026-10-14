@@ -31,7 +31,7 @@ This keeps the chat conversational while the user is deciding (often while drivi
 
 Four things to check every morning:
 
-1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → raw log excerpts + artifact paths → Hermes RCA (one Gotify RCA, fix PR when mechanical); the in-run claude triage runs only if the Hermes webhook is down.
+1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → raw log excerpts + artifact paths → Hermes RCA (one Gotify RCA, fix PR when mechanical); the in-run claude triage runs only if the Hermes webhook is down. **A fully green run sends no Gotify at all** (`scripts/rolling_flake_update.sh`: it pings only on a failed group or a hold change), so a missing ping does not mean it didn't run. Always state in the summary whether last night's run happened and what it landed, from Step 1 query C.
 2. **`nixos-upgrade.service`** on every NixOS host between 01:00 and 02:00 local. Pulls the latest flake and rebuilds. On failure → `nixos-upgrade-diagnose.service` ships the raw context to Hermes RCA; claude -p → Gotify only if Hermes is unreachable.
 3. **Gotify pings** on doc2. Picks up the long tail — watchdogs, alert-bridge, Grafana alerts, Domain-Monitor, Kuma — that isn't a nightly job but did wake the phone overnight.
 4. **Auto-generated RCA fix PRs** on Forgejo. When an overnight alert's root cause has a mechanical fix, the RCA pipeline opens a PR with the patch (see Step 1c). These are candidate fixes already written for you — your job is to **review each and recommend merge / hold / changes**, then (on the user's go) merge and deploy.
@@ -116,7 +116,25 @@ App ids (cache locally if you want; they're stable):
 6=Youtube Playlist  7=claude  8=HA
 ```
 
-For each ping with `priority >= 5` (warning+), pull the full message body:
+**Read every ping since the previous triage, not just "overnight".** The
+window is the last ~30h, not the 12h Loki window. Daytime jobs page too: for
+example the Cratedigger Beets tip canary runs at 18:05 AWST and the Cratedigger
+daily checks at 05:05. A 2026-10-15 triage missed a fifth consecutive daily
+Beets canary failure because its ping landed in the evening, before "last night".
+
+- `gotify-triage recent` prints **UTC** timestamps, **newest first**. Convert to
+  AWST (+8h) before deciding what happened when, and never `tail` the output:
+  that drops the newest rows, which are the ones that matter.
+- List every ping that isn't on the skip-list below in the summary. That
+  includes Hermes `RCA:` pings (Hermes often concludes "no PR needed" or
+  "external", but the user still needs to see it), `[warning]` alerts, and
+  canary or daily-check failures.
+- **Recurring failures escalate.** When a ping or its RCA says "Nth consecutive"
+  or the same title recurs across days, report it as a standing failure with
+  its start date, even if the RCA calls it external or transient. Name the repo
+  that owns the fix.
+
+Pull the full body of every ping that isn't skip-listed:
 
 ```bash
 ssh doc2 "sudo gotify-triage msg 123,124,125"
@@ -147,7 +165,10 @@ what `gotify-triage` is for — Loki won't have them.
 
 **Skip-list (low signal, don't bother diagnosing):**
 - App 8 (HA) — garage door, doorbell, presence pings. Not infra.
-- Priority < 5 — informational; ignore unless the user explicitly asks.
+- Agent session pings (`🤖 Claude finished — <repo>`, `🤖 Codex needs input — …`).
+  These are the user's own sessions, not infra.
+- Priority < 5, unless the title reads as a failure or an alert. Otherwise
+  informational; ignore unless the user explicitly asks.
 - Duplicate Kuma flaps within the same 5-minute window — count, don't list.
 - **AirVPN gateway up/down for a SINGLE endpoint** (`[warning] AirVPN <region>
   gateway failure` and its `[recovered]` twin, plus the pfSense dpinger alarms
