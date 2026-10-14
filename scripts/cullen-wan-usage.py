@@ -22,7 +22,9 @@ SCHEMA = '''CREATE TABLE IF NOT EXISTS samples(
 
 def db(path):
     con = sqlite3.connect(path, timeout=30)
-    con.execute('PRAGMA journal_mode=WAL')
+    # Rollback journal, not WAL: read-only consumers (other users, the deep probe)
+    # cannot create the -shm file in the service-owned directory.
+    con.execute('PRAGMA journal_mode=DELETE')
     con.execute(SCHEMA)
     return con
 

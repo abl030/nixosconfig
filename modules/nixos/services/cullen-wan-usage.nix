@@ -73,6 +73,7 @@ in {
     ];
     systemd.services.cullen-wan-usage = {
       description = "Sample Cullen SonicWall port counters over SNMP";
+      wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig =
@@ -118,5 +119,8 @@ in {
         serviceConfig.ReadOnlyPaths = [cfg.dataDir];
       }
     ];
+    # First activation must take a sample before the probe looks for one.
+    systemd.services.deep-probe-cullen-wan-usage-collection.after = ["cullen-wan-usage.service"];
+    systemd.services.post-maintenance-deep-probe-cullen-wan-usage-collection.after = ["cullen-wan-usage.service"];
   };
 }
