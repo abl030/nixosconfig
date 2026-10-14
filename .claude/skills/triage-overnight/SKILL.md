@@ -249,33 +249,28 @@ Verify **five** things before recommending merge:
 5. **Is the service still down?** Re-probe live (HTTP / Kuma). A still-down service
    makes its PR urgent (deploy now); a self-recovered flap makes its PR routine.
 
-## Step 1d: Open issues for failures that need code work elsewhere
+## Step 1d: Auto-open cratedigger issues for Cratedigger failures
 
-**Don't ask first.** Before writing the summary, open an issue for every
-confirmed failure that needs a code change in a repo the triage itself
-won't fix. That covers a standing failure ("Nth consecutive"), an RCA that
-says "external" or "no PR needed; <repo> owns this", and an `upstream`
-nixpkgs failure. Operator decision, 2026-10-15: "that should just be
-standard for these failures".
+**Cratedigger only, and don't ask first.** Before writing the summary, open a
+GitHub issue on `abl030/cratedigger` for every confirmed failure whose fix
+belongs in the cratedigger repo. That covers the Beets tip canary, the
+Cratedigger daily checks, and any Hermes RCA that says cratedigger owns it.
+Everything else, nixosconfig included, gets **no** auto-issue: it's handled
+in the triage chat walk-through. Operator decision, 2026-10-15.
 
-1. **Find the owner.** That's the repo whose code has to change, not the host
-   that paged. For Cratedigger checks, that's the script's input
-   (`inputs.cratedigger-src`, checkout at `/home/abl030/cratedigger`).
-2. **Use that repo's own tracker.** Check `git -C <checkout> remote -v`:
-   - nixosconfig → Forgejo REST API, never `gh` (see CLAUDE.md).
-   - cratedigger → GitHub: `gh issue create -R abl030/cratedigger`.
-3. **Dedupe first** with `gh issue list -R <repo> --search '<key term>'`, or
-   the Forgejo issues search. If one is already open, comment on it with the
-   new occurrence instead of filing another.
-4. **Verify before you file.** Check the RCA's claim against the source (the
-   failing commit's code, the package version actually in the lock). A wrong
-   issue is worse than none.
-5. **What the body needs:** the unit, host and schedule; the failure start date
-   and streak; the verified cause with file:line evidence; production impact; a
-   proposed fix; how to verify it; and the Gotify ping ids.
+1. **Dedupe first:** `gh issue list -R abl030/cratedigger --search '<key term>'`.
+   If one is already open, comment on it with the new occurrence instead of
+   filing another.
+2. **Verify before you file.** Check the RCA's claim against the source: the
+   failing commit's code, and the package version actually in the lock. The
+   checkout is `/home/abl030/cratedigger`, and the canary runs
+   `inputs.cratedigger-src` scripts. A wrong issue is worse than none.
+3. **File it** with `gh issue create -R abl030/cratedigger --body-file <f>`. The
+   body needs: the unit, host and schedule; the failure start date and streak;
+   the verified cause with file:line evidence; production impact; a proposed
+   fix; how to verify it; and the Gotify ping ids.
 
-Issues only. Code changes in another repo still go through the walk-through
-and that repo's own PR flow.
+Issues only. Code changes still go through cratedigger's own PR flow.
 
 Example: cratedigger#1418, the Beets tip canary red since 2026-10-10 because
 tip needs `python3-discogs-client>=2.10` and the tip set had 2.9.
@@ -301,7 +296,7 @@ For each auto-generated RCA PR (Step 1c):
 - **Your review verdict** — `merge` / `hold` / `needs-changes`, with the one-line reason (root cause confirmed against live code? fix minimal? signed? least-privilege ok?).
 - **Urgency** — is the service still down (deploy now) or did it self-recover (routine, land it to stop the recurrence).
 
-For every issue Step 1d opened or commented on, add a line to the end of the
+For every cratedigger issue Step 1d opened or commented on, add a line to the end of the
 summary, before the walk-through question. For example: *"I opened
 cratedigger#1418 for the Beets tip canary failure."* Include the link.
 
@@ -315,8 +310,8 @@ For each `actionable` entry, present the diff that would implement claude's sugg
 
 For `transient` entries: report and move on (next nightly run will retry).
 
-For `upstream` entries: Step 1d has already opened or updated the tracking
-issue, noting the failure and that we're waiting for nixpkgs.
+For `upstream` entries: report them and say we're waiting for nixpkgs. Raise
+them in the walk-through; don't auto-file an issue.
 
 ## Step 4: Merge & deploy approved RCA PRs
 
