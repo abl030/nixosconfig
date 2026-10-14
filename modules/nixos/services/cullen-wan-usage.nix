@@ -1,4 +1,4 @@
-# Cullen SonicWall per-port traffic counters (SNMP, 1/min) for monthly WAN usage.
+# Cullen SonicWall per-port counters over SNMP (10 s): WAN usage, throughput and link flaps.
 # See docs/wiki/services/cullen-wan-usage.md for path, firewall side and queries.
 {
   config,
@@ -45,7 +45,7 @@ in {
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/cullen-wan-usage";
-      description = "SQLite store of per-minute port counters.";
+      description = "SQLite store of 10 s port counters (thinned to 1/min after 35 days).";
     };
     backupDir = lib.mkOption {
       type = lib.types.str;
@@ -71,34 +71,32 @@ in {
       "d ${cfg.dataDir} 0755 cullen-wan-usage cullen-wan-usage - -"
       "d ${cfg.backupDir} 0755 cullen-wan-usage cullen-wan-usage - -"
     ];
+    # Long-running 10 s poller: the 10 s counters line up throughput with the
+    # latency probes on wsl, and ifLastChange catches 2-4 s link flaps between polls.
     systemd.services.cullen-wan-usage = {
-      description = "Sample Cullen SonicWall port counters over SNMP";
+      description = "Poll Cullen SonicWall port counters over SNMP every 10 s";
       wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig =
         hardening
         // {
+          Type = "simple";
+          Restart = "always";
+          RestartSec = 30;
           LoadCredential = "snmp.env:${config.sops.secrets."cullen-wan-usage/env".path}";
-          ExecStart = "${command} collect ${dataArg} --credential %d/snmp.env --snmpget ${lib.getBin pkgs.net-snmp}/bin/snmpget";
+          ExecStart = "${command} run ${dataArg} --interval 10 --credential %d/snmp.env --snmpget ${lib.getBin pkgs.net-snmp}/bin/snmpget";
         };
     };
-    systemd.timers.cullen-wan-usage = {
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnCalendar = "minutely";
-        AccuracySec = "5s";
-      };
-    };
     systemd.services.cullen-wan-usage-backup = {
-      description = "Copy Cullen WAN usage SQLite into the backed-up Life tree";
+      description = "Thin old 10 s Cullen WAN samples to 1/min and copy SQLite into the backed-up Life tree";
       unitConfig.RequiresMountsFor = [cfg.backupDir];
       serviceConfig =
         hardening
         // {
           PrivateNetwork = true;
           BindPaths = [cfg.backupDir];
-          ExecStart = "${command} backup ${dataArg} --backup-dir ${lib.escapeShellArg cfg.backupDir}";
+          ExecStart = "${command} backup ${dataArg} --keep-days 35 --interval 10 --backup-dir ${lib.escapeShellArg cfg.backupDir}";
         };
     };
     systemd.timers.cullen-wan-usage-backup = {

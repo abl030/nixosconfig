@@ -45,6 +45,8 @@ in {
   security.sudo.wheelNeedsPassword = lib.mkForce true;
 
   homelab = {
+    # Cullen WAN latency/loss record (docs/wiki/services/cullen-wan-usage.md).
+    services.cullenWanPing.enable = true;
     nixCaches = {
       enable = true;
       profile = "internal";

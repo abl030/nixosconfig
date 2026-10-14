@@ -9,6 +9,7 @@
     ./forgejo-push.nix
     ./hermes-gateway.nix
     ./agent-browser.nix
+    ./cullen-wan-hourly.nix
     ../../modules/nixos/services/podcast.nix
   ];
 
