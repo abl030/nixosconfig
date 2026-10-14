@@ -71,6 +71,17 @@ RCA_WEBHOOK_SECRET="${RFU_RCA_WEBHOOK_SECRET:-}"
 # Testing knobs: NO_COMMIT=1 (build but never commit/push), ONLY_GROUP=<name>.
 ONLY_GROUP="${ONLY_GROUP:-}"
 
+# Package holds: nix/held-packages.json lists top-level packages served from the
+# rev-pinned nixpkgs-held input (see nix/overlay.nix). The core group releases a
+# hold once the package builds on the candidate nixpkgs, and auto-holds a broken
+# leaf package instead of reverting all of nixpkgs for it. nixpkgs-held is never
+# part of any group. See docs/wiki/infrastructure/rolling-flake-update.md.
+HELD_FILE="nix/held-packages.json"
+HELD_INPUT="nixpkgs-held"
+HOLD_MAX_AUTO="${RFU_HOLD_MAX_AUTO:-3}"
+HOLD_STALE_DAYS="${RFU_HOLD_STALE_DAYS:-30}"
+HOLD_NOTIFY=0
+
 # --- Helpers ---------------------------------------------------------------
 log() { echo "[$TAG] $1"; }
 
@@ -474,7 +485,7 @@ restore_group_state() {
     # Keep every transaction-owned path in this list. Each command is checked
     # explicitly because this function is called from a conditional context
     # where Bash's errexit is suppressed.
-    for path in flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix; do
+    for path in flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix flake.nix "$HELD_FILE"; do
         if ! git reset -q -- "$path" >>"$glog" 2>&1; then
             restore_failed=1
         fi
@@ -515,6 +526,7 @@ finish_updated_group() {
     local inputs="$2"
     local glog="$3"
     local changed_paths="${4:-flake.lock nix/overlay.nix}"
+    local base_lock="${5:-}"
 
     # shellcheck disable=SC2086  # changed_paths is a deliberate path list
     if git diff --quiet -- $changed_paths; then
@@ -525,7 +537,7 @@ finish_updated_group() {
 
     log "🚧 [$name] check + build (all hosts)..."
     # One parallel eval + build of checks and every host; see populate_cache.sh.
-    if ./scripts/populate_cache.sh >>"$glog" 2>&1; then
+    if build_group "$name" "$glog" "$base_lock"; then
         local commit_failed=0
         # shellcheck disable=SC2086  # changed_paths is a deliberate path list
         if ! git add -- $changed_paths; then
@@ -577,6 +589,218 @@ lock_inputs_changed() {
     return 1
 }
 
+# --- Package holds -----------------------------------------------------------
+# See HELD_FILE above and docs/wiki/infrastructure/rolling-flake-update.md.
+
+# github: flake reference for a root input at its locked revision.
+locked_input_ref() {
+    local lockfile="$1" inp="$2"
+    # shellcheck disable=SC2016  # jq program, not shell
+    jq -er --arg i "$inp" '(.nodes[.root].inputs[$i]) as $k
+        | (if ($k | type) == "string" then .nodes[$k] else empty end).locked
+        | select(.type == "github")
+        | "github:\(.owner)/\(.repo)/\(.rev)"' "$lockfile"
+}
+
+# Hold names become flake attribute paths; never let one carry other syntax.
+valid_hold_name() {
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9_+-]*$ ]]
+}
+
+held_names() {
+    if [ -f "$HELD_FILE" ]; then
+        jq -r 'keys[]' "$HELD_FILE"
+    fi
+}
+
+drv_name() {
+    local base="${1##*/}"
+    base="${base#*-}"
+    printf '%s\n' "${base%.drv}"
+}
+
+# pname of a .drv, or empty. Searches the whole JSON so it tolerates both the
+# old (path-keyed) and newer (versioned) `nix derivation show` layouts.
+drv_pname() {
+    nix derivation show "$1" 2>/dev/null \
+        | jq -r '[.. | objects | select(has("env")) | .env.pname? // empty | strings] | first // empty' \
+        || true
+}
+
+# Fixed-output derivations are fetches: a failure there is network or hash
+# drift, not a nixpkgs build regression, and must never become a hold.
+drv_is_fixed_output() {
+    local n
+    n="$(nix derivation show "$1" 2>/dev/null \
+        | jq '[.. | objects | (.outputHash?, .hash?) | strings] | length' 2>/dev/null || echo 0)"
+    [ "${n:-0}" -gt 0 ]
+}
+
+# Failed derivations in a build log. A root failure is "Cannot build '<drv>'."
+# followed by "Reason: builder failed"; a dependent says "N dependency failed".
+build_failures() {
+    local glog="$1" kind="$2"
+    awk -v kind="$kind" '
+        /^error: Cannot build \047\/nix\/store\/[^\047]+\.drv\047\.$/ {
+            drv = $0
+            sub(/^error: Cannot build \047/, "", drv)
+            sub(/\047\.$/, "", drv)
+            next
+        }
+        drv != "" {
+            if (kind == "root" && $0 ~ /^ +Reason: builder failed/) print drv
+            if (kind == "dependent" && $0 ~ /^ +Reason: [0-9]+ dependenc(y|ies) failed/) print drv
+            drv = ""
+        }' "$glog" | sort -u
+}
+
+# Drop every hold whose package now builds from the candidate nixpkgs. This
+# runs inside the transaction that moved nixpkgs, so a release only lands if the
+# whole fleet then builds with the real package back in place.
+release_holds() {
+    local glog="$1" ref name
+    [ -f "$HELD_FILE" ] || return 0
+    ref="$(locked_input_ref flake.lock nixpkgs)" || return 0
+    for name in $(held_names); do
+        valid_hold_name "$name" || continue
+        log "🧊 hold $name: test-building on $ref..."
+        if NIXPKGS_ALLOW_UNFREE=1 nix build --no-link --impure "$ref#$name" >>"$WORK_DIR/holds.log" 2>&1; then
+            jq --arg n "$name" 'del(.[$n])' "$HELD_FILE" >"$HELD_FILE.tmp" && mv "$HELD_FILE.tmp" "$HELD_FILE"
+            log "🔓 hold $name: builds again; releasing."
+            printf '[%s] released hold %s (builds on %s)\n' "$TAG" "$name" "$ref" >>"$glog"
+        else
+            log "🧊 hold $name: still fails on $ref; keeping."
+        fi
+    done
+}
+
+# After a failed core build, hold the broken packages when every root failure
+# is a top-level nixpkgs leaf. Without a hold the whole group reverts and the
+# package stays old anyway, along with the rest of nixpkgs. Returns 0 only when
+# at least one hold was added, so the caller retries the build once.
+auto_hold_failures() {
+    local glog="$1" base_lock="$2"
+    local ref held_ref drv dname pname dep dep_pname rev
+    local roots=() dependents=() picks=() reasons=()
+    ref="$(locked_input_ref flake.lock nixpkgs)" || return 1
+    mapfile -t roots < <(build_failures "$glog" root)
+    mapfile -t dependents < <(build_failures "$glog" dependent)
+
+    if [ "${#roots[@]}" -eq 0 ] || [ "${#roots[@]}" -gt "$HOLD_MAX_AUTO" ]; then
+        log "🧊 auto-hold: ${#roots[@]} root build failure(s); only 1-$HOLD_MAX_AUTO can be held."
+        return 1
+    fi
+    for drv in "${roots[@]}"; do
+        dname="$(drv_name "$drv")"
+        pname="$(drv_pname "$drv")"
+        if [ -z "$pname" ] || ! valid_hold_name "$pname"; then
+            log "🧊 auto-hold refused: $dname has no usable pname."
+            return 1
+        fi
+        if drv_is_fixed_output "$drv"; then
+            log "🧊 auto-hold refused: $dname is a fetch (fixed-output) failure."
+            return 1
+        fi
+        # Only an unmodified top-level attribute can be swapped by the overlay.
+        if [ "$(nix eval --raw "$ref#$pname.name" 2>/dev/null || true)" != "$dname" ]; then
+            log "🧊 auto-hold refused: $dname is not nixpkgs' top-level $pname."
+            return 1
+        fi
+        if held_names | grep -Fxq -- "$pname"; then
+            log "🧊 auto-hold refused: $pname is already held and still breaks the build."
+            return 1
+        fi
+        picks+=("$pname")
+        reasons+=("auto: $dname failed to build on nixpkgs ${ref##*/}")
+    done
+
+    # Leaf guard: the overlay swaps a held package for its dependents too. If
+    # any other package (anything with a pname) failed because of these roots,
+    # a root is a library, and holding it would rebuild a mixed-nixpkgs world.
+    for dep in "${dependents[@]}"; do
+        dep_pname="$(drv_pname "$dep")"
+        [ -z "$dep_pname" ] && continue
+        if ! printf '%s\n' "${picks[@]}" | grep -Fxq -- "$dep_pname"; then
+            log "🧊 auto-hold refused: package $(drv_name "$dep") depends on ${picks[*]}."
+            return 1
+        fi
+    done
+
+    # With no hold active, pin nixpkgs-held to the last nixpkgs that built.
+    # With holds active, keep their pin: moving it could break them.
+    if [ -z "$(held_names)" ]; then
+        rev="$(locked_input_ref "$base_lock" nixpkgs)" || return 1
+        rev="${rev##*/}"
+        sed -i -E "s|^(    $HELD_INPUT\\.url = \"github:NixOS/nixpkgs/)[0-9a-f]{40}(\";)\$|\\1$rev\\2|" flake.nix
+        if ! grep -q "^    $HELD_INPUT.url = \"github:NixOS/nixpkgs/$rev\";\$" flake.nix; then
+            log "🧊 auto-hold: could not re-pin $HELD_INPUT in flake.nix."
+            return 1
+        fi
+        nix flake lock >>"$glog" 2>&1 || return 1
+    fi
+    held_ref="$(locked_input_ref flake.lock "$HELD_INPUT")" || return 1
+
+    [ -f "$HELD_FILE" ] || printf '{}\n' >"$HELD_FILE"
+    local i
+    for i in "${!picks[@]}"; do
+        if ! nix eval --raw "$held_ref#${picks[$i]}.name" >/dev/null 2>&1; then
+            log "🧊 auto-hold refused: ${picks[$i]} does not exist in $held_ref."
+            return 1
+        fi
+        jq --arg n "${picks[$i]}" --arg since "$DATE" --arg reason "${reasons[$i]}" \
+            '. + {($n): {since: $since, added_by: "rolling-flake-update", reason: $reason, tracking: ""}}' \
+            "$HELD_FILE" >"$HELD_FILE.tmp" && mv "$HELD_FILE.tmp" "$HELD_FILE"
+        log "🧊 auto-hold: holding ${picks[$i]} at $held_ref."
+    done
+    return 0
+}
+
+# Build a group's candidate tree. Core gets one retry after auto-holding the
+# leaf packages that broke on the new nixpkgs.
+build_group() {
+    local name="$1" glog="$2" base_lock="${3:-}"
+    if ./scripts/populate_cache.sh >>"$glog" 2>&1; then
+        return 0
+    fi
+    if [ "$name" != core ] || [ -z "$base_lock" ]; then
+        return 1
+    fi
+    auto_hold_failures "$glog" "$base_lock" || return 1
+    log "🔁 [$name] rebuilding with new package hold(s)..."
+    ./scripts/populate_cache.sh >>"$glog" 2>&1
+}
+
+# Report holds: added/released against the fetched base, then every active hold
+# with its age. A change notifies; a hold past HOLD_STALE_DAYS re-notifies weekly.
+hold_summary() {
+    local start="$WORK_DIR/held.start.json" now='{}' name since age tracking reason today
+    [ -f "$HELD_FILE" ] && now="$(cat "$HELD_FILE")"
+    [ -f "$start" ] || printf '{}\n' >"$start"
+    today="$(date -d "$DATE" +%s)"
+    for name in $(jq -r --argjson now "$now" 'keys - ($now | keys) | .[]' "$start"); do
+        SUMMARY_LINES+=("🔓 hold released — $name builds on current nixpkgs")
+        HOLD_NOTIFY=1
+    done
+    for name in $(jq -r --slurpfile s "$start" 'keys - ($s[0] | keys) | .[]' <<<"$now"); do
+        reason="$(jq -r --arg n "$name" '.[$n].reason // ""' <<<"$now")"
+        SUMMARY_LINES+=("🧊 hold added — $name${reason:+ ($reason)}")
+        HOLD_NOTIFY=1
+    done
+    for name in $(jq -r 'keys[]' <<<"$now"); do
+        since="$(jq -r --arg n "$name" '.[$n].since // ""' <<<"$now")"
+        tracking="$(jq -r --arg n "$name" '.[$n].tracking // ""' <<<"$now")"
+        age=$(( (today - $(date -d "${since:-today}" +%s 2>/dev/null || echo "$today")) / 86400 ))
+        if [ "$age" -ge "$HOLD_STALE_DAYS" ]; then
+            SUMMARY_LINES+=("⚠️ held $name ${age}d — past ${HOLD_STALE_DAYS}d; check ${tracking:-upstream} or drop it")
+            if [ $(( (age - HOLD_STALE_DAYS) % 7 )) -eq 0 ]; then
+                HOLD_NOTIFY=1
+            fi
+        else
+            SUMMARY_LINES+=("🧊 held $name ${age}d${tracking:+ ($tracking)}")
+        fi
+    done
+}
+
 # Optimistic pass: update every group together and verify once. On a green
 # night that is one evaluation + build instead of one per group. Any failure
 # restores the tree and returns 1 so the caller falls back to the isolated
@@ -584,7 +808,7 @@ lock_inputs_changed() {
 # See docs/wiki/infrastructure/rolling-flake-update.md.
 try_all_groups() {
     local glog="$WORK_DIR/all.build.log"
-    local paths="flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix"
+    local paths="flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix flake.nix $HELD_FILE"
     local base_lock="$WORK_DIR/all.base.flake.lock"
     local inputs="$GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD $GROUP_REST"
     local group group_inputs changed=()
@@ -613,6 +837,10 @@ try_all_groups() {
         ACTIVE_GROUP=""
         ACTIVE_GROUP_LOG=""
         return 0
+    fi
+
+    if lock_inputs_changed "$base_lock" nixpkgs; then
+        release_holds "$glog" || true
     fi
 
     log "🚧 [all] check + build (all hosts, one pass)..."
@@ -701,6 +929,14 @@ try_group() {
         return "$rc"
     fi
 
+    # Core owns package holds: keep its pre-update lock so a new hold can pin
+    # nixpkgs-held to the last nixpkgs that built.
+    local base_lock=""
+    if [ "$name" = core ]; then
+        base_lock="$WORK_DIR/core.base.flake.lock"
+        cp flake.lock "$base_lock"
+    fi
+
     # shellcheck disable=SC2086  # $inputs is a space-separated list of input names, splitting is intended
     if ! nix flake update $inputs >"$glog" 2>&1; then
         record_group_update_failure "$name" "$glog"
@@ -710,7 +946,11 @@ try_group() {
     fi
 
     local rc=0
-    finish_updated_group "$name" "$inputs" "$glog" "flake.lock nix/overlay.nix" || rc=$?
+    if [ -n "$base_lock" ] && lock_inputs_changed "$base_lock" nixpkgs; then
+        release_holds "$glog" || true
+    fi
+    finish_updated_group "$name" "$inputs" "$glog" \
+        "flake.lock nix/overlay.nix${base_lock:+ flake.nix $HELD_FILE}" "$base_lock" || rc=$?
     ACTIVE_GROUP=""
     ACTIVE_GROUP_LOG=""
     return "$rc"
@@ -726,15 +966,20 @@ send_summary_notification() {
     local token; token="$(awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$GOTIFY_TOKEN_FILE")"
     [ -z "$token" ] && return 0
 
-    local nfail ntotal body
+    local nfail ntotal body title priority=8
     ntotal=${#SUMMARY_LINES[@]}
     nfail=$(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true)
     body="$(triaged_summary_lines)"
+    title="rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}"
+    if [ "$nfail" -eq 0 ]; then
+        title="rolling flake update: package holds changed on ${RFU_HOSTNAME}"
+        priority=5
+    fi
 
     curl -fsS --connect-timeout 5 --max-time 20 -X POST "${GOTIFY_URL}/message?token=$token" \
-        -F "title=rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}" \
+        -F "title=$title" \
         -F "message=$body" \
-        -F "priority=8" >/dev/null || true
+        -F "priority=$priority" >/dev/null || true
 }
 
 # Prefer the unattended RCA agent for rolling-update failures. The agent sends
@@ -863,6 +1108,12 @@ fi
 log "⬇️  Cloning from: $(redacted_remote_url "$REMOTE_URL")"
 git clone --single-branch --branch "$BRANCH" "$REMOTE_URL" "$WORK_DIR/repo"
 cd "$WORK_DIR/repo"
+# Holds at the fetched base; hold_summary diffs the night's result against it.
+if [ -f "$HELD_FILE" ]; then
+    cp "$HELD_FILE" "$WORK_DIR/held.start.json"
+else
+    printf '{}\n' >"$WORK_DIR/held.start.json"
+fi
 
 git config user.name "$GIT_USER_NAME"
 git config user.email "$GIT_USER_EMAIL"
@@ -886,7 +1137,8 @@ check_mongodb80_eol
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_MONGODB80 $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
+# nixpkgs-held is listed so rest never touches it; it belongs to no group.
+NAMED=" $GROUP_MONGODB80 $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD $HELD_INPUT "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
@@ -981,9 +1233,14 @@ if [ -n "${RFU_PUSH_DEPLOY_HOST_MAP:-}" ] && [ -x ./scripts/push_deploy.sh ]; th
     fi
 fi
 
-# Bundled notification only if something failed.
+hold_summary || true
+
+# Bundled notification only if something failed, or a package hold changed or
+# went stale (that one is informational: no RCA, everything landed).
 if [ "$ANY_FAIL" -eq 1 ]; then
     send_rca_notification || send_summary_notification
+elif [ "$HOLD_NOTIFY" -eq 1 ]; then
+    send_summary_notification
 fi
 
 log "===== summary ====="

@@ -32,7 +32,7 @@ BASE = {"nixpkgs": "a", "yt-dlp-src": "a", "claude-code-nix": "a", "nvchad4nix":
 def main():
     source = SOURCE.read_text()
     functions = []
-    for name in ("restore_group_state", "lock_inputs_changed", "try_all_groups"):
+    for name in ("restore_group_state", "lock_inputs_changed", "release_holds", "try_all_groups"):
         match = re.search(r"^" + name + r"\(\) \{\n.*?^}", source, re.M | re.S)
         assert match, name
         functions.append(match.group())
@@ -66,6 +66,7 @@ def main():
         prelude = r'''
 set -euo pipefail
 GROUP_CORE=nixpkgs
+HELD_FILE=nix/held-packages.json
 GROUP_YTDLP=yt-dlp-src
 GROUP_LLM=claude-code-nix
 GROUP_NVCHAD=nvchad4nix
@@ -138,7 +139,7 @@ printf '%s\\n' "${{SUMMARY_LINES[@]:-}}" > summary
                 assert "cache" not in calls, (label, calls)
             if want_rc:
                 # Every failure restores all transaction paths for the fallback.
-                for path in ("flake.lock", "nix/overlay.nix", "nix/pkgs/mongodb80.nix"):
+                for path in ("flake.lock", "nix/overlay.nix", "nix/pkgs/mongodb80.nix", "flake.nix", "nix/held-packages.json"):
                     assert f"git checkout -- {path}" in calls, (label, calls)
                 if poisoned:
                     assert summary == ["❌ all — rollback failed; no commits will be pushed"], (label, summary)

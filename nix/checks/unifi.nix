@@ -125,6 +125,9 @@
       # Same source-replay harness for the all-groups-at-once pass.
       ROLLING_UPDATE_SOURCE=${../../scripts/rolling_flake_update.sh} \
         ${pkgs.python3}/bin/python3 ${./test_rolling_combined_pass.py}
+      # Package holds: release, auto-hold guards, nixpkgs-held re-pin, summary.
+      ROLLING_UPDATE_SOURCE=${../../scripts/rolling_flake_update.sh} \
+        ${pkgs.python3}/bin/python3 ${./test_rolling_holds.py}
       touch "$out"
     '';
 

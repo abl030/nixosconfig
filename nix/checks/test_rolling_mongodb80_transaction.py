@@ -19,7 +19,7 @@ SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_fl
 
 def main():
     source = SOURCE.read_text()
-    names = ("restore_group_state", "record_group_update_failure", "finish_updated_group", "try_group")
+    names = ("restore_group_state", "record_group_update_failure", "build_group", "finish_updated_group", "try_group")
     functions = []
     for name in names:
         match = re.search(r"^" + name + r"\(\) \{\n.*?^}", source, re.M | re.S)
@@ -63,6 +63,7 @@ def main():
         prelude = r'''
 set -euo pipefail
 GROUP_MONGODB80=mongodb80
+HELD_FILE=nix/held-packages.json
 ONLY_GROUP=
 WORK_DIR=$PWD
 DATE=fixture

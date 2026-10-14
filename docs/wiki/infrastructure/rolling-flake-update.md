@@ -142,6 +142,67 @@ skips and base-profile package were removed instead of adding another skip
 Dropped from the old flake check: schema validation of non-derivation outputs
 (apps, overlays, modules). Everything that builds is still built.
 
+## Package holds (2026-10-14)
+
+**Status:** shipped, first live run 2026-10-14. **Revisit** after the first
+automatic release, or if a hold is ever refused for a reason that looks wrong.
+
+**Why:** from Oct 7 to Oct 14, a single leaf package broke `core` every night:
+Zotero 10.0.4 doesn't build against Firefox ESR 153 (upstream fix
+NixOS/nixpkgs#569006). That kept all eight hosts on Sep 28 nixpkgs, security
+fixes included, even though Zotero only ships to epi and framework through Home
+Manager. Reverting the group did nothing for Zotero, which stayed old anyway,
+and it held back everything else.
+
+**How it works:**
+
+- **`nix/held-packages.json`** lists the packages on hold: name, `since`,
+  `added_by`, `reason`, and `tracking` (an upstream link, filled in by hand).
+- **`nixpkgs-held`** is a flake input pinned by revision in `flake.nix`, so no
+  `nix flake update` can move it. It isn't part of any rolling group.
+- **The overlay** (the last entry in `nix/overlay.nix`) swaps each held name for
+  `nixpkgs-held`'s copy. Held nixpkgs is imported lazily, so an empty list costs
+  nothing.
+- **Release** (core and the combined pass, whenever nixpkgs moved):
+  - Each hold is test-built from the candidate nixpkgs. If it builds, the entry
+    is dropped inside that transaction.
+  - So a release lands only if the whole fleet then builds with the real
+    package back.
+- **Auto-hold** (core only): after a failed core build, the script parses the
+  build log.
+  - A *root* failure is `Cannot build '<drv>'.` followed by `Reason: builder
+    failed`. A dependent says `N dependency failed` instead.
+  - It holds the roots only if all of these are true:
+    - there are 1–3 roots;
+    - each root has a pname and is not a fixed-output (fetch) failure;
+    - each root's name equals the candidate nixpkgs' top-level `<pname>.name`;
+    - none is already held;
+    - (the leaf guard) no failed dependent is itself a package with a pname, so
+      a broken library like openssl is never held, since that would rebuild a
+      mixed-nixpkgs world.
+  - With no other holds active, `nixpkgs-held` is first re-pinned to the
+    pre-update nixpkgs, the last one that built.
+  - Then the build is retried once. Green means core lands with the hold;
+    red means the usual revert.
+- **Visibility:**
+  - Each run's summary lists every hold with its age.
+  - A night that adds or releases a hold sends a priority-5 Gotify, even if
+    nothing failed.
+  - A hold past 30 days (`RFU_HOLD_STALE_DAYS`) warns every night and
+    re-notifies weekly.
+
+**Not a security regression:** a held package is exactly what the old behaviour
+would have shipped. The difference is that the other ~100k packages now move.
+
+**Manual operations:**
+
+- **Hold by hand:** add an entry to the JSON. If no hold is active, first point
+  `nixpkgs-held.url` at the currently deployed nixpkgs revision and run
+  `nix flake lock`.
+- **Release by hand:** delete the entry.
+- **Tests:** `nix/checks/test_rolling_holds.py` replays the real functions
+  against a mocked `nix` and runs in `checks.mongodb80UpstreamGuard`.
+
 ## Still to do (durable)
 
 - Push after each group passes, and have the TERM handler push what already

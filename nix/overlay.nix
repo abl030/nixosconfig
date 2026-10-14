@@ -327,4 +327,21 @@
         else prev.podman;
     }
   )
+
+  # Package holds: a top-level package whose build broke on current nixpkgs is
+  # taken from the last-good nixpkgs-held until it builds again, so one broken
+  # leaf cannot keep the whole fleet on stale nixpkgs. The rolling updater adds
+  # and releases entries in held-packages.json itself; held nixpkgs is imported
+  # lazily, so an empty hold list costs nothing.
+  # See docs/wiki/infrastructure/rolling-flake-update.md ("Package holds").
+  (
+    _final: prev: let
+      held = builtins.fromJSON (builtins.readFile ./held-packages.json);
+      heldPkgs = import inputs.nixpkgs-held {
+        inherit (prev.stdenv.hostPlatform) system;
+        inherit (prev) config;
+      };
+    in
+      builtins.mapAttrs (name: _: heldPkgs.${name}) held
+  )
 ]

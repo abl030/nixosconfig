@@ -7,6 +7,12 @@
     # use the following for unstable:
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
+    # Last-good nixpkgs for packages on hold (nix/held-packages.json). Pinned by
+    # rev so no `nix flake update` can move it; the rolling updater rewrites
+    # this one line when it adds the first hold, and releases holds itself.
+    # See docs/wiki/infrastructure/rolling-flake-update.md ("Package holds").
+    nixpkgs-held.url = "github:NixOS/nixpkgs/f45c6f04c2f013f004bf94e284e95d72898d9393";
+
     # (No dedicated MongoDB input. UniFi's MongoDB is the separately named
     # `pkgs.mongodb80` package in the overlay, built from MongoDB's official
     # Ubuntu 24.04 precompiled archive and advanced only by the signed rolling
