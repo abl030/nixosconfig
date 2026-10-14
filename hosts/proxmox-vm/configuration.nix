@@ -200,6 +200,7 @@
     };
     services = {
       wineryHistory.enable = true;
+      cullenWanUsage.enable = true;
       dadnasProxy.enable = true;
       beets.enable = true;
       bdday.enable = true;

@@ -87,6 +87,7 @@
     ./cullen-dashboard.nix
     ./gwm-archiver.nix
     ./winery-history.nix
+    ./cullen-wan-usage.nix
     ./komga.nix
     ./komga-sync.nix
     ./marker-convert.nix
