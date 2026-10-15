@@ -36,7 +36,7 @@ in {
 
         It only does so when at least one secret is not `neededForUsers` and
         systemd activation is off. A host that consumes no secrets at all — an
-        appliance like imagegen, with privateFlakeAuth and atuinCredentials
+        appliance with privateFlakeAuth and atuinCredentials
         both false — therefore has no such script, and any activation script
         that unconditionally declares `deps = ["setupSecrets"]` fails to
         evaluate with `attribute 'setupSecrets' missing`.

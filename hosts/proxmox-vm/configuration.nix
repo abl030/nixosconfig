@@ -189,15 +189,7 @@
       # with its deploy key; the host's forced-command key realises the doc1-signed
       # closure from the cache and switch-to-configuration's it. These hosts each
       # set homelab.update.pushDeploy.enable = true.
-      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs" "imagegen-gpu" "kopia"];
-
-      # imagegen-gpu (VM 123) is powered off by default — the GTX 1080 has one
-      # owner at a time — so an unreachable trigger is EXPECTED, not a failure.
-      # Without this the nightly run reported a failed deploy and paged every
-      # single night (first observed 2026-09-10). It still deploys normally on
-      # the nights the VM happens to be up, and it catches itself up a few
-      # minutes after boot (hosts/imagegen-gpu/configuration.nix).
-      pushDeployOptionalHosts = ["imagegen-gpu"];
+      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs" "kopia"];
     };
     services = {
       wineryHistory.enable = true;

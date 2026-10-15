@@ -1,27 +1,21 @@
 ---
 name: imagegen-exclusive-cpu-gpu
-description: prom's GTX 1080 has one owner at a time (imagegen-gpu VM 123 vs the gaming VMs), and a cgroup memory cap only protects the host when set below real headroom
+description: prom guest memory — a cgroup cap only protects the host when set below real headroom (lesson from the retired imagegen hosts)
 metadata:
   type: project
 ---
 
-**Current state (2026-09-09):** image generation lives ONLY on **VM 123
-`imagegen-gpu`** (GTX 1080, ComfyUI at https://imagegen.ablz.au, normally on,
-`onboot 1`). The CPU container CT 110 was **retired and destroyed** — a
-20–30 minute all-cores job made the whole hypervisor sluggish, and the user
-chose GPU speed over the 20B editor's quality.
+**Current state (2026-10-16):** no image-generation host exists. CT 110 (CPU)
+was destroyed 2026-09-09 and VM 123 `imagegen-gpu` was removed from the repo
+2026-10-16 (never used; the GTX 1080 is too weak). The GTX 1080 now belongs to
+the gaming VMs alone, and the `imagegen-exclusive.sh` hookscript is gone.
 
-**GPU ownership:** the 1080 is passed through, so exactly one VM can hold it.
-A prom hookscript (`local:snippets/imagegen-exclusive.sh`, wired to gaming VMs
-117/120/121) shuts 123 down before a gaming VM starts. Start 123 again after
-gaming. Do not add a second GPU consumer without extending that script.
-
-**The lesson that outlives the container.** On 2026-09-08 CT 110 (24 GB cgroup
-cap) and VM 123 (12 GB) ran at once on prom (123 GB, **no swap**, doc1+doc2 pin
-~64 GB via memory-backend-memfd). The container peaked at 22.9 GB, prom's
-*global* OOM killer fired and killed doc1's kvm process — the bastion rebooted.
-The container never hit its own limit (`memory.events` showed `oom_kill 0`);
-the host ran out first.
+**The lesson that outlives both.** On 2026-09-08 CT 110 (24 GB cgroup cap) and
+VM 123 (12 GB) ran at once on prom (123 GB, **no swap**, doc1+doc2 pin ~64 GB
+via memory-backend-memfd). The container peaked at 22.9 GB, prom's *global* OOM
+killer fired and killed doc1's kvm process — the bastion rebooted. The container
+never hit its own limit (`memory.events` showed `oom_kill 0`); the host ran out
+first.
 
 **Why:** a cgroup ceiling only protects the host when it is set *below* the
 host's real headroom. Sizing `memory.max` to whatever `free` reports as
@@ -30,4 +24,4 @@ RSS process — on prom always doc1 or doc2, never the offender.
 
 **How to apply:** before giving any guest on prom more memory, check `free -g`
 *and* subtract every other guest's allocation. Prefer a hookscript interlock
-over a rule anyone has to remember. See `docs/wiki/services/imagegen-gpu.md`.
+over a rule anyone has to remember. History: `docs/wiki/services/imagegen-gpu.md`.

@@ -35,11 +35,6 @@
     "tag:share":  ["autogroup:admin"],
     "tag:edge":   ["autogroup:admin"],
     "tag:cullen": ["autogroup:admin"],
-    // imagegen-gpu (VM 123): ComfyUI has no auth of its own, so the tailnet IS the
-    // auth. Reachable on :443 by an exact device list and nothing else — not
-    // tag:client-wide, not tag:server (no Kuma), no LAN path (nginx binds the
-    // tailnet IP only). Zero egress into the fleet.
-    "tag:imagegen": ["autogroup:admin"],
     // prom (the Proxmox hypervisor). Named for the ONE capability it is
     // permitted, not for what the node is, so the name itself resists scope
     // creep: anything wanting a second grant should be questioned, not added.
@@ -82,7 +77,6 @@
     "readmeabook":   "100.84.213.15", // request portal; exact Cullen-laptop HTTP/HTTPS pinhole
     "readmeabook-v6": "fd7a:115c:a1e0::f93a:d510",
     "yotodav":       "100.125.63.39",   // Yoto WebDAV; negative test keeps Cullen off other shares
-    "imagegen":      "100.96.55.109",  // imagegen-gpu VM (tag:imagegen) — ComfyUI, four-device :443 grant
   },
 
   // -------------------------------------------------------------------- ipsets
@@ -247,15 +241,6 @@
     // the host by IP in Moonlight). See docs/wiki/services/apollo-gaming-vm.md.
     { "src": ["ipset:cullen"], "dst": ["192.168.1.111/32"], "ip": ["tcp:47984", "tcp:47989", "tcp:47990", "tcp:48010", "udp:47998-48010"] },
 
-    // === tag:imagegen — ComfyUI on the GTX 1080 VM (imagegen.ablz.au) =======
-    // The UI has no authentication, so this grant is the whole access control:
-    // exactly the owner's four devices, tcp:443 to nginx, which binds the
-    // tailnet IP only (no LAN listener, no Cloudflare record on a LAN IP).
-    // Deliberately NOT ipset:trusted-clients (other trusted devices) and NOT tag:server
-    // (no Kuma probe — the host is off during gaming anyway). The node has no
-    // outbound grants at all: it needs nothing from the fleet over the tailnet.
-    { "src": ["framework", "epimetheus", "s-a55", "cullen"], "dst": ["tag:imagegen"], "ip": ["tcp:443"] },
-
     // === tag:backup-egress — prom, the Proxmox hypervisor =================
     // prom joins the tailnet for EXACTLY one reason: mum's Synology is reachable
     // only over Tailscale, an unprivileged LXC cannot mount NFS itself, so prom
@@ -401,17 +386,6 @@
     { "src": "cullen-v6", "proto": "tcp", "accept": ["shelfarr-v6:80", "shelfarr-v6:443"], "deny": ["shelfarr-v6:22", "shelfarr-v6:81", "shelfarr-v6:5056"] },
     { "src": "cullen", "proto": "tcp", "accept": ["readmeabook:80", "readmeabook:443"], "deny": ["readmeabook:22", "readmeabook:81", "readmeabook:3031"] },
     { "src": "cullen-v6", "proto": "tcp", "accept": ["readmeabook-v6:80", "readmeabook-v6:443"], "deny": ["readmeabook-v6:22", "readmeabook-v6:81", "readmeabook-v6:3031"] },
-    // imagegen: exactly the four listed devices reach ComfyUI on :443; every other
-    // vantage — servers, share sidecars, the LAN address — is denied. (tag:imagegen
-    // has no outbound grants; the "deny" on its own src proves it stays that way.)
-    { "src": "framework", "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "epimetheus", "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "s-a55", "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "tag:server", "proto": "tcp", "deny": ["tag:imagegen:443"] },
-    { "src": "tag:share", "proto": "tcp", "deny": ["tag:imagegen:443"] },
-    { "src": "tag:edge", "proto": "tcp", "deny": ["tag:imagegen:443"] },
-    { "src": "tag:imagegen", "proto": "tcp", "deny": ["tag:server:22", "tag:server:443", "framework:443", "framework-v6:443", "epimetheus:443", "epimetheus-v6:443", "epimetheus-vm:443", "epimetheus-vm-v6:443", "s-a55:443", "s-a55-v6:443", "pfsense:53", "192.168.1.2:2049"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
     // cullen → doc1 RCA webhook (8644) for negative alert routing.
     { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },
@@ -453,7 +427,7 @@
     { "src": "mumrouter", "proto": "tcp",
       "accept": ["familysources:80", "familysources:443"],
       "deny": ["familysources:22", "familysources:8080", "yoto:443", "ali-music:443", "tag:server:443", "tag:server:22",
-               "doc1:22", "doc2:443", "pfsense:53", "kerrynas:5000", "kerrynas:2049", "framework:22", "imagegen:443",
+               "doc1:22", "doc2:443", "pfsense:53", "kerrynas:5000", "kerrynas:2049", "framework:22",
                "192.168.1.29:443", "192.168.1.2:2049", "192.168.1.1:443", "192.168.2.1:443"] },
     { "src": "mumrouter", "proto": "udp", "deny": ["pfsense:53"] },
     // doc1 administers the router over the tailnet (bastion egress is "*").

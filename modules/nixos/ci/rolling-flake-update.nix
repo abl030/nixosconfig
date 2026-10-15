@@ -219,7 +219,7 @@ in {
     pushDeployOptionalHosts = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
-      example = ["imagegen-gpu"];
+      example = ["gpu-appliance"];
       description = ''
         Subset of `pushDeployHosts` that is EXPECTED to be powered off much of
         the time. When one of these is unreachable the nightly run logs a skip
@@ -231,10 +231,10 @@ in {
         unreachable, which is what you want for a host that should always be
         up.
 
-        2026-09-11: imagegen-gpu (VM 123) is powered off by default because the
-        GTX 1080 has one owner at a time, so enrolling it in push-deploy made
-        the rolling run report a failed deploy EVERY night for a host that was
-        off on purpose. Such a host should also carry a boot-time catch-up
+        2026-09-11: added for imagegen-gpu (VM 123, retired 2026-10-16), which
+        was powered off by default because the GTX 1080 has one owner at a
+        time, so enrolling it in push-deploy made the rolling run report a
+        failed deploy EVERY night for a host that was off on purpose. Such a host should also carry a boot-time catch-up
         update so it self-heals when it is actually started.
       '';
     };

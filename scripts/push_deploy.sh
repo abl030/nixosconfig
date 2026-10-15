@@ -86,8 +86,8 @@ push_deploy_host() {
     local name="${entry%%:*}"
     local addr="${entry#*:}"
 
-    # A host marked optional is expected to be powered off (e.g. imagegen-gpu,
-    # whose GPU has one owner at a time). Skipping keeps the nightly run green
+    # A host marked optional is expected to be powered off (e.g. a GPU
+    # appliance whose GPU has one owner at a time). Skipping keeps the nightly run green
     # instead of paging for a machine that is off on purpose. If it IS up we
     # deploy it normally and any later failure still fails.
     if is_optional "$name" && ! host_reachable "$addr"; then

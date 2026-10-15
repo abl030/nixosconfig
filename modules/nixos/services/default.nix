@@ -31,7 +31,6 @@
     ./gotify-server.nix
     ./ntfy.nix
     ./tautulli.nix
-    ./comfyui-gpu.nix
     ./audiobookshelf.nix
     ./shelfarr.nix
     ./shelfarr-calibre.nix

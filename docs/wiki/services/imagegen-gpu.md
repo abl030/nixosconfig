@@ -1,10 +1,18 @@
-# imagegen-gpu — GPU image generation on the GTX 1080
+# imagegen-gpu — GPU image generation on the GTX 1080 (RETIRED)
 
-**Last updated:** 2026-09-09
-**Status:** working, normally on — **the** image box since the CPU sibling was retired
-**Owner:** `hosts/imagegen-gpu/configuration.nix` + `modules/nixos/services/comfyui-gpu.nix`
-**Host:** `imagegen-gpu` — VM 123 on prom, `192.168.1.45`, `onboot 1`
-**UI:** https://imagegen.ablz.au (ComfyUI, LAN-only, no auth — never expose publicly)
+**Last updated:** 2026-10-16
+**Status:** **retired 2026-10-16.** The user tried it once and never used it; the
+GTX 1080 is too weak for the models worth running. The host, the
+`comfyuiGpu` module, the push-deploy entry, the `tag:imagegen` ACL grants and the
+host's sops recipient were removed from the repo; the prom `imagegen-exclusive.sh`
+hookscript was detached from the gaming VMs. Retirement was triggered by nixpkgs
+`319e4ceb` moving the default CUDA to 13.x, which drops Pascal (sm_61) and broke
+the nightly core update (unmerged fix: Forgejo PR #241). Everything below is the
+historical record — revisit only if a newer GPU arrives. The code is recoverable
+from history: `git log --all -- hosts/imagegen-gpu`.
+**Former owner:** `hosts/imagegen-gpu/configuration.nix` + `modules/nixos/services/comfyui-gpu.nix` (deleted)
+**Former host:** `imagegen-gpu` — VM 123 on prom, `192.168.1.45`
+**Former UI:** https://imagegen.ablz.au (ComfyUI, tailnet-only, no auth)
 **Former sibling:** `imagegen` (CT 110, CPU) — retired and destroyed 2026-09-09; its numbers and lessons are kept in [`imagegen.md`](./imagegen.md) and remain the baseline the benchmarks below compare against
 
 ## What this is
