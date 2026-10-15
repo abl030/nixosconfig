@@ -287,9 +287,18 @@
   # stable-diffusion.cpp built against CUDA — the reason this host exists.
   # NOT in the binary cache, so the first build of this closure compiles ggml's
   # CUDA kernels locally; build it on doc1 and let the VM substitute.
+  #
+  # Keep this package on CUDA 12: Pascal compute capability 6.1 is unsupported
+  # by CUDA 13. The top-level nixpkgs cudaPackages alias may advance across
+  # major versions, so the stock stable-diffusion-cpp-cuda wrapper is not a
+  # stable compatibility boundary for this GPU.
+  #
   # aria2 because model weights are multi-GB and HF likes to stall.
   environment.systemPackages = with pkgs; [
-    stable-diffusion-cpp-cuda
+    (stable-diffusion-cpp.override {
+      cudaSupport = true;
+      cudaPackages = cudaPackages_12;
+    })
     aria2
     curl
     pciutils
