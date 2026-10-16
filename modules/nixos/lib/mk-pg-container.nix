@@ -92,6 +92,17 @@
   # rootful Podman bridge used by the MusicBrainz application containers).
   clientCidrs ? [],
 }: let
+  # Rebuilds collation-dependent indexes when glibc/ICU changes version under
+  # the cluster (a nixpkgs bump). See the script header for the incident and
+  # the fail-closed contract. errexit stays off: the script counts failures
+  # per database itself and must reach its verdict line.
+  collationHeal = pkgs.writeShellApplication {
+    name = "pg-collation-heal";
+    runtimeInputs = [pgPackage pkgs.util-linux];
+    bashOptions = ["nounset" "pipefail"];
+    text = builtins.readFile ./pg-collation-heal.sh;
+  };
+
   hostAddress =
     if native
     then "127.0.0.1"
@@ -419,6 +430,32 @@ in rec {
       systemd.services.postgresql-setup = {
         wantedBy = lib.mkForce [];
         requiredBy = ["multi-user.target"];
+      };
+
+      # Collation drift heal. Wanted by postgresql.service so it re-runs on
+      # every PostgreSQL (re)start — the only moment a new glibc/ICU can take
+      # effect — and is a no-op when no version changed. Type=simple, not
+      # oneshot: a large rebuild (the MusicBrainz mirror) must not hold
+      # switch-to-configuration or container start for its duration. A failed
+      # rebuild leaves the unit failed and logs "pg-collation-heal ... ERROR"
+      # through /dev/log, which reaches the host journal and Loki.
+      # PGAPPNAME matches postgresql-setup so its REINDEX/ALTER DDL is excluded
+      # from the unexpected-DDL alert in alerting.nix.
+      systemd.services.postgresql-collation-heal = {
+        description = "Rebuild collation-dependent indexes after a collation version change";
+        after = ["postgresql.service" "postgresql-setup.service"];
+        requires = ["postgresql.service"];
+        wantedBy = ["postgresql.service" "multi-user.target"];
+        environment = {
+          PGAPPNAME = "mk-pg-container-startup";
+          PGOPTIONS = "-c maintenance_work_mem=512MB";
+        };
+        serviceConfig = {
+          Type = "simple";
+          User = "postgres";
+          Group = "postgres";
+          ExecStart = lib.getExe collationHeal;
+        };
       };
 
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =

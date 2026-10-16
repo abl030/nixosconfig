@@ -180,6 +180,31 @@ Why: `config.containers.<svc>-db.config.system.build.toplevel` is the NixOS syst
 
 See `modules/nixos/lib/mk-pg-container.nix` header comment for the full pathology.
 
+### Collation drift heal — automatic after a glibc/ICU bump
+
+A nixpkgs bump that moves glibc (2.42 → 2.44 on 2026-10-14) or ICU changes how
+PostgreSQL's libc/ICU collations order text, but existing btree indexes keep the
+old order. PostgreSQL only logs `collation version mismatch`; lookups,
+`ORDER BY … LIMIT/OFFSET` paging and `UNIQUE` enforcement then silently
+misbehave. The 2026-10-16 MusicBrainz mirror incident was this: an artist browse
+returned one release twice and never returned its sibling pressing.
+
+Every `mk-pg-container` instance (nspawn and native) therefore runs
+`postgresql-collation-heal.service` on each PostgreSQL start
+(`modules/nixos/lib/pg-collation-heal.sh`). For each database whose recorded
+collation version, or any collation object's version, differs from the OS, it
+rebuilds every index keyed on a non-C collation with `REINDEX … CONCURRENTLY`,
+then runs `ALTER DATABASE … REFRESH COLLATION VERSION` / `ALTER COLLATION …
+REFRESH VERSION`. It is a no-op when nothing changed.
+
+It fails closed: if any rebuild fails (typically a `UNIQUE` index that now holds
+duplicates the corrupt index let through), that database's version is left
+unrefreshed, the unit fails, and `pg-collation-heal` `ERROR:` lines reach Loki
+through `/dev/log`. Remove the duplicates by hand, then
+`systemctl restart postgresql-collation-heal` (inside the container:
+`sudo machinectl shell <name>-db`). Leftover invalid `_ccnew`/`_ccold` indexes
+from an interrupted run are dropped on the next run.
+
 ### DB audit logging — always on, alerted on non-startup superuser DDL
 
 `mk-pg-container` ships every nspawn PG instance with:
