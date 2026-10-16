@@ -319,7 +319,7 @@ Upstream calls these tables optional. They are not, for correctness: with
 whose final `ORDER BY date_year, date_month, date_day, country_name, barcode,
 name` has no unique tiebreaker. Releases tied on all of those land on
 LIMIT/OFFSET pages inconsistently. Measured 2026-10-16 against this mirror
-(the table had 0 rows since the 2026-07 cutover): Stevie Wonder's browse
+(`artist_release` and `artist_release_group` had 0 rows): Stevie Wonder's browse
 returned 820 rows but 819 releases, `In Square Circle` ES 1985 `SPL1-60223`
 twice and `SPK1-60223` never; the exact slow SQL reproduced the same pages,
 and adding `release.id` as a final sort key returned all 820. The fast path
@@ -328,7 +328,18 @@ overlap. Cratedigger's artist-catalogue completeness guard rejected the
 incomplete browse.
 
 During a first build each table is built in one transaction behind a
-`TRUNCATE` lock, so artist browses block until it commits.
+`TRUNCATE` lock, so artist browses block until it commits. The 2026-10-16
+build took 7.5 minutes (`artist_release` 16.4M rows, `artist_release_group`
+13.5M).
+
+**Building the tables is not enough on its own: the web container must
+restart.** `Release.pm`'s `has_materialized_artist_release_data` caches its
+answer in a per-process `state` variable, so workers that started while the
+table was empty stay on the slow path. Measured 2026-10-16: still 819/820
+with the table populated, 820/820 straight after
+`systemctl restart podman-musicbrainz-musicbrainz-1`. The unit restarts the
+container itself whenever upstream reports it built a table (`Done.`), and
+never on a no-op start.
 
 ## Least Privilege Notes
 

@@ -1050,25 +1050,47 @@ in {
             # that already has rows, so this is a cheap no-op on every later
             # start. A failure pages through homelab-mb-materialized-failed in
             # alerting.nix (this host's own errorPatterns never reach Grafana,
-            # which runs on doc2 and reads only doc2's errorPatterns). Type=simple: the first build takes tens of minutes and
-            # must not hold switch-to-configuration. While a table builds,
-            # its TRUNCATE lock blocks artist browses until it commits.
+            # which runs on doc2 and reads only doc2's errorPatterns).
+            #
+            # Type=simple: the first build takes minutes (7.5 on 2026-10-16)
+            # and must not hold switch-to-configuration. While a table
+            # builds, its TRUNCATE lock blocks artist browses until it
+            # commits.
+            #
+            # After a build that did work, the web container must restart:
+            # Release.pm's has_materialized_artist_release_data keeps its
+            # answer in a per-process `state` variable, so running workers
+            # stay on the slow path until they are replaced (measured
+            # 2026-10-16: still 819/820 with 16.4M artist_release rows, 820/820
+            # after the restart). Upstream prints "Done." only for a table it
+            # built, so a no-op start never restarts anything. The container
+            # is wanted, not required: Requires= would propagate that restart
+            # back to this unit and kill it mid-script.
             musicbrainz-materialized-tables = {
               description = "Build MusicBrainz materialized tables when empty";
               after = ["musicbrainz.service" "podman-musicbrainz-musicbrainz-1.service"];
-              requires = ["musicbrainz.service" "podman-musicbrainz-musicbrainz-1.service"];
+              requires = ["musicbrainz.service"];
+              wants = ["podman-musicbrainz-musicbrainz-1.service"];
               wantedBy = ["multi-user.target"];
               serviceConfig.Type = "simple";
               script = ''
                 echo "[mb-materialized] building any empty materialized tables"
-                if ${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 \
-                  bash -c '. /noninteractive.bash_env; carton exec -- ./admin/BuildMaterializedTables --database=MAINTENANCE all'; then
-                  echo "[mb-materialized] done"
-                else
+                out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 \
+                  bash -c '. /noninteractive.bash_env; carton exec -- ./admin/BuildMaterializedTables --database=MAINTENANCE all' 2>&1) || {
                   rc=$?
+                  printf '%s\n' "$out"
                   echo "[mb-materialized] ERROR: BuildMaterializedTables failed (rc=$rc)" >&2
                   exit 1
+                }
+                printf '%s\n' "$out"
+                if printf '%s\n' "$out" | ${pkgs.gnugrep}/bin/grep -qx 'Done\.'; then
+                  echo "[mb-materialized] tables built; restarting the web container so its workers use them"
+                  ${pkgs.systemd}/bin/systemctl restart podman-musicbrainz-musicbrainz-1.service || {
+                    echo "[mb-materialized] ERROR: web container restart failed; browses stay on the slow path until it restarts" >&2
+                    exit 1
+                  }
                 fi
+                echo "[mb-materialized] done"
               '';
             };
 
