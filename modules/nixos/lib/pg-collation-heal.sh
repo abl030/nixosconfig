@@ -25,9 +25,15 @@ set -uo pipefail
 tag=pg-collation-heal
 
 
+# Under systemd, logger alone: on a native host stdout would land in the same
+# journal a second time, and inside nspawn only /dev/log reaches the host.
+# Run by hand, print to stdout.
 log() {
-  printf '%s\n' "$*"
-  logger -t "$tag" -- "$*" 2>/dev/null || true
+  if [ -n "${INVOCATION_ID:-}" ]; then
+    logger -t "$tag" -- "$*" 2>/dev/null || printf '%s\n' "$*"
+  else
+    printf '%s\n' "$*"
+  fi
 }
 
 # Every connection to a mismatched database repeats the server's three-line
@@ -102,7 +108,8 @@ for db in "${databases[@]}"; do
     log "$db: database collation version recorded ${db_state%%$'\t'*}, OS provides ${db_state##*$'\t'}; rebuilding collation-dependent indexes"
   fi
   if [ "${#stale_collations[@]}" -gt 0 ]; then
-    log "$db: collation objects with a changed version: ${stale_collations[*]}"
+    # initdb imports hundreds of ICU collations, so an ICU bump marks them all.
+    log "$db: ${#stale_collations[@]} collation object(s) with a changed version, e.g. ${stale_collations[*]:0:5}"
   fi
 
   # Leftovers of an interrupted REINDEX CONCURRENTLY are invalid shadow indexes.
