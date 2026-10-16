@@ -24,19 +24,23 @@ set -uo pipefail
 
 tag=pg-collation-heal
 
-# Every connection to a mismatched database repeats the server WARNING; the
-# verdict lines below say the same thing once.
-export PGOPTIONS="${PGOPTIONS:-} -c client_min_messages=error"
 
 log() {
   printf '%s\n' "$*"
   logger -t "$tag" -- "$*" 2>/dev/null || true
 }
 
+# Every connection to a mismatched database repeats the server's three-line
+# "collation version mismatch" WARNING/DETAIL/HINT. It is sent during
+# connection startup, before client_min_messages can apply, so filter exactly
+# that message from psql's stderr; the verdict lines below say it once. Every
+# other notice and error still passes through.
+mismatch_noise='^(WARNING:  database ".*" has a collation version mismatch|DETAIL:  The database was created using collation version |HINT:  Rebuild all objects in this database that use the default collation)'
+
 q() {
   local db="$1"
   shift
-  psql -X -q -A -t -v ON_ERROR_STOP=1 -d "$db" "$@"
+  psql -X -q -A -t -v ON_ERROR_STOP=1 -d "$db" "$@" 2> >(grep -vE "$mismatch_noise" >&2)
 }
 
 # A libc collation imported at initdb whose locale the OS no longer ships makes
