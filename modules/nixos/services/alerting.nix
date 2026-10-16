@@ -489,6 +489,35 @@
       logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service"} |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) " [5m]))'';
       lokiLines = ''{host=~".+", unit=~"container@.+-db\\.service"} |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) "'';
     })
+    (mkLokiAlert {
+      uid = "homelab-pg-collation-heal-failed";
+      title = "PostgreSQL collation heal failed";
+      severity = "critical";
+      summary = "Indexes still in the old collation order after a glibc/ICU change";
+      description = ''
+        postgresql-collation-heal (modules/nixos/lib/pg-collation-heal.sh)
+        could not rebuild every collation-dependent index after the OS
+        collation version changed, so that database still serves lookups,
+        paging and UNIQUE checks from indexes in the old text order. Its
+        recorded version was left unrefreshed and the unit failed; it
+        retries on the next PostgreSQL start.
+
+        Usual cause: a UNIQUE index now holds duplicates the stale index let
+        through. The ERROR line names the database and index. Remove the
+        duplicates, then `systemctl restart postgresql-collation-heal`
+        (inside nspawn: `sudo machinectl shell <name>-db`). See
+        docs/wiki/nixos-service-modules.md "Collation drift heal".
+
+        Query in Grafana Explore (Loki):
+          {host=~".+", unit=~"container@.+-db\\.service|postgresql-collation-heal\\.service"}
+            |~ "\\[pg-collation-heal\\] ERROR"
+      '';
+      # nspawn instances log through the bound /dev/log, so the host journal
+      # attributes the line to container@<name>-db.service; native instances
+      # (the MusicBrainz LXC) attribute it to the heal unit itself.
+      logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service|postgresql-collation-heal\\.service"} |~ "\\[pg-collation-heal\\] ERROR" [5m]))'';
+      lokiLines = ''{host=~".+", unit=~"container@.+-db\\.service|postgresql-collation-heal\\.service"} |~ "\\[pg-collation-heal\\] ERROR"'';
+    })
   ];
 
   # Per-service errorPatterns from `homelab.monitoring.errorPatterns`.

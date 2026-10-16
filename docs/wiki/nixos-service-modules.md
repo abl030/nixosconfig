@@ -199,8 +199,9 @@ REFRESH VERSION`. It is a no-op when nothing changed.
 
 It fails closed: if any rebuild fails (typically a `UNIQUE` index that now holds
 duplicates the corrupt index let through), that database's version is left
-unrefreshed, the unit fails, and `pg-collation-heal` `ERROR:` lines reach Loki
-through `/dev/log`. Remove the duplicates by hand, then
+unrefreshed, the unit fails, and `[pg-collation-heal] ERROR` lines reach Loki
+through `/dev/log`, which fires the critical Gotify alert
+`homelab-pg-collation-heal-failed` (`modules/nixos/services/alerting.nix`). Remove the duplicates by hand, then
 `systemctl restart postgresql-collation-heal` (inside the container:
 `sudo machinectl shell <name>-db`). Leftover invalid `_ccnew`/`_ccold` indexes
 from an interrupted run are dropped on the next run.

@@ -27,12 +27,16 @@ tag=pg-collation-heal
 
 # Under systemd, logger alone: on a native host stdout would land in the same
 # journal a second time, and inside nspawn only /dev/log reaches the host.
-# Run by hand, print to stdout.
+# Run by hand, print to stdout. The "[pg-collation-heal]" prefix is in the
+# message text because Loki keeps no syslog-identifier label: the
+# homelab-pg-collation-heal-failed alert (alerting.nix) matches
+# "[pg-collation-heal] ERROR".
 log() {
+  local line="[$tag] $*"
   if [ -n "${INVOCATION_ID:-}" ]; then
-    logger -t "$tag" -- "$*" 2>/dev/null || printf '%s\n' "$*"
+    logger -t "$tag" -- "$line" 2>/dev/null || printf '%s\n' "$line"
   else
-    printf '%s\n' "$*"
+    printf '%s\n' "$line"
   fi
 }
 
