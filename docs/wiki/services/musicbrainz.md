@@ -302,6 +302,34 @@ sudo podman exec \
   bash -c '. /noninteractive.bash_env; carton exec -- ./upgrade.sh'
 ```
 
+## Materialized tables (2026-10-16)
+
+`musicbrainz-materialized-tables.service` runs upstream's
+`admin/BuildMaterializedTables --database=MAINTENANCE all` inside
+`musicbrainz-musicbrainz-1` on every start. Upstream skips any table that
+already has rows, so after the first build it is a no-op; the mirror-only
+`apply_artist_release*_pending_updates_mirror` triggers keep the tables current
+through replication. A failure logs `[mb-materialized] ERROR` and pages
+(critical, `homelab-mb-materialized-failed`, defined in
+`modules/nixos/services/alerting.nix` because Grafana on doc2 builds
+errorPattern rules from doc2's own config only).
+
+Upstream calls these tables optional. They are not, for correctness: with
+`artist_release` empty, `/ws/2/release?artist=` takes `_find_by_artist_slow`,
+whose final `ORDER BY date_year, date_month, date_day, country_name, barcode,
+name` has no unique tiebreaker. Releases tied on all of those land on
+LIMIT/OFFSET pages inconsistently. Measured 2026-10-16 against this mirror
+(the table had 0 rows since the 2026-07 cutover): Stevie Wonder's browse
+returned 820 rows but 819 releases, `In Square Circle` ES 1985 `SPL1-60223`
+twice and `SPK1-60223` never; the exact slow SQL reproduced the same pages,
+and adding `release.id` as a final sort key returned all 820. The fast path
+reads `artist_release` and ends its ORDER BY in `ar.release`, so it cannot
+overlap. Cratedigger's artist-catalogue completeness guard rejected the
+incomplete browse.
+
+During a first build each table is built in one transaction behind a
+`TRUNCATE` lock, so artist browses block until it commits.
+
 ## Least Privilege Notes
 
 - PostgreSQL TCP auth stays on the `mk-pg-container` scram-sha-256 path.

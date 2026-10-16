@@ -1037,6 +1037,41 @@ in {
               };
             };
 
+            # Materialized tables (artist_release, artist_release_group,
+            # release/recording_first_release_date, area_containment). Upstream
+            # calls them optional, but without artist_release every artist
+            # release browse takes _find_by_artist_slow, whose ORDER BY has no
+            # unique tiebreaker: releases tied on date/country/barcode/name
+            # land on pages inconsistently, so a browse returns one twice and
+            # never returns its sibling pressing (proven 2026-10-16 against
+            # this mirror: 819/820 for Stevie Wonder). Built once; the
+            # mirror-only pending-update triggers then keep them current
+            # through replication. BuildMaterializedTables skips any table
+            # that already has rows, so this is a cheap no-op on every later
+            # start. A failure pages through homelab-mb-materialized-failed in
+            # alerting.nix (this host's own errorPatterns never reach Grafana,
+            # which runs on doc2 and reads only doc2's errorPatterns). Type=simple: the first build takes tens of minutes and
+            # must not hold switch-to-configuration. While a table builds,
+            # its TRUNCATE lock blocks artist browses until it commits.
+            musicbrainz-materialized-tables = {
+              description = "Build MusicBrainz materialized tables when empty";
+              after = ["musicbrainz.service" "podman-musicbrainz-musicbrainz-1.service"];
+              requires = ["musicbrainz.service" "podman-musicbrainz-musicbrainz-1.service"];
+              wantedBy = ["multi-user.target"];
+              serviceConfig.Type = "simple";
+              script = ''
+                echo "[mb-materialized] building any empty materialized tables"
+                if ${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 \
+                  bash -c '. /noninteractive.bash_env; carton exec -- ./admin/BuildMaterializedTables --database=MAINTENANCE all'; then
+                  echo "[mb-materialized] done"
+                else
+                  rc=$?
+                  echo "[mb-materialized] ERROR: BuildMaterializedTables failed (rc=$rc)" >&2
+                  exit 1
+                fi
+              '';
+            };
+
             # Weekly Solr reindex — rebuilds search index
             musicbrainz-reindex = {
               description = "MusicBrainz weekly Solr reindex";

@@ -518,6 +518,32 @@
       logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service|postgresql-collation-heal\\.service"} |~ "\\[pg-collation-heal\\] ERROR" [5m]))'';
       lokiLines = ''{host=~".+", unit=~"container@.+-db\\.service|postgresql-collation-heal\\.service"} |~ "\\[pg-collation-heal\\] ERROR"'';
     })
+    (mkLokiAlert {
+      uid = "homelab-mb-materialized-failed";
+      title = "MusicBrainz materialized tables build failed";
+      severity = "critical";
+      summary = "MusicBrainz artist_release / artist_release_group not built";
+      description = ''
+        admin/BuildMaterializedTables failed on the MusicBrainz mirror, so at
+        least one materialized table is still empty. With artist_release
+        empty, every /ws/2/release?artist= browse falls back to a query with
+        no unique sort tiebreaker and can return a release twice while never
+        returning a tied sibling pressing (2026-10-16, Stevie Wonder).
+
+        Journal: `sudo journalctl -u musicbrainz-materialized-tables.service -e`
+        on the musicbrainz host. Retry:
+        `sudo systemctl restart musicbrainz-materialized-tables`.
+        See docs/wiki/services/musicbrainz.md "Materialized tables".
+
+        Query in Grafana Explore (Loki):
+          {host="musicbrainz", unit="musicbrainz-materialized-tables.service"}
+            |~ "\\[mb-materialized\\] ERROR"
+      '';
+      # Defined here, not as a musicbrainz errorPatterns entry: Grafana runs
+      # on doc2 and builds errorPattern rules from doc2's config only.
+      logql = ''sum(count_over_time({host="musicbrainz", unit="musicbrainz-materialized-tables.service"} |~ "\\[mb-materialized\\] ERROR" [5m]))'';
+      lokiLines = ''{host="musicbrainz", unit="musicbrainz-materialized-tables.service"} |~ "\\[mb-materialized\\] ERROR"'';
+    })
   ];
 
   # Per-service errorPatterns from `homelab.monitoring.errorPatterns`.
