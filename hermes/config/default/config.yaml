@@ -35,7 +35,11 @@ platform_toolsets:
     - delegation
     - file
     - image_gen
+    - mcp-homeassistant
     - mcp-nixos
+    - mcp-pfsense
+    - mcp-playwright
+    - mcp-unifi
     - memory
     - session_search
     - skills
@@ -65,7 +69,11 @@ platform_toolsets:
     - delegation
     - file
     - image_gen
+    - mcp-homeassistant
     - mcp-nixos
+    - mcp-pfsense
+    - mcp-playwright
+    - mcp-unifi
     - memory
     - session_search
     - skills
