@@ -47,6 +47,9 @@
         command = "uvx";
         args = ["mcp-nixos"];
       };
+      # Mail is read only through the doc1 mailsearch agent; keep Codex's Gmail
+      # connector off so mailbox content never flows through it.
+      "plugins.\"gmail@openai-curated\"".enabled = false;
       __remove_sections__ =
         [
           "plugins.\"compound-engineering@compound-engineering-plugin\""

@@ -15,5 +15,6 @@
     ./services/git.nix
     ./services/git-hooks.nix
     ./services/pdf.nix
+    ./services/ai-retention.nix
   ];
 }

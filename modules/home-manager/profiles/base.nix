@@ -133,6 +133,12 @@ in {
           or ((.statusLine.command // "") | test("claude-usage-statusline"))
         then {type: "command", command: $sl, padding: 0}
         else .statusLine end)
+      # Mail is read only through the doc1 mailsearch agent: deny the claude.ai
+      # Gmail connector. serverUrl, not serverName: the name rule rejects
+      # "claude.ai Gmail" and the normalized name does not match the proxy.
+      | .deniedMcpServers = (((.deniedMcpServers // [])
+          | map(select(.serverUrl != "https://gmailmcp.googleapis.com/*")))
+          + [{serverUrl: "https://gmailmcp.googleapis.com/*"}])
       | .env = ((.env // {}) + {
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",

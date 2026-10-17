@@ -46,10 +46,36 @@ five_hour, five_hour_resets, seven_day, seven_day_resets`. No cwd, paths, prompt
 - Codex: `analytics.enabled = false`; memories skip sessions with external context.
 - Transcript secret scan (counts only, encrypted/signature blobs excluded) found no live credentials; the only
   private key was a throwaway `CN=music.vm.test` VM-test cert. AWS hits were key IDs only.
-- Open items needing a decision: claude.ai connectors (Gmail/Drive/Calendar) load into Claude Code sessions
-  (`disableClaudeAiConnectors` / `deniedMcpServers` can stop them); Codex has `gmail@openai-curated` enabled;
-  nothing prunes `~/.codex/sessions` (14.7 GB, 277 days), `~/.claude/jobs` (22.9 GB) or `~/.hermes/state.db`.
-  Keep `cleanupPeriodDays` at the 30-day default: this ledger replaces the reason to keep transcripts longer.
+- Gmail is blocked in both agents (decided 2026-10-17; mail goes only through the doc1 `mailsearch` agent).
+  Claude: `deniedMcpServers: [{serverUrl: "https://gmailmcp.googleapis.com/*"}]` in `settings.json`. A
+  `serverName` entry does **not** work: the name rule rejects `claude.ai Gmail` and the normalized
+  `claude_ai_Gmail` did not match the proxy server in a `claude --settings … mcp list` test; the URL pattern did.
+  Drive, Calendar and Claude Docs connectors stay. Codex: `[plugins."gmail@openai-curated"] enabled = false`
+  via `codexManagedSettings`.
+- Keep `cleanupPeriodDays` at the 30-day default: this ledger replaces the reason to keep transcripts longer.
+
+## Retention (30 days)
+
+`scripts/ai-retention.py`, run daily at ~04:40 by the `ai-retention` user timer from
+`modules/home-manager/services/ai-retention.nix` (`homelab.aiRetention.{enable,days}`, default 30). Before it
+deletes anything it appends numeric-only rows to `~/.local/state/ai-usage/{claude,codex,hermes}-calls.jsonl`
+(0600), tracked in `archived.json` so files are archived once per mtime. Analysis must still dedupe:
+Claude by `(id, req)`; Codex by `(inp, cached, out, rsn, win, plan, model)` because forked rollouts replay
+parent history.
+
+| Data | Rule |
+|---|---|
+| `~/.claude/projects` transcripts | usage archived from day 27; Claude's own cleanup deletes them at 30. `*/memory/` never touched. |
+| `~/.claude/jobs/<id>/` | whole dir removed when its newest file is > 30 days old (copied files keep old mtimes inside live jobs, so never prune per file) |
+| `~/.codex/sessions`, `archived_sessions` | rollouts > 30 days archived then deleted; empty dirs removed |
+| `~/.claude/history.jsonl`, `~/.codex/history.jsonl` | prompt lines older than 30 days dropped (atomic rewrite, 0600) |
+| Hermes sessions (doc1) | usage rows archived, then `hermes sessions prune --older-than 30 --include-archived --yes` (pinned kept), then `hermes sessions optimize` |
+| `~/.hermes/logs` | files > 30 days removed |
+
+`hermes sessions optimize` (VACUUM) refuses while the gateway holds `state.db`, so deleted session text can
+linger in free pages until SQLite reuses them. Stopping the gateway for a manual `hermes sessions optimize`
+reclaims it. First doc1 dry run (2026-10-17): 1,987 items / 5.03 GB, 14,635 prompt lines, 699 Hermes sessions.
+Inspect with `ai-retention --days 30 --dry-run`.
 
 ## Using it
 
