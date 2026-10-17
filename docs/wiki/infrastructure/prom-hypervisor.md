@@ -14,6 +14,15 @@
   - **`nvmeprom`** (VM storage, ZFS): 3× Samsung 990 PRO 2TB. Flawless.
   - 1× Crucial T700 2TB NVMe → LVM-thin `Test` (gaming/test VMs).
 - **GPUs (passthrough):** NVIDIA GTX 1080 (PCIE1) + CPU iGPU.
+- **CPU cooler:** ARCTIC Liquid Freezer III 360 A-RGB (`ACFRE00144A`, PCCG 2025-04-05), radiator front-mounted — swapping a fan means pulling the whole cooler. Stock fans are 3× P12 PWM PST A-RGB (discontinued in AU; the P12 Pro A-RGB `ACFAN00309A` is the drop-in). 2026-10-17: middle radiator fan's bearing failed and was unplugged pending a replacement.
+
+## Thermals and fan telemetry
+*Updated 2026-10-17.*
+- **Control is BIOS-only.** Every NCT6799 PWM channel is `pwm*_enable=5` (board SmartFan curve). Nothing in software drives the fans; change curves in the UEFI.
+- **Sensors:** the Super I/O is a Nuvoton **NCT6799** (`nct6775` driver), which Proxmox doesn't auto-load. `/etc/modules-load.d/nct6775.conf` loads it at boot (added 2026-10-17, directly on the box). node_exporter's hwmon collector then ships `node_hwmon_fan_rpm{instance="prom",chip="platform_nct6775_656"}` (fan1–5) and `node_hwmon_temp_celsius` to Mimir via Alloy. CPU temp is `chip="pci0000:00_0000:00:18_3"` (k10temp; `temp1` = Tctl, `temp3`/`temp4` = CCDs).
+- **The radiator fans are not individually visible.** Unplugging the middle radiator fan (2026-10-17) changed no tach channel: the LF III daisy-chains its fans and reports one tach for the chain. `fan4` sits flat at ~2810 rpm with `pwm4=255` — most likely the AIO pump at full speed. A dead radiator fan shows up only as higher CPU temps.
+- **Normal temps:** Tctl bursts to 85–96 °C hourly under VM load (30-day max 96.5 °C); this is Zen 5 boosting to its 95 °C target, not a fault. Idle ~57–60 °C.
+- **No alerts yet** — prom isn't in `homelab.alerting.fanStallAlert.fans` and no host has a CPU-temperature rule.
 
 ## Boot pool (rpool) — the SATA reliability config
 The rpool mirror had a long host-freeze saga that turned out to be **one faulty SanDisk drive (`…802287`) dropping its SATA link under load** — full post-mortem in [prom-sata-power-state-hangs.md](prom-sata-power-state-hangs.md), resolved 2026-06-27 by replacing it with the ADATA. We settled on a deliberately conservative, **reliability-over-speed** config (the boot pool does almost nothing, so the cost is nil).
