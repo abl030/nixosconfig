@@ -39,6 +39,14 @@ A forged DNS answer can only admit one extra IP for marked kernel WireGuard
 UDP/1637 packets, which are encrypted to AirVPN's key, so the worst case is no
 tunnel rather than a leak.
 
+NetworkManager's first handshake still goes to the fallback in the profile.
+If that gateway is alive it may answer, and WireGuard roaming then shows it as
+the endpoint even after `wg set`; that is harmless (both are admitted, and a
+dead fallback never answers, so it cannot win). Live 2026-10-17: asia3
+resolved to 185.200.116.205; a planted stale 103.230.144.102 state file was
+replaced, the tunnel came up, and an unbound restart left the guard and its
+set untouched.
+
 If the gateway rotates while the guard is up, DNS is blocked and the old
 address is kept: run `airvpn off && airvpn on` to re-resolve. Regenerate the
 profile if changing AirVPN keys or region.
