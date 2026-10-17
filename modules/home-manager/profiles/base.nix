@@ -29,6 +29,15 @@
     exec ${config.programs.claude-code.package}/bin/claude \
       --verbose agents --dangerously-skip-permissions "$@"
   '';
+
+  # Status line that also keeps a numeric-only subscription-limit ledger, so
+  # Claude's weekly % has a history like Codex's rollouts do.
+  # See docs/wiki/claude-code/usage-limit-ledger.md.
+  claude-usage-statusline = pkgs.writeShellApplication {
+    name = "claude-usage-statusline";
+    runtimeInputs = with pkgs; [jq coreutils util-linux gawk findutils];
+    text = builtins.readFile ../../../scripts/claude-usage-statusline.sh;
+  };
 in {
   # ---------------------------------------------------------
   # CLAUDE CODE  (native programs.claude-code — see issue #261)
@@ -116,12 +125,22 @@ in {
     # See docs/wiki/claude-code/clean-bash-shell-snapshot.md.
     SETTINGS="$CLAUDE_DIR/settings.json"
     [ -f "$SETTINGS" ] || run sh -c "echo '{}' > '$SETTINGS'"
-    run ${pkgs.jq}/bin/jq '
-      .env = ((.env // {}) + {
+    #
+    # statusLine: claude-usage-statusline (limit ledger). Only claimed when no
+    # statusLine is set or the existing one is ours, so a hand-set one survives.
+    run ${pkgs.jq}/bin/jq --arg sl "${claude-usage-statusline}/bin/claude-usage-statusline" '
+      .statusLine = (if (.statusLine == null)
+          or ((.statusLine.command // "") | test("claude-usage-statusline"))
+        then {type: "command", command: $sl, padding: 0}
+        else .statusLine end)
+      | .env = ((.env // {}) + {
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         "DISABLE_AUTOUPDATER": "1",
         "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+        # /bug and /feedback upload the session transcript to Anthropic.
+        "DISABLE_BUG_COMMAND": "1",
+        "DISABLE_FEEDBACK_COMMAND": "1",
         "SHELL": "${claude-clean-bash}/bin/claude-clean-bash"
       })
       | del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
@@ -134,6 +153,7 @@ in {
             "compound-engineering@homelab-ce": true
           })
     ' "$SETTINGS" > "$SETTINGS.tmp" && run mv "$SETTINGS.tmp" "$SETTINGS"
+    run chmod 600 "$SETTINGS"
 
     # --- plugins as on-disk marketplaces pointing straight at /nix/store ------
     # Argv-independent: the unwrapped binary the Agent View supervisor spawns
@@ -179,6 +199,9 @@ in {
         "mcp-nixos": { type: "stdio", command: "uvx", args: ["mcp-nixos"] }
       })
     ' "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && run mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+    # The tmp+mv above lands at the umask default (0644); this file holds the
+    # OAuth account profile and per-project history, so keep it owner-only.
+    run chmod 600 "$CLAUDE_JSON"
 
     # --- auto-memory: point Claude at each repo's git-tracked memory dir ------
     # Project-scoped via the (gitignored) settings.local.json; idempotent and
