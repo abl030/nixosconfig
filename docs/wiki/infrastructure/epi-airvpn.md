@@ -28,9 +28,10 @@ DNS inside AirVPN. This avoids public queries escaping through Tailscale's
 competing systemd-resolved `~.` route. The local resolver has only bind-service
 capability, no raw sockets, no LAN listener and no root-control socket.
 
-The endpoint is pinned to 103.230.144.102:1637, resolved from
-asia3.vpn.airdns.org on 2026-10-05. Pinning avoids a DNS bootstrap dependency
-after enabling the guard. Revisit if the gateway stops responding: resolve the
+The endpoint is pinned to 185.200.117.133:1637, re-resolved from
+asia3.vpn.airdns.org on 2026-10-17 (originally 103.230.144.102 on
+2026-10-05). Pinning avoids a DNS bootstrap dependency after enabling the
+guard. Revisit if the gateway stops responding: resolve the
 Asia hostname with the VPN deliberately off, update the endpoint and verify
 the new handshake. Regenerate the profile if changing AirVPN keys or region.
 Keys are in `secrets/hosts/epimetheus/airvpn.env`, encrypted only to epi, the
@@ -64,3 +65,26 @@ Live checks confirmed a WireGuard handshake, public IPv4 103.230.144.105,
 tunneled IPv6, public and internal DNS, and continued SSH access. Disconnecting
 the interface with the guard active blocked direct IPv4, IPv6 and public DNS;
 `airvpn off` restored normal WAN access.
+
+## 2026-10-17 gateway rotation: SERVFAIL on every public name
+
+Symptom: `airvpn on` succeeded but public DNS returned SERVFAIL. The cause was
+not DNS. `asia3.vpn.airdns.org` had rotated from 103.230.144.102 to
+185.200.117.133/.130; the old IP still answered ping but ignored WireGuard, so
+`wg show airvpn` showed bytes sent, 0 received and no handshake. Unbound had no
+reachable 10.128.0.1 and answered SERVFAIL; internal zones still resolved.
+
+Diagnose with `sudo wg show airvpn` first: no `latest handshake` means fix the
+tunnel, not the resolver. AirVPN uses one server public key for every gateway,
+so only the endpoint changes. The guard rule now derives from the same
+`endpointIp`/`endpointPort` values as the profile.
+
+Gotchas seen while testing live:
+
+- `airvpn-lock` has `Requires=unbound.service`, so `systemctl restart unbound`
+  also reloads the guard and discards any runtime nft exceptions. Flush
+  Unbound with `systemctl kill -s HUP unbound` instead.
+- After the tunnel recovers, Unbound keeps its cached upstream failure briefly;
+  HUP it rather than waiting.
+- Tailscale names resolve as `<tailnet-name>.tail13796.ts.net`; doc1 is
+  `proxmox-vm`, not `doc1`.

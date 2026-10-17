@@ -6,8 +6,11 @@
 }: let
   peer = "PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=";
   # Pin the Asia gateway to avoid needing public DNS before the locked tunnel
-  # exists. Refresh from asia3.vpn.airdns.org when replacing this profile.
-  endpoint = "103.230.144.102:1637";
+  # exists. Refresh from asia3.vpn.airdns.org when the gateway stops answering
+  # (re-resolved 2026-10-17); the guard rule below derives from these values.
+  endpointIp = "185.200.117.133";
+  endpointPort = "1637";
+  endpoint = "${endpointIp}:${endpointPort}";
   rules = pkgs.writeText "airvpn-lock.nft" ''
     table inet airvpn_lock {
       chain output {
@@ -24,7 +27,7 @@
         ip daddr { 192.168.1.0/24, 10.20.0.0/24 } accept
         # Kernel WireGuard packets have no socket UID. Match their privileged
         # mark and pinned endpoint instead; see the epi-airvpn incident note.
-        ip daddr 103.230.144.102 meta mark 51820 udp dport 1637 accept
+        ip daddr ${endpointIp} meta mark 51820 udp dport ${endpointPort} accept
         # Tailscale uses this mark to keep its transport outside VPN routing.
         meta skuid 0 meta mark & 0xff0000 == 0x80000 accept
         udp sport 68 udp dport 67 accept
