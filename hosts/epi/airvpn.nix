@@ -5,14 +5,21 @@
   ...
 }: let
   peer = "PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=";
-  # Pin the Asia gateway to avoid needing public DNS before the locked tunnel
-  # exists. Refresh from asia3.vpn.airdns.org when the gateway stops answering
-  # (re-resolved 2026-10-17); the guard rule below derives from these values.
-  endpointIp = "185.200.117.133";
+  # AirVPN rotates the IPs behind its gateway names. Resolve the name while
+  # direct DNS still works, just before the guard starts, and use the pinned
+  # address only as a fallback; see docs/wiki/infrastructure/epi-airvpn.md.
+  endpointHost = "asia3.vpn.airdns.org";
+  fallbackIp = "185.200.117.133";
   endpointPort = "1637";
-  endpoint = "${endpointIp}:${endpointPort}";
+  endpointState = "/run/airvpn/endpoint";
+  isIpv4 = "^([0-9]{1,3}\\.){3}[0-9]{1,3}$";
   rules = pkgs.writeText "airvpn-lock.nft" ''
     table inet airvpn_lock {
+      # The only WAN destinations kernel WireGuard transport may reach.
+      set endpoints {
+        type ipv4_addr
+        elements = { ${fallbackIp} }
+      }
       chain output {
         type filter hook output priority -100; policy accept;
         oifname "lo" accept
@@ -26,8 +33,8 @@
         oifname "tailscale0" accept
         ip daddr { 192.168.1.0/24, 10.20.0.0/24 } accept
         # Kernel WireGuard packets have no socket UID. Match their privileged
-        # mark and pinned endpoint instead; see the epi-airvpn incident note.
-        ip daddr ${endpointIp} meta mark 51820 udp dport ${endpointPort} accept
+        # mark and the resolved/fallback endpoints instead.
+        ip daddr @endpoints meta mark 51820 udp dport ${endpointPort} accept
         # Tailscale uses this mark to keep its transport outside VPN routing.
         meta skuid 0 meta mark & 0xff0000 == 0x80000 accept
         udp sport 68 udp dport 67 accept
@@ -46,6 +53,46 @@
       }
     }
   '';
+  # Runs as root before the guard exists: record the gateway's current IP.
+  # Once the guard is active public DNS is blocked, so keep the recorded one.
+  prepare = pkgs.writeShellApplication {
+    name = "airvpn-prepare";
+    runtimeInputs = [pkgs.coreutils pkgs.gawk pkgs.getent pkgs.gnugrep pkgs.systemd];
+    text = ''
+      if ! systemctl -q is-active airvpn-lock.service; then
+        ip=$(timeout 5 getent ahostsv4 ${endpointHost} | awk '{ print $1; exit }' || true)
+        if grep -Eq '${isIpv4}' <<<"$ip"; then
+          install -d -m 0755 /run/airvpn
+          echo "$ip" >${endpointState}.tmp
+          mv ${endpointState}.tmp ${endpointState}
+        else
+          echo "airvpn: could not resolve ${endpointHost}; using recorded/fallback endpoint" >&2
+        fi
+      fi
+      systemctl start airvpn-lock.service
+    '';
+  };
+  # Admit the recorded endpoint through the guard and point WireGuard at it.
+  apply = pkgs.writeShellApplication {
+    name = "airvpn-apply-endpoint";
+    runtimeInputs = [pkgs.coreutils pkgs.gnugrep pkgs.iproute2 pkgs.nftables pkgs.wireguard-tools];
+    text = ''
+      ip=${fallbackIp}
+      if [[ -r ${endpointState} ]]; then
+        recorded=$(head -n1 ${endpointState})
+        if grep -Eq '${isIpv4}' <<<"$recorded"; then
+          ip=$recorded
+        fi
+      fi
+      if nft list table inet airvpn_lock >/dev/null 2>&1; then
+        nft add element inet airvpn_lock endpoints "{ $ip }"
+      fi
+      if ip link show airvpn >/dev/null 2>&1; then
+        wg set airvpn peer ${peer} endpoint "$ip:${endpointPort}"
+        echo "airvpn: endpoint $ip:${endpointPort}"
+      fi
+    '';
+  };
   control = pkgs.writeShellApplication {
     name = "airvpn";
     runtimeInputs = [pkgs.networkmanager pkgs.systemd pkgs.wireguard-tools];
@@ -61,8 +108,9 @@
       esac
       case "''${1:-status}" in
         on)
-          systemctl start airvpn-lock.service
+          ${prepare}/bin/airvpn-prepare
           nmcli --wait 30 connection up airvpn
+          ${apply}/bin/airvpn-apply-endpoint
           ;;
         off)
           if nmcli -t -f NAME connection show --active | ${pkgs.gnugrep}/bin/grep -qx airvpn; then
@@ -106,7 +154,8 @@ in {
           ip6-auto-default-route = true;
         };
         "wireguard-peer.${peer}" = {
-          inherit endpoint;
+          # Replaced at activation by airvpn-apply-endpoint.
+          endpoint = "${fallbackIp}:${endpointPort}";
           preshared-key = "$AIRVPN_PRESHARED_KEY";
           preshared-key-flags = 0;
           allowed-ips = "0.0.0.0/0;::/0;";
@@ -130,7 +179,16 @@ in {
         type = "pre-up";
         source = pkgs.writeShellScript "airvpn-pre-up" ''
           if [[ "$1" == airvpn && "$2" == pre-up ]]; then
-            ${pkgs.systemd}/bin/systemctl start airvpn-lock.service
+            ${prepare}/bin/airvpn-prepare
+          fi
+        '';
+      }
+      {
+        # Desktop activations bypass the helper; apply the endpoint here too.
+        type = "basic";
+        source = pkgs.writeShellScript "airvpn-up" ''
+          if [[ "$1" == airvpn && "$2" == up ]]; then
+            ${apply}/bin/airvpn-apply-endpoint
           fi
         '';
       }
@@ -185,7 +243,9 @@ in {
 
   systemd.services.airvpn-lock = {
     description = "AirVPN fail-closed egress guard (airvpn off to unlock)";
-    requires = ["unbound.service"];
+    # Wants, not Requires: an unbound stop or restart must never stop or reload
+    # the guard (fail-open, and it would discard the resolved endpoint).
+    wants = ["unbound.service"];
     after = ["unbound.service"];
     # Not tied to the connection lifecycle: loss of the interface MUST leave
     # the guard active. Only an explicit off (or reboot) removes it.
@@ -194,6 +254,8 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = "${pkgs.nftables}/bin/nft -f ${rules}";
+      # Re-admit the recorded endpoint whenever the guard (re)loads.
+      ExecStartPost = "${apply}/bin/airvpn-apply-endpoint";
       ExecStop = "${pkgs.nftables}/bin/nft delete table inet airvpn_lock";
       CapabilityBoundingSet = ["CAP_NET_ADMIN"];
       NoNewPrivileges = true;
