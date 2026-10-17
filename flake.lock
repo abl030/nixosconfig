@@ -61,11 +61,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1792092710,
-        "narHash": "sha256-v44afm5wfoEDGxlUNBtGAKcRbXBh4SkxAg2/Ya7sAWE=",
+        "lastModified": 1792184490,
+        "narHash": "sha256-h0ocvti7xZNzf6bhS1bvwr7L0fLTicWfvO11Xn1zR3s=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "37ab4ef530926b30ad1fe6f9dc6f04d0f6db1bd3",
+        "rev": "69ea6acabd545898cd2764a12c293ead05fd7e84",
         "type": "github"
       },
       "original": {
@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1792090609,
-        "narHash": "sha256-NMdptfsXeY8xM5BPG/iVEWv8SdQMkK+hLhIpKuIbr3I=",
+        "lastModified": 1792223488,
+        "narHash": "sha256-W2XI9ey1Y7ZHHn/7gETfZIOC6OgaTaS9hdprcBFggWQ=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "fac349c0c31a543d497fd4825af9b44bdb7e7dfe",
+        "rev": "2e41b4490a37f53db0beb6d4904618da9af2f559",
         "type": "github"
       },
       "original": {
@@ -93,11 +93,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1791728941,
-        "narHash": "sha256-1cWUl+x2DudIZm8uRQ2OJ3KgVEqZLPyKlJRJW2qT9xs=",
+        "lastModified": 1792248653,
+        "narHash": "sha256-j9d9qsD4eDQ6xnsog6uUCYzrm55iIO2QBle2avoadOM=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "7690c5ea14e5c842bb143dbe5725ed48fe5449db",
+        "rev": "68f2690ff868cde35f4e755cde82a69666f89b06",
         "type": "github"
       },
       "original": {
