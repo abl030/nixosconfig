@@ -18,9 +18,19 @@
 
 ## Thermals and fan telemetry
 *Updated 2026-10-17.*
-- **Control is BIOS-only.** Every NCT6799 PWM channel is `pwm*_enable=5` (board SmartFan curve). Nothing in software drives the fans; change curves in the UEFI.
+- **Control is BIOS-only.** NCT6799 channels 1–5 are `pwm*_enable=5` (board SmartFan curve; the driver can rewrite the curve points live, and the chip keeps running them in hardware), `pwm7` is fixed at 77/255 (`enable=1`). Nothing in software drives the fans; change curves in the UEFI.
+- **Header map (live tests 2026-10-17, owner listening):**
+
+  | NCT6799 channel | What it drives | BIOS setting |
+  |---|---|---|
+  | fan3/pwm3 | a case fan (max ~2520 rpm) | curve, 50% at 40 °C → 100% at 80 °C |
+  | fan4/pwm4 | **rear exhaust** case fans | fixed 100% (~2810 rpm) |
+  | fan1, fan2, fan5 | not the radiator (dipping each to 30% changed nothing audible); not yet identified | curve, 30% at 40 °C → 100% at 80 °C |
+  | pwm7 (no tach) | not the radiator (100% for 30 s changed nothing) | fixed 30% |
+
+  **The AIO (pump + radiator fans) is on none of the channels Linux can see** — likely an ASRock-specific pump/AIO header not routed through the NCT6799, or a hub/SATA-powered splitter. Check the cabling at the next fan swap. Until then it can't be controlled or monitored from Linux.
 - **Sensors:** the Super I/O is a Nuvoton **NCT6799** (`nct6775` driver), which Proxmox doesn't auto-load. `/etc/modules-load.d/nct6775.conf` loads it at boot (added 2026-10-17, directly on the box). node_exporter's hwmon collector then ships `node_hwmon_fan_rpm{instance="prom",chip="platform_nct6775_656"}` (fan1–5) and `node_hwmon_temp_celsius` to Mimir via Alloy. CPU temp is `chip="pci0000:00_0000:00:18_3"` (k10temp; `temp1` = Tctl, `temp3`/`temp4` = CCDs).
-- **The radiator fans are not individually visible.** Unplugging the middle radiator fan (2026-10-17) changed no tach channel: the LF III daisy-chains its fans and reports one tach for the chain. `fan4` sits flat at ~2810 rpm with `pwm4=255` — most likely the AIO pump at full speed. A dead radiator fan shows up only as higher CPU temps.
+- **The radiator fans are not visible.** Unplugging the middle radiator fan (2026-10-17) changed no tach channel, consistent with the header map above. A dead radiator fan or pump shows up only as higher CPU temps.
 - **Normal temps:** Tctl bursts to 85–96 °C hourly under VM load (30-day max 96.5 °C); this is Zen 5 boosting to its 95 °C target, not a fault. Idle ~57–60 °C.
 - **No alerts yet** — prom isn't in `homelab.alerting.fanStallAlert.fans` and no host has a CPU-temperature rule.
 
