@@ -131,7 +131,7 @@ in {
     run ${pkgs.jq}/bin/jq --arg sl "${claude-usage-statusline}/bin/claude-usage-statusline" '
       .statusLine = (if (.statusLine == null)
           or ((.statusLine.command // "") | test("claude-usage-statusline"))
-        then {type: "command", command: $sl, padding: 0}
+        then {type: "command", command: $sl, padding: 0, refreshInterval: 60}
         else .statusLine end)
       # Mail is read only through the doc1 mailsearch agent: deny the claude.ai
       # Gmail connector. serverUrl, not serverName: the name rule rejects

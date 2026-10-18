@@ -26,8 +26,11 @@ one weekly-limit hit and four 5-hour-limit hits (published as the "Limit Meter" 
 Home Manager host. The activation only claims `statusLine` when none is set or the current one is ours.
 
 On each status-line render it prints `Model · ctx 312k/1M (31%) · 5h N% · wk N% (reset) · chat $X ≈Y% wk`.
-`ctx` is the current context window (`context_window.total_input_tokens` / `context_window_size`). 5h/wk are
-account-wide; `chat` is this session's `cost.total_cost_usd` and its estimated share of the week at
+`ctx` is the current context window (`context_window.total_input_tokens` / `context_window_size`). After it,
+`prompt_cache` drives either `cache 42m` (time to `expires_at` while warm) or, once expired,
+`cold: next ≈0.42% wk ($4.80)`: context tokens × model input price × write multiplier (2× for `ttl` 1h, 1.25×
+for 5m) ÷ $ per 1%. Claude Code schedules a status-line refresh at `expires_at`; `refreshInterval: 60` keeps the
+countdown current. 5h/wk are account-wide; `chat` is this session's `cost.total_cost_usd` and its estimated share of the week at
 $11.5 per 1% (Max 5x calibration), overridable by writing a number to
 `~/.local/state/claude-usage/usd-per-weekly-pct`. Background/Agent View sessions get no `rate_limits`, so they
 show only the `chat` part. Then, only when the 5h/7d percentage changes or

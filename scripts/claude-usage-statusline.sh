@@ -9,7 +9,8 @@ input=$(cat)
 
 # \x1f separator: a whitespace IFS (tab) would collapse empty fields and shift
 # every later value when a limit window is absent.
-IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset ctx_used ctx_size ctx_pct < <(
+IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset ctx_used ctx_size ctx_pct \
+  pc_warm pc_ttl pc_exp < <(
   jq -r '[
       (.session_id // "unknown"),
       (.model.id // ""),
@@ -21,9 +22,12 @@ IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset ctx_use
       (.rate_limits.seven_day.resets_at // ""),
       (.context_window.total_input_tokens // ""),
       (.context_window.context_window_size // ""),
-      (.context_window.used_percentage // "")
+      (.context_window.used_percentage // ""),
+      (.prompt_cache.warm | if . == null then "" else tostring end),
+      (.prompt_cache.ttl // ""),
+      (.prompt_cache.expires_at // "")
     ] | map(tostring) | join("\u001f")' <<<"$input" 2>/dev/null ||
-    printf 'unknown\x1f\x1fclaude\x1f0\x1f\x1f\x1f\x1f\x1f\x1f\x1f\n'
+    printf 'unknown\x1f\x1fclaude\x1f0\x1f\x1f\x1f\x1f\x1f\x1f\x1f\x1f\x1f\x1f\n'
 )
 [[ $cost =~ ^[0-9.]+$ ]] || cost=0
 [[ $ctx_used =~ ^[0-9]+$ ]] || ctx_used=""
@@ -52,7 +56,30 @@ if [ -n "$ctx_used" ]; then
     ctx="$ctx ($((ctx_used * 100 / ctx_size))%)"
   fi
 fi
-head="$model_name${ctx:+ · $ctx}"
+# Prompt cache: time left while warm; once expired, what the next message costs
+# to re-cache the whole context (input price x write multiplier: 2x for the 1h
+# cache, 1.25x for 5m), as API $ and share of the week. Claude Code refreshes
+# the status line at expires_at, so this flips to cold on time.
+cache=""
+if [ "$pc_warm" = "true" ] && [[ $pc_exp =~ ^[0-9]+$ ]]; then
+  left=$(((pc_exp - $(date +%s)) / 60))
+  [ "$left" -ge 0 ] && cache="cache ${left}m"
+elif [ "$pc_warm" = "false" ] && [ -n "$ctx_used" ] && [ "$ctx_used" -gt 0 ]; then
+  case "$model_id" in
+    claude-opus-5-5*) in_price=4 ;;
+    claude-sonnet-5*) in_price=2 ;;
+    claude-haiku-5-5*) in_price=0.1 ;;
+    claude-fable-5* | claude-mythos-5*) in_price=10 ;;
+    claude-opus-5* | claude-opus-4*) in_price=5 ;;
+    claude-haiku-4*) in_price=1 ;;
+    *) in_price=4 ;;
+  esac
+  mult=1.25
+  [ "$pc_ttl" = "1h" ] && mult=2
+  cache=$(awk -v t="$ctx_used" -v p="$in_price" -v m="$mult" -v u="$usd_per_pct" \
+    'BEGIN { c = t / 1e6 * p * m; printf "cold: next ≈%.2f%% wk ($%.2f)", (u > 0 ? c / u : 0), c }')
+fi
+head="$model_name${ctx:+ · $ctx}${cache:+ · $cache}"
 if [ -n "$fh$sd" ]; then
   line="$head · 5h $(fmt_pct "$fh") · wk $(fmt_pct "$sd")"
   if [ -n "$sd_reset" ]; then
