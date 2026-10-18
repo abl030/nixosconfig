@@ -102,6 +102,21 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
   **one browser solve at a time** — do NOT hammer `testall`, it transiently flaps "indexer
   unavailable due to failures" (self-heals).
 
+## Radarr quality policy (snapshot 2026-10-18 — verify live)
+
+- **Custom format "Hardcoded Subs" (id 8)** = title regex `HC|SUBBED` OR `KOR|KORSUB`, scored
+  **-10000 in every profile**. Title-only: unlabelled burned subs (e.g. GalaxyRG WEBRips) still
+  slip through — fix those by deleting + `POST /history/failed/{grabId}` (blocklists) + re-search.
+- **Ranking per resolution:** `HDTV < WEBRip < "WEB-DL/Bluray X" group` (group ids 1000–1003) in
+  profiles 1/3/4/5/6; SD (2) ungrouped. WEBRip sits alone below so it always upgrades (it's the
+  hardsub-risk source); inside the group CF scores decide, so an **AV1 WEB-DL beats a plain BluRay**.
+- **Cutoff = the WEB-DL/Bluray group, `cutoffFormatScore=100`** on purpose: keep upgrading until
+  AV1 (+100). Do not lower it. Global quality size limits stay as-is — the library's AV1 1080p
+  median is ~1.8 GiB; 3.5 GiB+ AV1 releases are just high-bitrate encodes, not worth admitting.
+- Profile 6 "HD - 720p/1080p" (cutoff 1080p group) holds the ex-HD-720p movies that had 1080p
+  WEBRip/HDTV files. Tdarr (tower) re-encodes video to HEVC only and skips AV1; audio is copied.
+- Upgrades flow from RSS. A cutoff-unmet mass search (~339 movies) needs explicit user approval.
+
 ## Indexers Prowlarr REMOVED — and why NOT to re-add them
 
 TheRARBG, EXT.to, BitSearch are absent because Prowlarr **removed them on purpose** (not a version
