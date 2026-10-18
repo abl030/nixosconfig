@@ -9,7 +9,7 @@ input=$(cat)
 
 # \x1f separator: a whitespace IFS (tab) would collapse empty fields and shift
 # every later value when a limit window is absent.
-IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset < <(
+IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset ctx_used ctx_size ctx_pct < <(
   jq -r '[
       (.session_id // "unknown"),
       (.model.id // ""),
@@ -18,11 +18,16 @@ IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset < <(
       (.rate_limits.five_hour.used_percentage // ""),
       (.rate_limits.five_hour.resets_at // ""),
       (.rate_limits.seven_day.used_percentage // ""),
-      (.rate_limits.seven_day.resets_at // "")
+      (.rate_limits.seven_day.resets_at // ""),
+      (.context_window.total_input_tokens // ""),
+      (.context_window.context_window_size // ""),
+      (.context_window.used_percentage // "")
     ] | map(tostring) | join("\u001f")' <<<"$input" 2>/dev/null ||
-    printf 'unknown\x1f\x1fclaude\x1f0\x1f\x1f\x1f\x1f\n'
+    printf 'unknown\x1f\x1fclaude\x1f0\x1f\x1f\x1f\x1f\x1f\x1f\x1f\n'
 )
 [[ $cost =~ ^[0-9.]+$ ]] || cost=0
+[[ $ctx_used =~ ^[0-9]+$ ]] || ctx_used=""
+[[ $ctx_size =~ ^[0-9]+$ ]] || ctx_size=""
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}/claude-usage"
 
@@ -35,14 +40,27 @@ fmt_pct() { [ -n "$1" ] && printf '%.0f%%' "$1" || printf '–'; }
 usd_per_pct=$(cat "$state/usd-per-weekly-pct" 2>/dev/null || true)
 [[ $usd_per_pct =~ ^[0-9]+(\.[0-9]+)?$ ]] || usd_per_pct=11.5
 chat="chat \$$(printf '%.2f' "$cost") ≈$(awk -v c="$cost" -v u="$usd_per_pct" 'BEGIN { printf "%.1f", (u > 0 ? c / u : 0) }')% wk"
+# Context: tokens in the current window (last request's input incl. cache).
+fmt_tok() { awk -v n="$1" 'BEGIN { if (n >= 1000000) printf (n % 1000000 ? "%.1fM" : "%dM"), n / 1000000; else printf "%dk", n / 1000 }'; }
+ctx=""
+if [ -n "$ctx_used" ]; then
+  ctx="ctx $(fmt_tok "$ctx_used")"
+  [ -n "$ctx_size" ] && ctx="$ctx/$(fmt_tok "$ctx_size")"
+  if [ -n "$ctx_pct" ]; then
+    ctx="$ctx ($(fmt_pct "$ctx_pct"))"
+  elif [ -n "$ctx_size" ] && [ "$ctx_size" -gt 0 ]; then
+    ctx="$ctx ($((ctx_used * 100 / ctx_size))%)"
+  fi
+fi
+head="$model_name${ctx:+ · $ctx}"
 if [ -n "$fh$sd" ]; then
-  line="$model_name · 5h $(fmt_pct "$fh") · wk $(fmt_pct "$sd")"
+  line="$head · 5h $(fmt_pct "$fh") · wk $(fmt_pct "$sd")"
   if [ -n "$sd_reset" ]; then
     line="$line ($(date -d "@${sd_reset%.*}" '+%a %H:%M' 2>/dev/null || true))"
   fi
   line="$line · $chat"
 else
-  line="$model_name · $chat"
+  line="$head · $chat"
 fi
 printf '%s\n' "$line"
 

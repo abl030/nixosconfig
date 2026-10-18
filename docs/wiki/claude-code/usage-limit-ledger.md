@@ -25,7 +25,8 @@ one weekly-limit hit and four 5-hour-limit hits (published as the "Limit Meter" 
 `modules/home-manager/profiles/base.nix` and set as `statusLine` by the `claudeConfig` activation on every
 Home Manager host. The activation only claims `statusLine` when none is set or the current one is ours.
 
-On each status-line render it prints `Model · 5h N% · wk N% (reset) · chat $X ≈Y% wk`. 5h/wk are
+On each status-line render it prints `Model · ctx 312k/1M (31%) · 5h N% · wk N% (reset) · chat $X ≈Y% wk`.
+`ctx` is the current context window (`context_window.total_input_tokens` / `context_window_size`). 5h/wk are
 account-wide; `chat` is this session's `cost.total_cost_usd` and its estimated share of the week at
 $11.5 per 1% (Max 5x calibration), overridable by writing a number to
 `~/.local/state/claude-usage/usd-per-weekly-pct`. Background/Agent View sessions get no `rate_limits`, so they
