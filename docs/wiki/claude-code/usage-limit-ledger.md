@@ -25,7 +25,11 @@ one weekly-limit hit and four 5-hour-limit hits (published as the "Limit Meter" 
 `modules/home-manager/profiles/base.nix` and set as `statusLine` by the `claudeConfig` activation on every
 Home Manager host. The activation only claims `statusLine` when none is set or the current one is ours.
 
-On each status-line render it prints `Model · 5h N% · wk N% (reset)` and, only when the 5h/7d percentage changes or
+On each status-line render it prints `Model · 5h N% · wk N% (reset) · chat $X ≈Y% wk`. 5h/wk are
+account-wide; `chat` is this session's `cost.total_cost_usd` and its estimated share of the week at
+$11.5 per 1% (Max 5x calibration), overridable by writing a number to
+`~/.local/state/claude-usage/usd-per-weekly-pct`. Background/Agent View sessions get no `rate_limits`, so they
+show only the `chat` part. Then, only when the 5h/7d percentage changes or
 the session's `cost.total_cost_usd` grows by ≥ $1, appends one record to
 `~/.local/state/claude-usage/limits.jsonl` (mode 0600) and sends the same JSON to journald with tag
 `claude-usage` (shipped to Loki on journald hosts; Loki keeps 31 days, the local file is the durable copy).

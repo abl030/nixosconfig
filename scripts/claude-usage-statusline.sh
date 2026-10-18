@@ -24,20 +24,29 @@ IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset < <(
 )
 [[ $cost =~ ^[0-9.]+$ ]] || cost=0
 
+state="${XDG_STATE_HOME:-$HOME/.local/state}/claude-usage"
+
 # --- status line ------------------------------------------------------------
+# 5h/wk are account-wide. "chat" is this session's API-equivalent cost and its
+# estimated share of the week: cost / (API $ per 1% of the weekly limit).
+# Default 11.5 is the Max 5x calibration of 2026-10-17; override by writing a
+# number to $state/usd-per-weekly-pct (e.g. after a plan change).
 fmt_pct() { [ -n "$1" ] && printf '%.0f%%' "$1" || printf '–'; }
+usd_per_pct=$(cat "$state/usd-per-weekly-pct" 2>/dev/null || true)
+[[ $usd_per_pct =~ ^[0-9]+(\.[0-9]+)?$ ]] || usd_per_pct=11.5
+chat="chat \$$(printf '%.2f' "$cost") ≈$(awk -v c="$cost" -v u="$usd_per_pct" 'BEGIN { printf "%.1f", (u > 0 ? c / u : 0) }')% wk"
 if [ -n "$fh$sd" ]; then
   line="$model_name · 5h $(fmt_pct "$fh") · wk $(fmt_pct "$sd")"
   if [ -n "$sd_reset" ]; then
     line="$line ($(date -d "@${sd_reset%.*}" '+%a %H:%M' 2>/dev/null || true))"
   fi
+  line="$line · $chat"
 else
-  line="$model_name · \$$(printf '%.2f' "$cost")"
+  line="$model_name · $chat"
 fi
 printf '%s\n' "$line"
 
 # --- ledger (best effort, never blocks or fails the status line) -----------
-state="${XDG_STATE_HOME:-$HOME/.local/state}/claude-usage"
 {
   umask 077
   mkdir -p "$state/sessions"
