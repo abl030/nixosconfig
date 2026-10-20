@@ -64,6 +64,14 @@
     owner = "abl030";
     mode = "0400";
   };
+  # doc1's own O365 IMAP login (Thunderbird client, device-code) so brain can
+  # save Andy-approved reply drafts into his work Drafts. APPEND only, never sends.
+  sops.secrets."brain-o365.env" = {
+    sopsFile = config.homelab.secrets.sopsFile "brain-o365.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
   homelab.monitoring.monitors = [
     {
       name = "Brain (Tailnet)";
