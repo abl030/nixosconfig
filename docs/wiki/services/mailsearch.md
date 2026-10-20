@@ -111,6 +111,13 @@ keyword leg, embedded or not.
 **Not available to hermes or any always-on/Telegram agent** — by construction
 (see Least-privilege below).
 
+**One approved unattended reader (2026-10-20):** the `brain-sweep` user timer on
+doc1 (cullen-assistant `brain/sweep.py`, `hosts/proxmox-vm/home.nix`) runs
+`claude -p` daily with `--strict-mcp-config` (this MCP only), `--tools ""` (no
+shell, files or web) and a JSON-schema output. It can only file proposals into the
+brain.ablz.au inbox for Andy to approve, so an injected email can at worst make a
+bad proposal. Anything with more tools than that stays human-present only.
+
 ---
 
 ## Architecture

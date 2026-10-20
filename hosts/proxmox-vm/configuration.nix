@@ -46,6 +46,23 @@
   # Cullen SonicWall (192.168.100.14) SonicOS API login: a local user in the
   # SonicWALL Read-Only Admins group, no OTP. Read by cullen-assistant
   # scripts/sonicwall (GET-only). Read-only on the firewall side, doc1-only here.
+  # brain.ablz.au: Andy's private dashboard. The app is a home-manager user
+  # service (home.nix, port 8870). Tailnet-only, and tag:edge (hermes) has no
+  # grant to doc1:443, so only trusted clients/servers reach it.
+  homelab.localProxy.hosts = [
+    {
+      host = "brain.ablz.au";
+      port = 8870;
+      tailscaleOnly = true;
+    }
+  ];
+  homelab.monitoring.monitors = [
+    {
+      name = "Brain (Tailnet)";
+      url = "https://brain.ablz.au/healthz";
+    }
+  ];
+
   sops.secrets."sonicwall-api.env" = {
     sopsFile = config.homelab.secrets.sopsFile "sonicwall-api.env";
     format = "dotenv";
