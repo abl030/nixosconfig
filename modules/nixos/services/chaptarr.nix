@@ -89,7 +89,6 @@ in {
           name = "Chaptarr trial state";
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial chaptarr ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
-          intervalSecs = 300;
           requiresUnit = ["podman-chaptarr.service"];
         }
       ];

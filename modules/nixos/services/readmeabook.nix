@@ -118,7 +118,6 @@ in {
           name = "ReadMeABook trial state";
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial readmeabook ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
-          intervalSecs = 300;
           requiresUnit = ["podman-readmeabook.service"];
         }
       ];

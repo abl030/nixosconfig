@@ -127,7 +127,6 @@ in {
           name = "Storyteller state";
           command = "${probe}/bin/check-storyteller";
           interval = "5m";
-          intervalSecs = 300;
           requiresUnit = ["podman-storyteller.service"];
         }
       ];

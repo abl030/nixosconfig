@@ -104,7 +104,6 @@ in {
           name = "Booklore trial state";
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial booklore ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
-          intervalSecs = 300;
           requiresUnit = ["podman-booklore.service"];
         }
       ];
