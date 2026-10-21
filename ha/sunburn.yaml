@@ -47,7 +47,10 @@
 #     escape: its `uv_index` and `uv_index_clear_sky` came back identical for
 #     every hour tested here, including an 88%-cloud morning.
 #
-# Data source is met.no via the built-in `weather.forecast_home` entity. No
+# TEMPORARY (2026-10-22, travelling): pointed at the `weather.forecast_caloundra`
+# met.no entry (Caloundra QLD). Revert to `weather.forecast_home` when back.
+# Clock maths still uses HA's Perth timezone (QLD is +2 h).
+# Data source is met.no via the built-in weather entity. No
 # external API, no API key. See docs/wiki/services/home-assistant-sunburn.md.
 
 template:
@@ -61,7 +64,7 @@ template:
     actions:
       - action: weather.get_forecasts
         target:
-          entity_id: weather.forecast_home
+          entity_id: weather.forecast_caloundra
         data:
           type: hourly
         response_variable: fc
@@ -130,7 +133,7 @@ template:
               {%- endif -%}
             {%- endmacro -%}
             {%- set med = 250 -%}
-            {%- set fh = (fc['weather.forecast_home'].forecast | default([], true))
+            {%- set fh = (fc['weather.forecast_caloundra'].forecast | default([], true))
                          | selectattr('uv_index', 'defined') | list -%}
             {%- if fh | count < 2 -%}
               {{ {'ok': false} }}
