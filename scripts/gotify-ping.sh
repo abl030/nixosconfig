@@ -5,6 +5,13 @@ url="${GOTIFY_URL:-https://gotify.ablz.au}"
 token_file="${GOTIFY_TOKEN_FILE:-/run/secrets/gotify/token}"
 priority="${GOTIFY_PRIORITY:-5}"
 
+case "${1:-}" in
+  -h | --help)
+    echo "usage: gotify-ping [TITLE] [MESSAGE]  (env: GOTIFY_URL, GOTIFY_TOKEN_FILE, GOTIFY_PRIORITY)"
+    exit 0
+    ;;
+esac
+
 title="${1:-Codex needs input}"
 message="${2:-Please check the session; input requested.}"
 

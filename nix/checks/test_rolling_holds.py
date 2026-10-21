@@ -79,12 +79,17 @@ nix() {
 '''
 
 
-def drv_json(pname=None, fod=False):
+def drv_json(pname=None, fod=False, structured=False):
     env = {"name": "x"}
     if pname:
         env["pname"] = pname
     if fod:
         env["outputHash"] = "sha256-x"
+    if structured:
+        # __structuredAttrs: .env holds only output paths; pname moves under .structuredAttrs.
+        return json.dumps({"derivations": {"x.drv": {
+            "env": {"out": "/nix/store/x"}, "outputs": {"out": {"path": "/nix/store/x"}},
+            "structuredAttrs": {**env, "env": {}}}}})
     return json.dumps({"/nix/store/x.drv": {"env": env, "outputs": {"out": {"path": "/nix/store/x"}}}})
 
 
@@ -186,6 +191,9 @@ def main():
             "too many": ("".join(failure(f"p{i}-1", ROOT_FAIL) for i in range(4)), {}, {}, "only 1-3"),
             "nothing": (failure("home-manager-path", DEP_FAIL), {}, {}, "0 root"),
             "no pname": (failure("weird", ROOT_FAIL), {"weird": drv_json()}, {}, "no usable pname"),
+            "structured attrs": (failure("python3.14-foo-1.0-post9", ROOT_FAIL),
+                                 {"python3.14-foo-1.0-post9": drv_json("foo", structured=True)}, {},
+                                 "not nixpkgs' top-level foo"),
         }
         for label, (log_text, drvs, evals, why) in refusals.items():
             out = run_case(root, bash, functions, held={}, body=auto, log_text=log_text, drvs=drvs,

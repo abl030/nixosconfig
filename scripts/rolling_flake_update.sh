@@ -620,10 +620,11 @@ drv_name() {
 }
 
 # pname of a .drv, or empty. Searches the whole JSON so it tolerates both the
-# old (path-keyed) and newer (versioned) `nix derivation show` layouts.
+# old (path-keyed) and newer (versioned) `nix derivation show` layouts, and
+# __structuredAttrs derivations (pname lives under .structuredAttrs, not .env).
 drv_pname() {
     nix derivation show "$1" 2>/dev/null \
-        | jq -r '[.. | objects | select(has("env")) | .env.pname? // empty | strings] | first // empty' \
+        | jq -r '[.. | objects | (.env?.pname?, .structuredAttrs?.pname?) | strings] | first // empty' \
         || true
 }
 
