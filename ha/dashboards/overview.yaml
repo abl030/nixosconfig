@@ -33,6 +33,9 @@ views:
     content: '## ☀️ {{ states(''sensor.sunscreen'') }}
 
 
+      📍 UV for **{{ state_attr(''sensor.sunscreen'', ''location'') }}**
+
+
       {{ state_attr(''sensor.sunscreen'', ''headline'') }}
 
 

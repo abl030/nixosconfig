@@ -47,11 +47,24 @@
 #     escape: its `uv_index` and `uv_index_clear_sky` came back identical for
 #     every hour tested here, including an 88%-cloud morning.
 #
-# TEMPORARY (2026-10-22, travelling): pointed at the `weather.forecast_caloundra`
-# met.no entry (Caloundra QLD). Revert to `weather.forecast_home` when back.
-# Clock maths still uses HA's Perth timezone (QLD is +2 h).
-# Data source is met.no via the built-in weather entity. No
-# external API, no API key. See docs/wiki/services/home-assistant-sunburn.md.
+# Location follows Andy's phone (`device_tracker.andya55`, companion-app GPS):
+# when it has coordinates we ask met.no's locationforecast/2.0/complete for
+# them directly (same feed the met integration uses, same `uv` + cloud
+# fields). With no phone fix we fall back to the met.no weather entity in
+# `fallback`. Coordinates are rounded to 2 dp (~1 km) — enough for UV, kinder
+# to met.no's cache and to privacy. Clock maths still runs on HA's Perth
+# timezone, so away from WA the "peak around" hour is Perth time.
+# No API key. See docs/wiki/services/home-assistant-sunburn.md.
+
+rest_command:
+  sunburn_metno:
+    url: >-
+      https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={{ lat }}&lon={{ lon }}
+    method: get
+    # met.no's ToS require an identifying User-Agent.
+    headers:
+      User-Agent: "ha-sunburn/1.0 +https://home.ablz.au"
+    timeout: 20
 
 template:
   - triggers:
@@ -62,12 +75,52 @@ template:
       - trigger: time_pattern
         minutes: "/15"
     actions:
+      - variables:
+          tracker: device_tracker.andya55
+          fallback: weather.forecast_caloundra
+          lat: "{{ state_attr(tracker, 'latitude') }}"
+          lon: "{{ state_attr(tracker, 'longitude') }}"
+          use_phone: "{{ lat is number and lon is number }}"
+      - if: "{{ use_phone }}"
+        then:
+          - action: rest_command.sunburn_metno
+            data:
+              lat: "{{ lat | round(2) }}"
+              lon: "{{ lon | round(2) }}"
+            response_variable: metno
+            continue_on_error: true
       - action: weather.get_forecasts
         target:
-          entity_id: weather.forecast_caloundra
+          entity_id: "{{ fallback }}"
         data:
           type: hourly
         response_variable: fc
+      - variables:
+          # met.no timeseries -> the weather.get_forecasts shape the maths uses
+          phone_fc: >-
+            {%- set ns = namespace(out=[]) -%}
+            {%- if metno is defined and metno.status == 200 and metno.content is mapping -%}
+              {%- for t in metno.content.properties.timeseries -%}
+                {%- set d = t.data.instant.details -%}
+                {%- if d.ultraviolet_index_clear_sky is number -%}
+                  {%- set ns.out = ns.out + [{'datetime': t.time,
+                                              'uv_index': d.ultraviolet_index_clear_sky,
+                                              'cloud_coverage': d.cloud_area_fraction | default(0, true)}] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {{ ns.out }}
+          from_phone: "{{ phone_fc | count >= 2 }}"
+          fh_src: >-
+            {{ phone_fc if from_phone
+               else (fc[fallback].forecast | default([], true)) }}
+          where: >-
+            {%- if from_phone -%}
+              {{ state_attr('sensor.sm_a556e_geocoded_location', 'locality')
+                 or ('phone ' ~ (lat | round(2)) ~ ', ' ~ (lon | round(2))) }}
+            {%- else -%}
+              {{ state_attr(fallback, 'friendly_name') | replace('Forecast ', '') }}
+            {%- endif -%}
       - variables:
           burn: >-
             {#- damage %/minute for bare skin at UV index u -#}
@@ -133,8 +186,7 @@ template:
               {%- endif -%}
             {%- endmacro -%}
             {%- set med = 250 -%}
-            {%- set fh = (fc['weather.forecast_caloundra'].forecast | default([], true))
-                         | selectattr('uv_index', 'defined') | list -%}
+            {%- set fh = fh_src | selectattr('uv_index', 'defined') | list -%}
             {%- if fh | count < 2 -%}
               {{ {'ok': false} }}
             {%- else -%}
@@ -248,6 +300,8 @@ template:
           spf50_minutes: "{{ burn.spf50_min }}"
           tomorrow_peak_uv: "{{ burn.tomorrow_peak }}"
           skin_type: "Fitzpatrick II (MED {{ burn.med }} J/m²)"
+          location: "{{ where }}"
+          location_source: "{{ 'phone' if from_phone else fallback }}"
 
       - name: "UV Index"
         unique_id: sunburn_uv_index_now

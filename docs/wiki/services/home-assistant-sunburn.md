@@ -1,7 +1,7 @@
 # Home Assistant — sunburn / sunscreen advisory
 
 **Researched:** 2026-09-08
-**Status:** Live on the Overview dashboard. Package `ha/sunburn.yaml`.
+**Status:** Live on the Overview dashboard. Package `ha/sunburn.yaml`. Location follows the phone since 2026-10-22 (see Data source).
 **Question it answers:** "if we go out in the sun today, should we lather up?"
 
 ## What it is
@@ -64,6 +64,38 @@ Margaret River summer.
 Its **hourly forecast already carries `uv_index`** — no external API, no API
 key, no HACS integration. This was the surprise of the build: an Open-Meteo
 REST sensor was the expected path and turned out to be unnecessary.
+
+### Follows the phone (2026-10-22)
+
+Added while travelling to Caloundra QLD. Every 15 minutes the template reads
+`device_tracker.andya55` (Andy's SM-A556E, companion app). If it has GPS
+coordinates, `rest_command.sunburn_metno` calls
+`api.met.no/weatherapi/locationforecast/2.0/complete` for them (rounded to
+2 dp) and the timeseries is reshaped into the `get_forecasts` shape
+(`ultraviolet_index_clear_sky` → `uv_index`, `cloud_area_fraction` →
+`cloud_coverage`). These are the same numbers the met integration reports:
+for Margaret River the direct fetch gave the same UV now and peak as
+`weather.forecast_home`.
+
+- **Use `complete`, not `compact`.** The `compact` endpoint has no UV field.
+- **No phone fix, or the fetch fails:** the sensors fall back to the met.no
+  weather entity in the `fallback` variable. That is currently
+  `weather.forecast_caloundra`, a second met.no config entry added via the UI
+  for the trip. Set it back to `weather.forecast_home` once home.
+- **Location label:** `sensor.sunscreen` has `location` and `location_source`
+  attributes, shown as "📍 UV for …" on the Overview card. With a phone fix the
+  label is the `locality` of `sensor.sm_a556e_geocoded_location` if that
+  companion-app sensor is enabled, otherwise the rounded coordinates.
+- **Phone setting:** as of 2026-10-22 the phone only reported battery sensors,
+  and the tracker had been `unknown` since the 2026-10-17 restart. Turn on
+  location in the companion app (Settings → Companion app → Manage sensors →
+  Location; Android also needs "Allow all the time") and the phone path
+  takes over on the next 15-minute tick.
+- **Timezone:** clock maths still runs on HA's Perth timezone, so the "peak
+  around" hour and the midnight cut-off are Perth time when you're elsewhere.
+- **HA config:** `rest_command` was a new domain and needed a full restart.
+  A `response_variable` set inside an `if:` `then:` *is* visible to later
+  `variables` steps (verified on Core 2026.10.2).
 
 ### That UV is clear-sky, and we correct it ourselves
 
