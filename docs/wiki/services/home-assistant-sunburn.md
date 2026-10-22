@@ -79,9 +79,10 @@ for Margaret River the direct fetch gave the same UV now and peak as
 
 - **Use `complete`, not `compact`.** The `compact` endpoint has no UV field.
 - **No phone fix, or the fetch fails:** the sensors fall back to the met.no
-  weather entity in the `fallback` variable. That is currently
-  `weather.forecast_caloundra`, a second met.no config entry added via the UI
-  for the trip. Set it back to `weather.forecast_home` once home.
+  weather entity in the `fallback` variable, `weather.forecast_home`
+  (Margaret River). The card then reads "UV for Home". A second met.no entry,
+  `weather.forecast_caloundra`, was added via the UI for the 2026-10 trip and
+  is no longer referenced. Delete it once the trip is over.
 - **Location label:** `sensor.sunscreen` has `location` and `location_source`
   attributes, shown as "📍 UV for …" on the Overview card. With a phone fix the
   label is the `locality` of `sensor.sm_a556e_geocoded_location` if that

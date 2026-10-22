@@ -77,7 +77,7 @@ template:
     actions:
       - variables:
           tracker: device_tracker.andya55
-          fallback: weather.forecast_caloundra
+          fallback: weather.forecast_home
           lat: "{{ state_attr(tracker, 'latitude') }}"
           lon: "{{ state_attr(tracker, 'longitude') }}"
           use_phone: "{{ lat is number and lon is number }}"
