@@ -80,9 +80,9 @@ for Margaret River the direct fetch gave the same UV now and peak as
 - **Use `complete`, not `compact`.** The `compact` endpoint has no UV field.
 - **No phone fix, or the fetch fails:** the sensors fall back to the met.no
   weather entity in the `fallback` variable, `weather.forecast_home`
-  (Margaret River). The card then reads "UV for Home". A second met.no entry,
-  `weather.forecast_caloundra`, was added via the UI for the 2026-10 trip and
-  is no longer referenced. Delete it once the trip is over.
+  (Margaret River). The card then reads "UV for Home". A temporary
+  `weather.forecast_caloundra` met.no entry was added and deleted during the
+  2026-10 trip.
 - **Location label:** `sensor.sunscreen` has `location` and `location_source`
   attributes, shown as "📍 UV for …" on the Overview card. With a phone fix the
   label is the `locality` of `sensor.sm_a556e_geocoded_location` if that
@@ -95,9 +95,20 @@ for Margaret River the direct fetch gave the same UV now and peak as
   stayed `unknown` even after a `request_location_update` notify command,
   because background tracking was still off on the phone. The geocoded
   fallback made the phone path work regardless.
-- **Timezone:** clock maths still runs on HA's Perth timezone, so the "peak
-  around" hour and the midnight cut-off are Perth time when you're elsewhere.
+- **Timezone follows the location.** With a phone fix, `rest_command.sunburn_tz`
+  calls Open-Meteo with `timezone=auto` (no key) and uses only
+  `utc_offset_seconds`. Without a fix, HA's own offset is used. The template
+  shifts UTC epoch seconds by that offset and formats them with
+  `timestamp_custom(..., false)` (UTC). The "peak around" hour, the
+  end-of-today cut-off and the today/tomorrow split are therefore all local to
+  where the phone is. Verified at Golden Beach: Australia/Brisbane, peak
+  "11am", where Perth time had said "9am". The `timezone` attribute on
+  `sensor.sunscreen` shows the zone in use.
+- **Night check:** "UV is done for the day" and the night icon used to key off
+  `sun.sun`, which is HA's home location. They now use `burn.dark`: the
+  current hour's clear-sky UV at the forecast location is below 0.05.
 - **HA config:** `rest_command` was a new domain and needed a full restart.
+  Adding a second command later needed only a `reload_all`.
   A `response_variable` set inside an `if:` `then:` *is* visible to later
   `variables` steps (verified on Core 2026.10.2).
 

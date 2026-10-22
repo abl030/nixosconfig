@@ -53,8 +53,10 @@
 # them directly (same feed the met integration uses, same `uv` + cloud
 # fields). With no phone fix we fall back to the met.no weather entity in
 # `fallback`. Coordinates are rounded to 2 dp (~1 km) — enough for UV, kinder
-# to met.no's cache and to privacy. Clock maths still runs on HA's Perth
-# timezone, so away from WA the "peak around" hour is Perth time.
+# to met.no's cache and to privacy. Clock maths (the "peak around" hour, where
+# today ends, day vs night) runs in the location's own timezone: Open-Meteo's
+# `timezone=auto` gives the UTC offset for the phone's coordinates, otherwise
+# HA's own offset applies.
 # No API key. See docs/wiki/services/home-assistant-sunburn.md.
 
 rest_command:
@@ -65,6 +67,12 @@ rest_command:
     # met.no's ToS require an identifying User-Agent.
     headers:
       User-Agent: "ha-sunburn/1.0 +https://home.ablz.au"
+    timeout: 20
+  # Only `utc_offset_seconds` is used: the local clock at the phone's location.
+  sunburn_tz:
+    url: >-
+      https://api.open-meteo.com/v1/forecast?latitude={{ lat }}&longitude={{ lon }}&timezone=auto&forecast_days=1&current=is_day
+    method: get
     timeout: 20
 
 template:
@@ -94,6 +102,12 @@ template:
               lon: "{{ lon | round(2) }}"
             response_variable: metno
             continue_on_error: true
+          - action: rest_command.sunburn_tz
+            data:
+              lat: "{{ lat | round(2) }}"
+              lon: "{{ lon | round(2) }}"
+            response_variable: tzr
+            continue_on_error: true
       - action: weather.get_forecasts
         target:
           entity_id: "{{ fallback }}"
@@ -119,6 +133,22 @@ template:
           fh_src: >-
             {{ phone_fc if from_phone
                else (fc[fallback].forecast | default([], true)) }}
+          # seconds east of UTC at the forecast location
+          tz_off: >-
+            {%- if from_phone and tzr is defined and tzr.status == 200
+                  and tzr.content is mapping
+                  and tzr.content.utc_offset_seconds is number -%}
+              {{ tzr.content.utc_offset_seconds | int }}
+            {%- else -%}
+              {{ now().utcoffset().total_seconds() | int }}
+            {%- endif -%}
+          tz_name: >-
+            {%- if from_phone and tzr is defined and tzr.status == 200
+                  and tzr.content is mapping -%}
+              {{ tzr.content.timezone | default('') }}
+            {%- else -%}
+              {{ now().tzinfo }}
+            {%- endif -%}
           where: >-
             {%- if from_phone -%}
               {{ state_attr(geocoded, 'locality')
@@ -195,10 +225,13 @@ template:
             {%- if fh | count < 2 -%}
               {{ {'ok': false} }}
             {%- else -%}
+              {#- all clock maths in the forecast location's local time:
+                  shift UTC epoch seconds by tz_off, format as UTC -#}
+              {%- set off = tz_off | int(0) -%}
               {%- set t_now = now().timestamp() -%}
-              {%- set t_end = now().replace(hour=0, minute=0, second=0,
-                                            microsecond=0).timestamp() + 86400 -%}
-              {%- set d_today = now().date() -%}
+              {%- set t_end = t_now + 86400 - ((t_now + off) % 86400) -%}
+              {%- set d_today = (t_now + off) | timestamp_custom('%Y-%m-%d', false) -%}
+              {%- set d_tmr = (t_now + off + 86400) | timestamp_custom('%Y-%m-%d', false) -%}
               {%- set times = [t_now] + (fh | map(attribute='datetime')
                                             | map('as_datetime')
                                             | map('as_timestamp') | list) -%}
@@ -215,16 +248,18 @@ template:
               {%- set ns = namespace(peak=0.0, peak_clear=0.0, peak_at='', tmr=0.0) -%}
               {#- highest UV still to come today, and tomorrow's peak for the evening card -#}
               {%- for i in range(fh | count) -%}
-                {%- set dt = fh[i].datetime | as_datetime | as_local -%}
+                {%- set lt = (fh[i].datetime | as_timestamp) + off -%}
+                {%- set ld = lt | timestamp_custom('%Y-%m-%d', false) -%}
+                {%- set lh = lt | timestamp_custom('%H', false) | int -%}
                 {%- set u = cl.uv[i] -%}
-                {%- if dt.date() == d_today -%}
+                {%- if ld == d_today -%}
                   {%- if u > ns.peak -%}
                     {%- set ns.peak = u -%}
                     {%- set ns.peak_clear = fh[i].uv_index | float(0) -%}
-                    {%- set h12 = 12 if dt.hour % 12 == 0 else dt.hour % 12 -%}
-                    {%- set ns.peak_at = h12 ~ ('am' if dt.hour < 12 else 'pm') -%}
+                    {%- set h12 = 12 if lh % 12 == 0 else lh % 12 -%}
+                    {%- set ns.peak_at = h12 ~ ('am' if lh < 12 else 'pm') -%}
                   {%- endif -%}
-                {%- elif (dt.date() - d_today).days == 1 and u > ns.tmr -%}
+                {%- elif ld == d_tmr and u > ns.tmr -%}
                   {%- set ns.tmr = u -%}
                 {%- endif -%}
               {%- endfor -%}
@@ -250,6 +285,7 @@ template:
                    'spf50_min': (b_spf | round | int) if b_spf is not none else none,
                    'spf50_text': pretty(b_spf) | string | trim,
                    'tomorrow_peak': ns.tmr | round(1),
+                   'dark': (fh[0].uv_index | float(0)) < 0.05,
                    'med': med,
                  } }}
             {%- endif -%}
@@ -264,7 +300,7 @@ template:
           {%- else -%}Lather up
           {%- endif -%}
         icon: >-
-          {%- if burn.peak < 1 and is_state('sun.sun', 'below_horizon') -%}mdi:weather-night
+          {%- if burn.peak < 1 and burn.dark -%}mdi:weather-night
           {%- elif burn.worst_min is none or burn.worst_min >= 60 -%}mdi:weather-sunny
           {%- elif burn.worst_min >= 30 -%}mdi:sunglasses
           {%- else -%}mdi:lotion-plus
@@ -272,7 +308,7 @@ template:
         attributes:
           headline: >-
             {%- if burn.peak < 1 -%}
-              {%- if is_state('sun.sun', 'below_horizon') -%}
+              {%- if burn.dark -%}
                 UV is done for the day.
               {%- else -%}
                 UV stays under 1 from here — nothing to think about.
@@ -307,6 +343,7 @@ template:
           skin_type: "Fitzpatrick II (MED {{ burn.med }} J/m²)"
           location: "{{ where }}"
           location_source: "{{ 'phone' if from_phone else fallback }}"
+          timezone: "{{ tz_name }}"
 
       - name: "UV Index"
         unique_id: sunburn_uv_index_now
