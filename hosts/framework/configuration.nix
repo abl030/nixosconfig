@@ -44,7 +44,9 @@
     };
     nixCaches = {
       enable = true;
-      profile = "internal";
+      # Roaming laptop: cache.nixos.org first, nix-serve for private paths
+      # only, http2 off. See client_profile.nix.
+      profile = "external";
     };
     update = {
       enable = true;

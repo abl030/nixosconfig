@@ -16,6 +16,12 @@ Notes:
 - Lower numeric priority = higher preference.
 - We append ?priority=… (or &priority=… if the URL already has ?).
 - "server" profile removes cache.nixos.org (direct) and nix-serve; it uses the nginx mirror.
+- "external" is for roaming laptops: cache.nixos.org first, nix-serve only for
+  paths upstream lacks (unfree, local builds), and http2 off. Off-LAN, nix-serve
+  is reached through the Tailscale subnet route (~90 ms, ~1 MB/s per TCP
+  connection) and serves uncompressed NARs; with http2 every download is
+  multiplexed onto one connection. Measured 2026-10-22 on framework: one
+  connection 0.4-0.9 MB/s, 8 connections 4.6 MB/s, cache.nixos.org 7.9 MB/s.
 - nixosconfig.cachix.org was removed 2026-09-23: nothing had pushed to it for
   months, so it only added a ~0.4s miss per local-only path on every build.
 */
@@ -43,7 +49,7 @@ let
       then {
         nixServe = cfg.nixServe.priorityExternal;
         mirror = cfg.mirror.priorityExternal;
-        upstream = cfg.upstream.priority;
+        upstream = cfg.upstream.priorityExternal;
         hyprland = cfg.hyprland.priorityExternal;
       }
       else {
@@ -174,6 +180,11 @@ in {
         type = lib.types.ints.positive;
         default = 40;
       };
+      # "external" profile: ahead of nix-serve (20) and the mirror (30).
+      priorityExternal = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 10;
+      };
     };
 
     # Narinfo TTLs to discover fresh uploads quickly.
@@ -206,6 +217,10 @@ in {
       trusted-public-keys = lib.mkForce (lib.unique publicKeys);
       narinfo-cache-positive-ttl = cfg.narinfo.positiveTtl;
       narinfo-cache-negative-ttl = cfg.narinfo.negativeTtl;
+      # One HTTP/2 connection per cache caps the whole download at a single
+      # TCP stream's rate over a high-latency tunnel; HTTP/1.1 lets Nix open
+      # up to http-connections (25) in parallel.
+      http2 = lib.mkIf (cfg.profile == "external") false;
     };
   };
 }
