@@ -79,6 +79,7 @@ ONLY_GROUP="${ONLY_GROUP:-}"
 HELD_FILE="nix/held-packages.json"
 HELD_INPUT="nixpkgs-held"
 HOLD_MAX_AUTO="${RFU_HOLD_MAX_AUTO:-3}"
+HOLD_MAX_CLIMB="${RFU_HOLD_MAX_CLIMB:-6}"
 HOLD_STALE_DAYS="${RFU_HOLD_STALE_DAYS:-30}"
 HOLD_NOTIFY=0
 
@@ -675,14 +676,29 @@ release_holds() {
     done
 }
 
+# Whether derivation $2 is in the build closure of derivation $1.
+drv_depends_on() {
+    nix-store --query --requisites "$1" 2>/dev/null | grep -Fxq -- "$2"
+}
+
+# Whether a failed drv is nixpkgs' unmodified top-level <pname>, the only kind
+# of attribute the overlay can swap.
+drv_is_top_level() {
+    local ref="$1" dname="$2" pname="$3"
+    [ "$(nix eval --raw "$ref#$pname.name" 2>/dev/null || true)" = "$dname" ]
+}
+
 # After a failed core build, hold the broken packages when every root failure
 # is a top-level nixpkgs leaf. Without a hold the whole group reverts and the
-# package stays old anyway, along with the rest of nixpkgs. Returns 0 only when
-# at least one hold was added, so the caller retries the build once.
+# package stays old anyway, along with the rest of nixpkgs. A root that is not
+# top-level (a python3Packages library, say) climbs instead: the top-level
+# packages that failed because of it are held, and bring their own copy of the
+# library from nixpkgs-held. Returns 0 only when at least one hold was added,
+# so the caller retries the build once.
 auto_hold_failures() {
     local glog="$1" base_lock="$2"
-    local ref held_ref drv dname pname dep dep_pname rev
-    local roots=() dependents=() picks=() reasons=()
+    local ref held_ref drv dname pname dep dep_pname other rev top
+    local roots=() dependents=() picks=() reasons=() climb=() pkg_deps=() above=() tops=()
     ref="$(locked_input_ref flake.lock nixpkgs)" || return 1
     mapfile -t roots < <(build_failures "$glog" root)
     mapfile -t dependents < <(build_failures "$glog" dependent)
@@ -693,19 +709,18 @@ auto_hold_failures() {
     fi
     for drv in "${roots[@]}"; do
         dname="$(drv_name "$drv")"
+        if drv_is_fixed_output "$drv"; then
+            log "🧊 auto-hold refused: $dname is a fetch (fixed-output) failure."
+            return 1
+        fi
         pname="$(drv_pname "$drv")"
         if [ -z "$pname" ] || ! valid_hold_name "$pname"; then
             log "🧊 auto-hold refused: $dname has no usable pname."
             return 1
         fi
-        if drv_is_fixed_output "$drv"; then
-            log "🧊 auto-hold refused: $dname is a fetch (fixed-output) failure."
-            return 1
-        fi
-        # Only an unmodified top-level attribute can be swapped by the overlay.
-        if [ "$(nix eval --raw "$ref#$pname.name" 2>/dev/null || true)" != "$dname" ]; then
-            log "🧊 auto-hold refused: $dname is not nixpkgs' top-level $pname."
-            return 1
+        if ! drv_is_top_level "$ref" "$dname" "$pname"; then
+            climb+=("$drv")
+            continue
         fi
         if held_names | grep -Fxq -- "$pname"; then
             log "🧊 auto-hold refused: $pname is already held and still breaks the build."
@@ -715,16 +730,83 @@ auto_hold_failures() {
         reasons+=("auto: $dname failed to build on nixpkgs ${ref##*/}")
     done
 
+    for dep in "${dependents[@]}"; do
+        [ -n "$(drv_pname "$dep")" ] && pkg_deps+=("$dep")
+    done
+
+    # Climb: hold the topmost failed packages above each non-top-level root.
+    # A library many packages use fails a wide fan of them; refuse that rather
+    # than hold half the fleet on old nixpkgs.
+    if [ "${#climb[@]}" -gt 0 ]; then
+        for dep in "${pkg_deps[@]}"; do
+            for drv in "${climb[@]}"; do
+                if drv_depends_on "$dep" "$drv"; then
+                    above+=("$dep")
+                    break
+                fi
+            done
+        done
+        if [ "${#above[@]}" -gt "$HOLD_MAX_CLIMB" ]; then
+            log "🧊 auto-hold refused: ${#above[@]} packages failed above $(drv_name "${climb[0]}"); only $HOLD_MAX_CLIMB can be climbed."
+            return 1
+        fi
+        for dep in "${above[@]}"; do
+            top=1
+            for other in "${above[@]}"; do
+                if [ "$other" != "$dep" ] && drv_depends_on "$other" "$dep"; then
+                    top=0
+                    break
+                fi
+            done
+            [ "$top" = 1 ] && tops+=("$dep")
+        done
+        for drv in "${climb[@]}"; do
+            dname="$(drv_name "$drv")"
+            other=""
+            for top in "${tops[@]}"; do
+                drv_depends_on "$top" "$drv" && other="$top" && break
+            done
+            if [ -z "$other" ]; then
+                log "🧊 auto-hold refused: $dname is not nixpkgs' top-level $(drv_pname "$drv"), and no top-level package above it failed."
+                return 1
+            fi
+        done
+        for top in "${tops[@]}"; do
+            dname="$(drv_name "$top")"
+            pname="$(drv_pname "$top")"
+            if ! valid_hold_name "$pname" || ! drv_is_top_level "$ref" "$dname" "$pname"; then
+                log "🧊 auto-hold refused: $dname failed above a library but is not nixpkgs' top-level $pname."
+                return 1
+            fi
+            if held_names | grep -Fxq -- "$pname"; then
+                log "🧊 auto-hold refused: $pname is already held and still breaks the build."
+                return 1
+            fi
+            if ! printf '%s\n' "${picks[@]:-}" | grep -Fxq -- "$pname"; then
+                picks+=("$pname")
+                reasons+=("auto: $dname failed on nixpkgs ${ref##*/} because a dependency did not build")
+            fi
+        done
+        if [ "${#picks[@]}" -gt "$HOLD_MAX_AUTO" ]; then
+            log "🧊 auto-hold refused: ${#picks[@]} holds needed; only 1-$HOLD_MAX_AUTO allowed."
+            return 1
+        fi
+    fi
+
     # Leaf guard: the overlay swaps a held package for its dependents too. If
     # any other package (anything with a pname) failed because of these roots,
     # a root is a library, and holding it would rebuild a mixed-nixpkgs world.
-    for dep in "${dependents[@]}"; do
+    # Packages under a climbed hold are covered: they come from nixpkgs-held.
+    for dep in "${pkg_deps[@]}"; do
         dep_pname="$(drv_pname "$dep")"
-        [ -z "$dep_pname" ] && continue
-        if ! printf '%s\n' "${picks[@]}" | grep -Fxq -- "$dep_pname"; then
-            log "🧊 auto-hold refused: package $(drv_name "$dep") depends on ${picks[*]}."
-            return 1
-        fi
+        printf '%s\n' "${picks[@]}" | grep -Fxq -- "$dep_pname" && continue
+        other=""
+        for top in "${tops[@]}"; do
+            drv_depends_on "$top" "$dep" && other="$top" && break
+        done
+        [ -n "$other" ] && continue
+        log "🧊 auto-hold refused: package $(drv_name "$dep") depends on ${picks[*]}."
+        return 1
     done
 
     # With no hold active, pin nixpkgs-held to the last nixpkgs that built.

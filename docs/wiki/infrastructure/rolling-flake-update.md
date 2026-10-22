@@ -175,11 +175,28 @@ and it held back everything else.
   - It holds the roots only if all of these are true:
     - there are 1–3 roots;
     - each root has a pname and is not a fixed-output (fetch) failure;
-    - each root's name equals the candidate nixpkgs' top-level `<pname>.name`;
+    - each root's name equals the candidate nixpkgs' top-level `<pname>.name`,
+      or the root climbs (below);
     - none is already held;
     - (the leaf guard) no failed dependent is itself a package with a pname, so
       a broken library like openssl is never held, since that would rebuild a
-      mixed-nixpkgs world.
+      mixed-nixpkgs world. Packages under a climbed hold are exempt.
+  - **Climb (2026-10-22):** a root that isn't a top-level attribute, such as
+    a `python3Packages` library, can't be swapped by the overlay. Instead the
+    script holds the topmost failed packages above it (found with
+    `nix-store --query --requisites`), and they bring their own copy of the
+    library from `nixpkgs-held`. Example: pyopenjtalk-plus failing on Python
+    3.14 (NixOS/nixpkgs#576442) broke piper-tts and calibre; the climb holds
+    `calibre`. It refuses when:
+    - more than 6 packages (`RFU_HOLD_MAX_CLIMB`) failed above the root, the
+      fan-out of a widely used library;
+    - nothing top-level failed above the root (a kernel module such as
+      `framework-laptop-kmod` surfaces only through `linux-*-modules`, initrd
+      and boot plumbing, so it can never be held);
+    - a topmost package isn't itself an unmodified top-level attribute;
+    - the total number of holds would exceed 3.
+  - Holding is all-or-nothing: if any root can't be held or climbed, nothing
+    is held, because the retry would still fail on that root.
   - With no other holds active, `nixpkgs-held` is first re-pinned to the
     pre-update nixpkgs, the last one that built.
   - Then the build is retried once. Green means core lands with the hold;
@@ -201,7 +218,7 @@ would have shipped. The difference is that the other ~100k packages now move.
   `nix flake lock`.
 - **Release by hand:** delete the entry.
 - **Tests:** `nix/checks/test_rolling_holds.py` replays the real functions
-  against a mocked `nix` and runs in `checks.mongodb80UpstreamGuard`.
+  against a mocked `nix` and runs in `checks.mongodb80UpdaterCheck`.
 
 ## Still to do (durable)
 

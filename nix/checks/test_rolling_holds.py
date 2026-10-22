@@ -3,7 +3,8 @@
 
 The hold functions are taken from the real script source. `nix` is a shell
 function that answers from fixture files, so no build, network or store access
-happens. Covers release, auto-hold (including every refusal guard), the
+happens. Covers release, auto-hold (including every refusal guard and the climb from a
+non-top-level library to the top-level package above it), the
 nixpkgs-held re-pin, and the nightly hold summary.
 """
 import json
@@ -19,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_flake_update.sh"))
 FUNCTIONS = (
     "locked_input_ref", "valid_hold_name", "held_names", "drv_name", "drv_pname",
-    "drv_is_fixed_output", "build_failures", "release_holds", "auto_hold_failures",
+    "drv_is_fixed_output", "build_failures", "drv_depends_on", "drv_is_top_level",
+    "release_holds", "auto_hold_failures",
     "hold_summary",
 )
 BASE_REV = "a" * 40
@@ -48,6 +50,7 @@ set -euo pipefail
 HELD_FILE=nix/held-packages.json
 HELD_INPUT=nixpkgs-held
 HOLD_MAX_AUTO=3
+HOLD_MAX_CLIMB=6
 HOLD_STALE_DAYS=30
 HOLD_NOTIFY=0
 TAG=nix-rolling
@@ -76,6 +79,14 @@ nix() {
     *) return 97 ;;
   esac
 }
+nix-store() {
+  printf 'nix-store %s\n' "$*" >> calls
+  [ "$1 $2" = "--query --requisites" ] || return 97
+  local f="closures/${3##*/}"
+  printf '%s\n' "$3"
+  [ -f "$f" ] && cat "$f"
+  return 0
+}
 '''
 
 
@@ -93,14 +104,22 @@ def drv_json(pname=None, fod=False, structured=False):
     return json.dumps({"/nix/store/x.drv": {"env": env, "outputs": {"out": {"path": "/nix/store/x"}}}})
 
 
+def store(drv):
+    return f"/nix/store/{'0' * 32}-{drv}.drv"
+
+
 def run_case(root, bash, functions, *, held, body, log_text="", drvs=None, evals=None,
-             buildable=(), held_rev=OLD_HELD_REV):
+             buildable=(), held_rev=OLD_HELD_REV, closures=None):
     for name in ("calls", "messages"):
         (root / name).write_text("")
     shutil.rmtree(root / "drvs", ignore_errors=True)
     (root / "drvs").mkdir()
     shutil.rmtree(root / "work", ignore_errors=True)
     (root / "work").mkdir()
+    shutil.rmtree(root / "closures", ignore_errors=True)
+    (root / "closures").mkdir()
+    for drv, inputs in (closures or {}).items():
+        (root / "closures" / f"{'0' * 32}-{drv}.drv").write_text("".join(f"{store(i)}\n" for i in inputs))
     for drv, data in (drvs or {}).items():
         (root / "drvs" / f"{'0' * 32}-{drv}.drv.json").write_text(data)
     (root / "evals.json").write_text(json.dumps(evals or {}))
@@ -198,6 +217,46 @@ def main():
         for label, (log_text, drvs, evals, why) in refusals.items():
             out = run_case(root, bash, functions, held={}, body=auto, log_text=log_text, drvs=drvs,
                            evals={**leaf_evals, **evals} if label != "not top-level" else evals)
+            assert rc() == "1", (label, out["messages"])
+            assert why in out["messages"], (label, out["messages"])
+            assert out["held"] == {} and out["lock_held"] == OLD_HELD_REV, (label, out)
+
+        # Climb: a non-top-level library root holds the top-level package above it.
+        lib = "python3.14-pyopenjtalk-plus-0.4.1-post9"
+        climb_log = failure(lib, ROOT_FAIL) + failure("piper-tts-1.8.0", DEP_FAIL) \
+            + failure("calibre-9.16.0", DEP_FAIL) + failure("unit-shelfarr-calibre.service", DEP_FAIL)
+        climb_drvs = {lib: drv_json("pyopenjtalk-plus", structured=True), "piper-tts-1.8.0": drv_json("piper-tts"),
+                      "calibre-9.16.0": drv_json("calibre"), "unit-shelfarr-calibre.service": drv_json()}
+        climb_closures = {"piper-tts-1.8.0": [lib], "calibre-9.16.0": ["piper-tts-1.8.0", lib],
+                          "unit-shelfarr-calibre.service": ["calibre-9.16.0", "piper-tts-1.8.0", lib]}
+        climb_evals = {f"{CAND}#calibre.name": "calibre-9.16.0", f"{CAND}#piper-tts.name": "piper-tts-1.8.0",
+                       f"github:NixOS/nixpkgs/{BASE_REV}#calibre.name": "calibre-9.15.0"}
+        out = run_case(root, bash, functions, held={}, body=auto, log_text=climb_log, drvs=climb_drvs,
+                       evals=climb_evals, closures=climb_closures)
+        assert rc() == "0", out["messages"]
+        assert list(out["held"]) == ["calibre"], out
+        assert "because a dependency did not build" in out["held"]["calibre"]["reason"], out
+        assert out["lock_held"] == BASE_REV, out
+
+        # Climb refusals leave the hold list and pin untouched.
+        wide = [f"app{i}-1" for i in range(7)]
+        kmod = "linux-7.3-modules"
+        climb_refusals = {
+            "too wide": (failure(lib, ROOT_FAIL) + "".join(failure(w, DEP_FAIL) for w in wide),
+                         {lib: drv_json("pyopenjtalk-plus"), **{w: drv_json(w[:-2]) for w in wide}},
+                         {w: [lib] for w in wide}, climb_evals, "only 6 can be climbed"),
+            "top not top-level": (climb_log, climb_drvs, climb_closures,
+                                  {**climb_evals, f"{CAND}#calibre.name": "calibre-9.17.0"},
+                                  "failed above a library but is not nixpkgs' top-level calibre"),
+            "unholdable sibling root": (climb_log + failure(kmod, ROOT_FAIL) + failure("initrd-linux-7.3", DEP_FAIL),
+                                        {**climb_drvs, kmod: drv_json("linux-modules"),
+                                         "initrd-linux-7.3": drv_json()},
+                                        {**climb_closures, "initrd-linux-7.3": [kmod]}, climb_evals,
+                                        "and no top-level package above it failed"),
+        }
+        for label, (log_text, drvs, closures, evals, why) in climb_refusals.items():
+            out = run_case(root, bash, functions, held={}, body=auto, log_text=log_text, drvs=drvs,
+                           evals=evals, closures=closures)
             assert rc() == "1", (label, out["messages"])
             assert why in out["messages"], (label, out["messages"])
             assert out["held"] == {} and out["lock_held"] == OLD_HELD_REV, (label, out)
