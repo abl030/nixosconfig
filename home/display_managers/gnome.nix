@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   # GNOME ships gcr-ssh-agent as the SSH agent, which caches an unlocked key
   # for the whole login session (no TTL). Replace it with our plain 1h-TTL
   # ssh-agent. Pairs with `services.gnome.gcr-ssh-agent.enable = false` in each
@@ -65,6 +69,24 @@
     switcher-popup-timeout = 0; # show the popup immediately (default 100ms)
     switcher-popup-tooltip-label-scale = 117;
   };
+
+  # Pin the Paperless-watched Scans folder (tower NFS, /mnt/data via
+  # homelab.mounts.nfs) in the GTK sidebar: Nautilus and the GTK/portal file
+  # chooser Firefox's Save dialog uses both read this file. Appended rather
+  # than managed via gtk.gtk3.bookmarks, which would make the file a read-only
+  # store symlink and drop any bookmarks added by hand.
+  home.activation.scansBookmark = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    bookmarks="$HOME/.config/gtk-3.0/bookmarks"
+    entry='file:///mnt/data/Life/Meg%20and%20Andy/Scans Scans'
+    run mkdir -p "$(dirname "$bookmarks")"
+    if ! grep -qxF "$entry" "$bookmarks" 2>/dev/null; then
+      if [ -n "''${DRY_RUN:-}" ]; then
+        echo "would add Scans bookmark to $bookmarks"
+      else
+        printf '%s\n' "$entry" >> "$bookmarks"
+      fi
+    fi
+  '';
 
   imports = [
     # ./gnome_configs/${hostname}.nix
