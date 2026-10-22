@@ -301,13 +301,7 @@
     kernel.sysctl = {
       # Allow rootless containers to use ping (required by smokeping/fping).
       "net.ipv4.ping_group_range" = "0 2147483647";
-      # BBR + fq: doc1 serves nixcache to roaming laptops over a ~90 ms
-      # Tailscale path, where loss-based CUBIC held each TCP stream to
-      # ~1 MB/s (2026-10-22). BBR keeps throughput up on long lossy paths.
-      "net.core.default_qdisc" = "fq";
-      "net.ipv4.tcp_congestion_control" = "bbr";
     };
-    kernelModules = ["tcp_bbr"];
   };
 
   # VM Specifics

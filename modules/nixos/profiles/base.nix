@@ -8,6 +8,7 @@
 }: let
   privateFlakeAuth = hostConfig.privateFlakeAuth or true;
   atuinCredentials = hostConfig.atuinCredentials or true;
+  tuneTcp = !(config.boot.isContainer or false) && !(config.wsl.enable or false);
 in {
   # ---------------------------------------------------------
   # 0. IDENTITY & BOOTSTRAP
@@ -148,6 +149,18 @@ in {
     "net.ipv6.conf.all.accept_source_route" = 0;
     "net.ipv6.conf.default.accept_source_route" = 0;
   };
+
+  # ---------------------------------------------------------
+  # 3d. TCP CONGESTION CONTROL: BBR + fq
+  # ---------------------------------------------------------
+  # Over long lossy paths (a laptop on hotel wifi reaching home through
+  # Tailscale, ~90 ms) loss-based CUBIC held each TCP stream to ~1 MB/s; BBR on
+  # doc1 took the same stream to 7.6 MB/s (2026-10-22). On the LAN (0.1 ms) the
+  # choice makes no difference. Skipped in LXC (no module loading, default_qdisc
+  # is host-global; CTs inherit prom's setting) and WSL (Microsoft kernel).
+  boot.kernel.sysctl."net.core.default_qdisc" = lib.mkIf tuneTcp (lib.mkDefault "fq");
+  boot.kernel.sysctl."net.ipv4.tcp_congestion_control" = lib.mkIf tuneTcp (lib.mkDefault "bbr");
+  boot.kernelModules = lib.mkIf tuneTcp ["tcp_bbr"];
 
   # Drop idle authenticated login sessions after 55 min (set just under the
   # user's ssh-agent passphrase re-ask). "Idle" = no PTY activity, so an actively
