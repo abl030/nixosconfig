@@ -13,6 +13,14 @@
     ../../modules/nixos/services/podcast.nix
   ];
 
+  # GC-root fleet build inputs that no public cache carries. doc1 builds every
+  # host's closure but roots none of them, so without this the 3-day GC drops
+  # the archive and each nixpkgs bump re-downloads it from archive.org during
+  # the rolling update (a flaky fetch there fails the whole core group).
+  system.extraDependencies = [
+    (import ../../home/games/museum-madness-archive.nix pkgs)
+  ];
+
   # Forgejo push token for the rolling-flake-update bot (nixbot). Decryptable by
   # doc1 only (per-host sops scope, #234); read by the bot service (User=abl030)
   # and sent as an Authorization header on push. See
