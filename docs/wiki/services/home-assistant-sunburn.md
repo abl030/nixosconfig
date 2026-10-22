@@ -87,11 +87,14 @@ for Margaret River the direct fetch gave the same UV now and peak as
   attributes, shown as "📍 UV for …" on the Overview card. With a phone fix the
   label is the `locality` of `sensor.sm_a556e_geocoded_location` if that
   companion-app sensor is enabled, otherwise the rounded coordinates.
-- **Phone setting:** as of 2026-10-22 the phone only reported battery sensors,
-  and the tracker had been `unknown` since the 2026-10-17 restart. Turn on
-  location in the companion app (Settings → Companion app → Manage sensors →
-  Location; Android also needs "Allow all the time") and the phone path
-  takes over on the next 15-minute tick.
+- **Two coordinate sources.** Coordinates come from the tracker's
+  `latitude`/`longitude` first. If those are missing, they come from the
+  `location: [lat, lon]` attribute of `sensor.sm_a556e_geocoded_location`.
+  This matters in practice. On 2026-10-22, after location was enabled in the
+  companion app, the geocoded sensor reported straight away. The tracker
+  stayed `unknown` even after a `request_location_update` notify command,
+  because background tracking was still off on the phone. The geocoded
+  fallback made the phone path work regardless.
 - **Timezone:** clock maths still runs on HA's Perth timezone, so the "peak
   around" hour and the midnight cut-off are Perth time when you're elsewhere.
 - **HA config:** `rest_command` was a new domain and needed a full restart.

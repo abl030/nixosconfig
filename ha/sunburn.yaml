@@ -47,7 +47,8 @@
 #     escape: its `uv_index` and `uv_index_clear_sky` came back identical for
 #     every hour tested here, including an 88%-cloud morning.
 #
-# Location follows Andy's phone (`device_tracker.andya55`, companion-app GPS):
+# Location follows Andy's phone (`device_tracker.andya55` GPS, else the
+# coordinates on `sensor.sm_a556e_geocoded_location`):
 # when it has coordinates we ask met.no's locationforecast/2.0/complete for
 # them directly (same feed the met integration uses, same `uv` + cloud
 # fields). With no phone fix we fall back to the met.no weather entity in
@@ -77,9 +78,13 @@ template:
     actions:
       - variables:
           tracker: device_tracker.andya55
+          # the geocoded-location sensor carries [lat, lon] even when the
+          # app's background tracking (which feeds the tracker) is off
+          geocoded: sensor.sm_a556e_geocoded_location
           fallback: weather.forecast_home
-          lat: "{{ state_attr(tracker, 'latitude') }}"
-          lon: "{{ state_attr(tracker, 'longitude') }}"
+          geo_ll: "{{ state_attr(geocoded, 'location') or [none, none] }}"
+          lat: "{{ state_attr(tracker, 'latitude') or geo_ll[0] }}"
+          lon: "{{ state_attr(tracker, 'longitude') or geo_ll[1] }}"
           use_phone: "{{ lat is number and lon is number }}"
       - if: "{{ use_phone }}"
         then:
@@ -116,7 +121,7 @@ template:
                else (fc[fallback].forecast | default([], true)) }}
           where: >-
             {%- if from_phone -%}
-              {{ state_attr('sensor.sm_a556e_geocoded_location', 'locality')
+              {{ state_attr(geocoded, 'locality')
                  or ('phone ' ~ (lat | round(2)) ~ ', ' ~ (lon | round(2))) }}
             {%- else -%}
               {{ state_attr(fallback, 'friendly_name') | replace('Forecast ', '') }}
