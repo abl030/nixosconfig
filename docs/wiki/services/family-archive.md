@@ -15,7 +15,16 @@ browser → doc1 nginx :443 sources.ablz.au (localProxy TLS/ACME, LAN DNS)
             /o/<ID>/<f>  → NAS archive, read-only bind, source-ID pattern only
             /tiles/…     → /var/lib/family-map/tiles (local NVMe), manifest and
                            <year>/<z>/<x>/<y> tiles only
+            /basemap/…   → /var/lib/family-archive/basemap (local NVMe),
+                           world.pmtiles and detail.pmtiles only
 ```
+
+- The map's street map is self-hosted (2026-10-24): `fh basemap` cuts a
+  world file (zoom 8, ~560 MB) and a detail file (zoom 15, ~7.7 GB: Australia,
+  Britain and Ireland, the Netherlands, and a box round every other located
+  place) from a Protomaps OpenStreetMap build, and the browser draws them
+  with protomaps-leaflet. Nothing streams from OpenStreetMap's tile servers,
+  which were slow and once refused the site outright.
 
 - The site's map (`/map/` and every place page, family-history issue #7)
   draws aerial photographs from the tile cache that family.ablz.au also uses.

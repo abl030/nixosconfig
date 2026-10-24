@@ -13,6 +13,7 @@
   servedSite = "/run/family-archive-site";
   servedOriginals = "/run/family-archive-originals";
   servedTiles = "/run/family-archive-tiles";
+  servedBasemap = "/run/family-archive-basemap";
 in {
   options.homelab.services.familyArchive = {
     enable = lib.mkEnableOption "family-history source archive viewer";
@@ -37,6 +38,17 @@ in {
         family-history repo's maps/tools/build_tiles.py from local copies of the
         masters; regenerable, not backed up). Served at /tiles/. Landgate years
         are a private research copy: this host stays LAN-only.
+      '';
+    };
+
+    basemapDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/family-archive/basemap";
+      description = ''
+        The map's self-hosted street map: OpenStreetMap vector tiles in two
+        PMTiles files (world, detail) cut by `fh basemap` from a Protomaps
+        build, on local disk; regenerable, not backed up. Served at /basemap/
+        so the map never streams from OpenStreetMap's servers.
       '';
     };
 
@@ -65,6 +77,7 @@ in {
       "-${cfg.siteDir}:${servedSite}"
       "-${cfg.originalsDir}:${servedOriginals}"
       "-${cfg.tilesDir}:${servedTiles}"
+      "-${cfg.basemapDir}:${servedBasemap}"
     ];
     # Ordering only, never Requires: on a normal boot let the NFS mount land
     # before nginx builds its namespace so the originals bind isn't skipped;
@@ -128,6 +141,16 @@ in {
           '';
         };
         "/tiles/".return = "404";
+        # The street map: two PMTiles archives the browser reads by byte range
+        # (nginx answers Range on static files). Re-cut about yearly.
+        "~ ^/basemap/(?<pmtiles>(?:world|detail)\\.pmtiles)$" = {
+          alias = "${servedBasemap}/$pmtiles";
+          extraConfig = ''
+            add_header Cache-Control "public, max-age=86400" always;
+            add_header X-Content-Type-Options nosniff always;
+          '';
+        };
+        "/basemap/".return = "404";
       };
     };
 
