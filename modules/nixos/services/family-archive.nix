@@ -102,8 +102,10 @@ in {
             add_header Referrer-Policy same-origin always;
           '';
         };
+        # Revalidated on every load (a 304 on the LAN): the asset URLs carry
+        # no version, and an hour's cache kept a fixed map.js broken.
         "/assets/".extraConfig = ''
-          add_header Cache-Control "public, max-age=3600" always;
+          add_header Cache-Control "no-cache" always;
           add_header X-Content-Type-Options nosniff always;
           add_header Referrer-Policy same-origin always;
         '';
