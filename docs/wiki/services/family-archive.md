@@ -13,7 +13,19 @@ browser → doc1 nginx :443 sources.ablz.au (localProxy TLS/ACME, LAN DNS)
         → 127.0.0.1:8853 static server
             /            → /var/lib/family-archive/site (fh build output)
             /o/<ID>/<f>  → NAS archive, read-only bind, source-ID pattern only
+            /tiles/…     → /var/lib/family-map/tiles (local NVMe), manifest and
+                           <year>/<z>/<x>/<y> tiles only
 ```
+
+- The site's map (`/map/` and every place page, family-history issue #7)
+  draws aerial photographs from the tile cache that family.ablz.au also uses.
+  The tiles are cut from local copies of the masters
+  (`/var/lib/family-map/masters`, mirrored from the NAS) because reading the
+  masters over NFS was too slow; `fh build` only reads the manifest, never an
+  image. Landgate years are a private research copy, so the site stays
+  LAN/family-only. family.ablz.au is to be removed once its history features
+  are in the catalogue (issue #7); the tile cache's tmpfiles rule then moves
+  here.
 
 - The site is generated HTML plus small derivatives: region crops,
   thumbnails, and page images for PDFs. It is regenerable, so it isn't backed

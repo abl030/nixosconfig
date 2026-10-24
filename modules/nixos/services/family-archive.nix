@@ -12,6 +12,7 @@
   cfg = config.homelab.services.familyArchive;
   servedSite = "/run/family-archive-site";
   servedOriginals = "/run/family-archive-originals";
+  servedTiles = "/run/family-archive-tiles";
 in {
   options.homelab.services.familyArchive = {
     enable = lib.mkEnableOption "family-history source archive viewer";
@@ -26,6 +27,17 @@ in {
       type = lib.types.str;
       default = "/mnt/data/Life/Andy/Genealogy/Archive";
       description = "The NAS archive: one folder of originals per source ID. Read-only to nginx.";
+    };
+
+    tilesDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/family-map/tiles";
+      description = ''
+        Aerial photograph tiles for the site's map, on local disk (built by the
+        family-history repo's maps/tools/build_tiles.py from local copies of the
+        masters; regenerable, not backed up). Served at /tiles/. Landgate years
+        are a private research copy: this host stays LAN-only.
+      '';
     };
 
     fqdn = lib.mkOption {
@@ -52,6 +64,7 @@ in {
     systemd.services.nginx.serviceConfig.BindReadOnlyPaths = [
       "-${cfg.siteDir}:${servedSite}"
       "-${cfg.originalsDir}:${servedOriginals}"
+      "-${cfg.tilesDir}:${servedTiles}"
     ];
     # Ordering only, never Requires: on a normal boot let the NFS mount land
     # before nginx builds its namespace so the originals bind isn't skipped;
@@ -97,6 +110,24 @@ in {
           '';
         };
         "/o/".return = "404";
+        # The map's aerial tiles, from local disk: the manifest and
+        # <year>/<z>/<x>/<y> images only (no listings, no build scratch).
+        "= /tiles/manifest.json" = {
+          alias = "${servedTiles}/manifest.json";
+          extraConfig = ''
+            add_header Cache-Control "no-cache" always;
+            add_header X-Content-Type-Options nosniff always;
+          '';
+        };
+        # Tiles are rebuilt occasionally; a day's cache keeps panning cheap.
+        "~ ^/tiles/(?<tile>[0-9]+/[0-9]+/[0-9]+/[0-9]+\\.(?:png|jpg|webp))$" = {
+          alias = "${servedTiles}/$tile";
+          extraConfig = ''
+            add_header Cache-Control "public, max-age=86400" always;
+            add_header X-Content-Type-Options nosniff always;
+          '';
+        };
+        "/tiles/".return = "404";
       };
     };
 
@@ -112,6 +143,10 @@ in {
         {
           name = "Family sources";
           url = "https://${cfg.fqdn}/";
+        }
+        {
+          name = "Family sources map tiles";
+          url = "https://${cfg.fqdn}/tiles/manifest.json";
         }
       ];
       errorPatterns = [];
