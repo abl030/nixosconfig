@@ -200,22 +200,31 @@
       inputs.flake-parts.follows = "flake-parts";
     };
 
+    # unifi-, pfsense- and slskd-mcp build with nixpkgs' fastmcp, which unstable
+    # marks broken since mcp 2.x (late Oct 2026); following our nixpkgs blocked the
+    # rolling update's core group. Pin them to the last good rev instead — a
+    # rev-pinned URL is never moved by `nix flake update`. Their own locks are
+    # already past mcp 2, so not following at all does not work either. Restore
+    # `inputs.nixpkgs.follows = "nixpkgs"` and drop this input once they are off
+    # nixpkgs fastmcp (#244).
+    nixpkgs-fastmcp.url = "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4";
+
     # UniFi MCP - auto-generated MCP server for UniFi Network Controller
     unifi-mcp = {
       url = "github:abl030/unifi-mcp";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-fastmcp";
     };
 
     # pfSense MCP - auto-generated MCP server for pfSense REST API v2
     pfsense-mcp = {
       url = "github:abl030/pfsense-mcp";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-fastmcp";
     };
 
     # slskd MCP - MCP server for slskd (Soulseek client)
     slskd-mcp = {
       url = "github:abl030/slskd-mcp";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-fastmcp";
     };
 
     # Vinsight MCP - MCP server for Vinsight winery API.

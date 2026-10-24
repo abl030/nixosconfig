@@ -1,6 +1,6 @@
 # Fleet crash capture (netconsole standard, kdump opt-in)
 
-**Date researched:** 2026-07-25; revised 2026-08-03 after the second doc2 panic
+**Date researched:** 2026-07-25; revised 2026-08-03 after the second doc2 panic; revised 2026-10-25 after the doc1 capture-kernel OOM
 **Status:** netconsole fleet-wide; doc1 and doc2 kdump-enabled; doc2 uses a dedicated source-filtered prom receiver
 **Module:** `modules/nixos/services/crash-capture.nix` (`homelab.crashCapture.*`)
 **Issue:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51)
@@ -179,6 +179,58 @@ ssh root@prom 'tail -n 5 /var/log/doc2-netconsole/kernel.log'
 
 A deliberate SysRq crash is not part of routine deployment. If explicitly authorized later, it is the
 only end-to-end proof of crash-kernel boot, vmcore persistence and automatic return to service.
+
+## 2026-10-24 doc1: panic, then the capture kernel itself died (8h outage)
+
+**What happened.** doc1 (VM 104) went silent at 21:45:47 AWST. Metrics were unremarkable up to the
+last scrape (21 GB available, load 0.3, swap untouched). The main kernel panicked and kexec'd into the
+capture kernel at 21:46:11. That kernel died about 4 s into boot, before `crash-capture-save-vmcore` ran:
+
+- `virtio_balloon` loaded inside the 512M reservation and inflated toward prom's host-side balloon
+  target. doc1 had been ballooned down to about 30 of 44 GiB, with prom itself at 109/123 GB used.
+  Allocation profiling showed `balloon_page_alloc` at about 280 MiB, followed by "Out of puff" and the
+  OOM killer, which killed udev and journald and then panicked with `System is deadlocked on memory`.
+- Only about 170 MiB of the 512M was managed memory once the kernel, initrd and page_ext were in.
+- The capture kernel's command line (`irqpoll maxcpus=1 reset_devices 1 boot.shell_on_fail`) had no
+  `panic=`. The module's `kernel.panic=30` is a sysctl, which never applies that early, so the capture
+  kernel hung until a manual `qm stop` at 05:48. `qm reboot` timed out because QGA was dead, and the
+  first stop hit a lock timeout.
+
+The only artifact was EFI pstore, and it held the **capture kernel's** panic (512 MiB RAM, 4 s uptime),
+not the main kernel's. With kdump loaded, panic kexecs before `kmsg_dump`. Netconsole to prom also had
+nothing: doc1's last line there was a 16:04 NFS warning. **The main kernel's fault is unknown.** The two
+earlier doc1 captures (2026-08-28, 2026-09-09) both show the issue-51 signature: an Oops in
+`swapper/N` at RIP `0xffffffff81001280`.
+
+To tell the two pstore sources apart, look at `N pages RAM` and the uptime in the record: the capture
+kernel shows about 131k pages and single-digit seconds.
+
+**Fixes (2026-10-25):**
+
+- Module: `boot.crashDump.kernelParams` now carries `panic=30 module_blacklist=virtio_balloon` in
+  addition to the upstream `1 boot.shell_on_fail`. Setting the option replaces the upstream default, so
+  restate those two. This applies to every kdump host.
+- doc1: `reservedMemory = "768M"`, `crash_kexec_post_notifiers` (main kernel log to pstore before
+  kexec), and `console=ttyS0,115200 console=tty0` on both kernels.
+- prom: VM 104 `args: -chardev file,id=doc1serial,path=/var/log/doc1-serial.log,append=on -serial
+  chardev:doc1serial`, with `/etc/logrotate.d/doc1-serial` (copytruncate). QEMU writes the file
+  itself, so no reader process is involved. A PVE `serial0: socket` did not deliver to a reader for the
+  issue-51 lab VM. The original config is backed up at `/root/104.conf.bak-20261025` on prom.
+- Automatic recovery (a QEMU i6300esb watchdog or a prom-side reset job) was considered and
+  **declined** by the operator.
+
+Acceptance after the VM 104 power-cycle:
+
+```sh
+cat /sys/kernel/kexec_crash_loaded     # 1
+cat /sys/kernel/kexec_crash_size       # ~768M
+cat /proc/cmdline                      # has crash_kexec_post_notifiers, console=ttyS0
+ssh root@prom 'tail -n 3 /var/log/doc1-serial.log'   # boot text present
+```
+
+Known remaining gap: doc1's netconsole still targets prom UDP/6666, which the issue-51 lab receiver
+owns (`/var/log/vm951-netconsole.log`). That is the same mixing problem doc2 had before its dedicated
+6667 receiver.
 
 ## When to revisit
 

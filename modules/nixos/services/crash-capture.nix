@@ -381,6 +381,21 @@ in {
       boot.crashDump = {
         enable = true;
         reservedMemory = cfg.kdump.reservedMemory;
+        # Setting this replaces the upstream default, so "1 boot.shell_on_fail"
+        # (rescue target -> crash-capture-save-vmcore) is restated here.
+        #
+        # 2026-10-24: doc1's capture kernel loaded virtio_balloon, which inflated
+        # toward prom's host-side target inside the 512M reservation and starved
+        # it ("System is deadlocked on memory") 4s in, before the vmcore save.
+        # The sysctl panic=30 below never applies that early, so the capture
+        # kernel hung for 8h. Blacklist the balloon and put panic= on the capture
+        # kernel's own command line. See docs/wiki/infrastructure/fleet-crash-capture.md.
+        kernelParams = [
+          "1"
+          "boot.shell_on_fail"
+          "panic=30"
+          "module_blacklist=virtio_balloon"
+        ];
       };
 
       # Dump on the FIRST oops. Without this the initial fault is only logged and

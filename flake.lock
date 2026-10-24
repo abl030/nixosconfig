@@ -552,6 +552,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-fastmcp": {
+      "locked": {
+        "lastModified": 1792116957,
+        "narHash": "sha256-EjZqHKObBfIOeHZnMRVV87HB3pPq/WBkmRJWyFxmZu8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f20cd90e28fe0403873f473b29e42662cd86e8c4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f20cd90e28fe0403873f473b29e42662cd86e8c4",
+        "type": "github"
+      }
+    },
     "nixpkgs-held": {
       "locked": {
         "lastModified": 1790600678,
@@ -693,7 +709,7 @@
     "pfsense-mcp": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-fastmcp"
         ]
       },
       "locked": {
@@ -784,6 +800,7 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-fastmcp": "nixpkgs-fastmcp",
         "nixpkgs-held": "nixpkgs-held",
         "ntopng-exporter-src": "ntopng-exporter-src",
         "nvchad4nix": "nvchad4nix",
@@ -802,7 +819,7 @@
     "slskd-mcp": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-fastmcp"
         ]
       },
       "locked": {
@@ -1000,7 +1017,7 @@
     "unifi-mcp": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-fastmcp"
         ]
       },
       "locked": {

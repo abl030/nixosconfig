@@ -143,7 +143,9 @@
       };
       kdump = {
         enable = true;
-        reservedMemory = "512M";
+        # 512M left the 2026-10-24 capture kernel ~170M usable after its
+        # kernel, initrd and allocation-profiling overhead.
+        reservedMemory = "768M";
       };
     };
 
@@ -297,6 +299,20 @@
     # Track the newest kernel carried by nixpkgs-unstable rather than the
     # package set's conservative default kernel.
     kernelPackages = pkgs.linuxPackages_latest;
+
+    # Crash text that does not depend on the dying guest (2026-10-24: netconsole
+    # and pstore both missed the main-kernel panic). ttyS0 is a QEMU file
+    # chardev on prom (/var/log/doc1-serial.log, VM 104 `args:`); tty0 stays
+    # last so it remains /dev/console. crash_kexec_post_notifiers runs
+    # kmsg_dump before kexec, so EFI pstore gets the main kernel's log too.
+    # See docs/wiki/infrastructure/fleet-crash-capture.md.
+    kernelParams = [
+      "console=ttyS0,115200"
+      "console=tty0"
+      "crash_kexec_post_notifiers"
+    ];
+    # Merges with the module's list: the capture kernel prints to serial too.
+    crashDump.kernelParams = ["console=ttyS0,115200"];
 
     kernel.sysctl = {
       # Allow rootless containers to use ping (required by smokeping/fping).
