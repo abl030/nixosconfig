@@ -632,7 +632,9 @@ in {
         wantedBy = ["multi-user.target"];
         serviceConfig = {
           NoNewPrivileges = true; # alloy Go binary reads journald; no setuid exec (#232)
-          ExecStart = "${pkgs.grafana-alloy}/bin/alloy run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy --disable-reporting ${alloyConfig}";
+          # loki.write.wal is an experimental Alloy component and Alloy 1.21+
+          # refuses to load it unless the process opts into that stability level.
+          ExecStart = "${pkgs.grafana-alloy}/bin/alloy run --stability.level=experimental --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy --disable-reporting ${alloyConfig}";
           Restart = "on-failure";
           RestartSec = "10s";
         };
