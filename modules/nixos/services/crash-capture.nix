@@ -202,7 +202,9 @@
         else
           rm -f "$dir/vmlinux-$stamp.gz.tmp"
         fi
-        if tar -C "$configured_modules" -czf "$dir/kernel-modules-$stamp.tar.gz.tmp" . \
+        # modulesTree is a symlink farm (./lib -> the modules store path);
+        # without --dereference the archive held only that one link.
+        if tar --dereference -C "$configured_modules" -czf "$dir/kernel-modules-$stamp.tar.gz.tmp" . \
           2> "$dir/kernel-modules-$stamp.err"; then
           mv "$dir/kernel-modules-$stamp.tar.gz.tmp" "$dir/kernel-modules-$stamp.tar.gz"
         else
@@ -408,6 +410,12 @@ in {
       # alternative is the host hanging until someone notices. doc1 currently
       # runs panic=0, i.e. hang forever — never arm kdump without this.
       boot.kernel.sysctl."kernel.panic" = lib.mkDefault 30;
+
+      # Lets the hypervisor force a wedged-but-not-panicked guest into kdump
+      # (`qm monitor <vmid>` -> `nmi`) instead of a `qm stop` that discards the
+      # evidence. Guests see no unknown NMIs otherwise. Runbook in
+      # docs/wiki/infrastructure/fleet-crash-capture.md.
+      boot.kernel.sysctl."kernel.unknown_nmi_panic" = lib.mkDefault 1;
 
       systemd.services.crash-capture-save-vmcore = {
         description = "Persist vmcore after a kernel crash, then reboot";

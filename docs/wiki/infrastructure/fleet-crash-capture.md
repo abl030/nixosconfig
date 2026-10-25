@@ -232,6 +232,37 @@ Known remaining gap: doc1's netconsole still targets prom UDP/6666, which the is
 owns (`/var/log/vm951-netconsole.log`). That is the same mixing problem doc2 had before its dedicated
 6667 receiver.
 
+### Prior dumps never completed
+
+`/var/crash` on doc1 held the crash text (dmesg) for 2026-08-28 and 2026-09-09, but **no complete
+vmcore**. Aug 28 left an 827 MB `.partial`, and Sep 9 left a 404 MB `.tmp` and the 8 GB
+`.vmcore-reserve`, meaning the capture kernel died mid-write without its cleanup trap. The memory
+squeeze above is the probable cause of both. The kernel-module tarballs were 179 bytes, because
+`system.modulesTree` is a `./lib` symlink and `tar` ran without `--dereference` (fixed). Both oopses
+are a jump to the unrelocated `0xffffffff81001280` from `swapper/N` with an **empty call trace**, so
+the text alone cannot name the caller. A complete vmcore plus `crash(8)` is what closes #51.
+
+### Runbook: guest hung but not panicked
+
+Kdump hosts set `kernel.unknown_nmi_panic=1`. Before you stop a hung kdump guest, force it into kdump
+from prom:
+
+```sh
+ssh root@prom 'qm monitor 104 <<< nmi'     # 104 = doc1, 114 = doc2
+# wait up to ~20 min: capture kernel saves dmesg + vmcore to /var/crash, then reboots itself
+```
+
+Only fall back to `qm stop` if the guest is still dead after that window. A `qm stop` issued first
+throws the evidence away, as happened on 2026-10-24.
+
+### End-to-end test
+
+The only proof of the whole chain is a deliberate crash: `echo c | sudo tee /proc/sysrq-trigger` on
+doc1. Expected: the capture kernel boots with the new command line, writes `dmesg-*.txt`, a complete
+`vmcore-*.gz` (check with `gzip -t`), `vmlinux-*.gz` and a non-trivial `kernel-modules-*.tar.gz`, then
+reboots doc1 unattended. The panic text should also appear in `/var/log/doc1-serial.log` on prom and in
+`/var/lib/systemd/pstore`.
+
 ## When to revisit
 
 If a host panics and the netconsole capture still does not name the faulting function, that is the
