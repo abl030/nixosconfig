@@ -60,6 +60,8 @@
       # Roaming workstation, not a service host: let tailscaled manage netfilter
       # (blanket-accept the tailnet). Servers default to "off" (nixos-fw gates).
       netfilterMode = "on";
+      # `exit-on` / `exit-off` without a sudo password for hotel/guest wifi.
+      exitNodeToggle.enable = true;
     };
     nixCaches = {
       enable = true;

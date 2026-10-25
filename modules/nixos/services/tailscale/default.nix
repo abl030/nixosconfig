@@ -2,9 +2,28 @@
   lib,
   config,
   pkgs,
+  hostConfig,
   ...
 }: let
   cfg = config.homelab.tailscale;
+  tailscaleBin = "${config.services.tailscale.package}/bin/tailscale";
+
+  # Root halves of exit-on/exit-off: fixed commands, arguments ignored, so the
+  # NOPASSWD rule below grants exactly these two operations and nothing else.
+  exitNodeRoot = name: flags:
+    pkgs.writeShellScript "tailscale-${name}-root" ''
+      exec ${tailscaleBin} set ${lib.escapeShellArgs flags}
+    '';
+  exitOnRoot = exitNodeRoot "exit-on" [
+    "--exit-node=${cfg.exitNodeToggle.node}"
+    "--exit-node-allow-lan-access=false"
+  ];
+  exitOffRoot = exitNodeRoot "exit-off" ["--exit-node="];
+
+  exitNodeWrapper = name: root: msg:
+    pkgs.writeShellScriptBin name ''
+      /run/wrappers/bin/sudo -n ${root} && echo ${lib.escapeShellArg msg}
+    '';
 in {
   imports = [
     ./subnet-priority.nix
@@ -45,6 +64,21 @@ in {
         See docs/wiki/infrastructure/tailscale-untrust.md.
       '';
     };
+
+    exitNodeToggle = {
+      enable = lib.mkEnableOption ''
+        passwordless `exit-on` / `exit-off` commands for roaming hosts on
+        untrusted wifi. Deliberately NOT `tailscale set --operator`: operator
+        mode would let any process running as the user re-login tailscaled to
+        another tailnet or pick an attacker's exit node. This grants only
+        "route via `node` with LAN access off" and "exit node off"
+      '';
+      node = lib.mkOption {
+        type = lib.types.str;
+        default = "tower";
+        description = "Exit node `exit-on` routes through (tower is the only approved one; see tailscale-acl.md).";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -72,6 +106,24 @@ in {
       # the untrust nor netfilterMode=off can lock anyone out of any host.
       # Inventory + rationale: docs/wiki/infrastructure/tailscale-untrust.md
     };
+
+    # Blast radius of the NOPASSWD rule: a process running as the user can turn
+    # the exit node on (via cfg.exitNodeToggle.node only) or off. Store paths
+    # are immutable and `""` forbids extra arguments. Rollback: disable the
+    # option and redeploy.
+    environment.systemPackages = lib.mkIf cfg.exitNodeToggle.enable [
+      (exitNodeWrapper "exit-on" exitOnRoot "Exit node on: all traffic via ${cfg.exitNodeToggle.node}, LAN access blocked.")
+      (exitNodeWrapper "exit-off" exitOffRoot "Exit node off: traffic goes out the local network directly.")
+    ];
+    security.sudo.extraRules = lib.mkIf cfg.exitNodeToggle.enable (lib.mkAfter [
+      {
+        users = [hostConfig.user];
+        commands = map (root: {
+          command = "${root} \"\"";
+          options = ["NOPASSWD"];
+        }) [exitOnRoot exitOffRoot];
+      }
+    ]);
 
     # 3. The Conditional TPM Override
     systemd.services.tailscaled.environment = lib.mkIf cfg.tpmOverride {
