@@ -217,6 +217,11 @@ in {
       trusted-public-keys = lib.mkForce (lib.unique publicKeys);
       narinfo-cache-positive-ttl = cfg.narinfo.positiveTtl;
       narinfo-cache-negative-ttl = cfg.narinfo.negativeTtl;
+      # NixOS marks unit files, etc, hosts, acme-postrun and the toplevel
+      # allowSubstitutes = false, so without this a host rebuilds them all
+      # locally even when doc1's warm cache already holds them: ~1.4k local
+      # builds on doc2 after a nixpkgs bump (Forgejo #246, 2026-10-26).
+      always-allow-substitutes = lib.mkDefault true;
       # One HTTP/2 connection per cache caps the whole download at a single
       # TCP stream's rate over a high-latency tunnel; HTTP/1.1 lets Nix open
       # up to http-connections (25) in parallel.
