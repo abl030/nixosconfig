@@ -8,6 +8,17 @@ in {
   options.homelab.prometheus = {
     enable = lib.mkEnableOption "Node exporter for Prometheus metrics";
 
+    tailnetOnly = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        If true, open 9100 on tailscale0 only instead of every interface, so
+        hotel/airport wifi peers cannot read host metrics. For roaming hosts;
+        mirrors `homelab.ssh.tailnetOnly`. The on-host alloy scrape uses
+        localhost and is unaffected.
+      '';
+    };
+
     # Per-process metrics (ncabatoff process-exporter). On by default fleet-wide
     # so the next "what's eating RAM on host X?" question is answerable from
     # Grafana history instead of a live SSH snapshot. Scraped locally by alloy
@@ -40,7 +51,10 @@ in {
         ];
       };
 
-      networking.firewall.allowedTCPPorts = [9100];
+      networking.firewall = {
+        allowedTCPPorts = lib.mkIf (!cfg.tailnetOnly) [9100];
+        interfaces."tailscale0".allowedTCPPorts = lib.mkIf cfg.tailnetOnly [9100];
+      };
     }
 
     (lib.mkIf cfg.processExporter.enable {

@@ -36,6 +36,25 @@
       tailnetOnly = true;
       inhibitors.enable = true;
     };
+    # Same reasoning as ssh above: don't expose metrics or Spotify's
+    # local-files port to whatever untrusted network the laptop is on.
+    prometheus.tailnetOnly = true;
+    desktop.spotifyTailnetOnly = true;
+    # Syncthing over the tailnet only, same shape as doc2: no transfer or
+    # discovery ports on the physical NIC, and no announcing/relaying onto
+    # whatever network the laptop is on. Peers dial framework by its
+    # MagicDNS name (see the fleet device addresses in the syncthing module).
+    syncthing = {
+      openDefaultPorts = false;
+      openTailscaleDataPort = true;
+      options = {
+        listenAddresses = ["tcp://0.0.0.0:22000"];
+        globalAnnounceEnabled = false;
+        localAnnounceEnabled = false;
+        relaysEnabled = false;
+        natEnabled = false;
+      };
+    };
     tailscale = {
       enable = true;
       # Roaming workstation, not a service host: let tailscaled manage netfilter

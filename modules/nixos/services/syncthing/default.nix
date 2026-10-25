@@ -23,6 +23,13 @@
       name: host: {
         id = host.syncthingDeviceId;
         inherit name;
+        # Tailnet first so a peer with announce/relays off (framework on
+        # untrusted wifi) is still reachable; "dynamic" keeps discovery as
+        # the fallback for everyone else.
+        addresses = [
+          "tcp://${host.hostname}.tail13796.ts.net:22000"
+          "dynamic"
+        ];
       }
     )
     syncthingPeers
