@@ -263,6 +263,15 @@ doc1. Expected: the capture kernel boots with the new command line, writes `dmes
 reboots doc1 unattended. The panic text should also appear in `/var/log/doc1-serial.log` on prom and in
 `/var/lib/systemd/pstore`.
 
+**Result, 2026-10-25 09:20 AWST: passed end to end on doc1 (`614f58f9`).** The sysrq panic fired
+at 09:20:47. The capture kernel booted with the new command line, and `crash-capture-save-vmcore`
+wrote dmesg (09:20:56), `vmlinux` (220 MB), the module tarball (148 MB, 7412 `.ko`), and a complete
+3.4 GB `vmcore` (`gzip -t` OK) by 09:23:54. It then rebooted unattended at capture-kernel uptime
+186 s, and doc1 was back by 09:24, about 4 minutes in total. There was no manual `qm` task. The panic
+and backtrace were in all three text channels: the dmesg saved from the vmcore, EFI pstore (via
+`crash_kexec_post_notifiers`), and `/var/log/doc1-serial.log` on prom, which also shows the
+capture kernel's full boot. Earlier crash texts are archived in `~/.cache/doc1-crash-archive/` on doc1.
+
 ## When to revisit
 
 If a host panics and the netconsole capture still does not name the faulting function, that is the
