@@ -297,6 +297,15 @@ guest cannot detect itself, such as all vCPUs blocked in the host.
   (`<epoch> <qemu-pid>`); TCP recovery and resets clear it. Worst case for an undetectable hang:
   about 25 minutes to the NMI, then up to 20 more before the fallback reset.
 
+**Result, 2026-10-25 10:34 AWST: doc2 passed end to end (`b83bbe89`).** The sysrq panic reached
+the serial file and netconsole. The capture kernel was booting by 10:34:43 with `panic=30
+module_blacklist=virtio_balloon console=ttyS0,115200`, and the save service started at 10:34:59.
+It wrote dmesg, `vmlinux` (206 MB), the module tarball (146 MB, 7298 `.ko`), and a complete 8.3 GB
+`vmcore` (`gzip -t` OK, 11 GB in use at the time). It rebooted unattended at 10:38:17, and SSH was
+back at 10:38:38, about 4 minutes in total. `systemctl is-system-running` was `running`, and Loki
+and Grafana returned 200. The NMI watchdog path was not exercised: the test crash was a real panic,
+and the VM was inside the watchdog's post-start minimum-uptime window.
+
 ## When to revisit
 
 If a host panics and the netconsole capture still does not name the faulting function, that is the
