@@ -272,6 +272,14 @@ and backtrace were in all three text channels: the dmesg saved from the vmcore, 
 `crash_kexec_post_notifiers`), and `/var/log/doc1-serial.log` on prom, which also shows the
 capture kernel's full boot. Earlier crash texts are archived in `~/.cache/doc1-crash-archive/` on doc1.
 
+**Hard-lockup detector was off (fixed 2026-10-25).** Both doc1 and doc2 booted with
+`kernel.nmi_watchdog=0` despite `nmi_watchdog=panic` on the command line. That parameter only sets
+the action, and the detector never came up on these guests, so a CPU spinning with interrupts off
+would hang rather than enter kdump. The module now sets `kernel.nmi_watchdog=1` on kdump hosts. To
+verify: `cat /proc/sys/kernel/nmi_watchdog` should print 1, and dmesg should show
+`NMI watchdog: Enabled`. What still needs a manual `nmi` from prom (runbook above) is a hang the
+guest cannot detect itself, such as all vCPUs blocked in the host.
+
 ## When to revisit
 
 If a host panics and the netconsole capture still does not name the faulting function, that is the

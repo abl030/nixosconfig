@@ -417,6 +417,14 @@ in {
       # docs/wiki/infrastructure/fleet-crash-capture.md.
       boot.kernel.sysctl."kernel.unknown_nmi_panic" = lib.mkDefault 1;
 
+      # The `nmi_watchdog=panic` that boot.crashDump adds only sets the panic
+      # action: on these KVM guests (cpu=host, AMD PMU) the hard-lockup detector
+      # still comes up disabled (kernel.nmi_watchdog=0), so a CPU spinning with
+      # interrupts off hung forever instead of entering kdump. Enabling it at
+      # runtime works ("NMI watchdog: Enabled"). Guest-mode perf cycles do not
+      # tick while a vCPU is descheduled, so host contention cannot trip it.
+      boot.kernel.sysctl."kernel.nmi_watchdog" = lib.mkDefault 1;
+
       systemd.services.crash-capture-save-vmcore = {
         description = "Persist vmcore after a kernel crash, then reboot";
         unitConfig = {
