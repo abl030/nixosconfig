@@ -1495,6 +1495,14 @@ in {
           doc2 = {};
           proxmox-vm = {};
           igpu = {};
+          # Tier 3: low-volume hosts (~30-400 lines/h) need long windows so
+          # quiet stretches don't page. Added after the 2026-10-26 Alloy 1.21
+          # outage left all five dark for hours with no alert.
+          servarr.window = "1h";
+          caddy.window = "1h";
+          musicbrainz.window = "1h";
+          discogs.window = "2h";
+          kopia.window = "2h";
           # WSL is expected to stay up for the internal work dashboard, but an
           # outage is normally caused by Windows lifecycle events and cannot be
           # remediated from this repository. Page on stop/resume without RCA.

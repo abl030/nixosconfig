@@ -328,6 +328,28 @@
     }
   )
 
+  # TeamViewer 15.82.6 builds but teamviewerd SIGSEGVs in ld.so before main
+  # (2026-10-26, epimetheus), which fails nixos-upgrade's switch. A build-based
+  # hold would auto-release, so pin by version instead: take 15.81.5 from
+  # nixpkgs-held only while nixpkgs ships exactly the broken release. Any other
+  # version releases this automatically; delete the block once that happens.
+  # See docs/wiki/services/teamviewer.md.
+  (
+    _final: prev: let
+      broken = "15.82.6";
+      heldTv =
+        (import inputs.nixpkgs-held {
+          inherit (prev.stdenv.hostPlatform) system;
+          inherit (prev) config;
+        }).teamviewer;
+    in {
+      teamviewer =
+        if prev.teamviewer.version == broken && heldTv.version != broken
+        then heldTv
+        else prev.teamviewer;
+    }
+  )
+
   # Package holds: a top-level package whose build broke on current nixpkgs is
   # taken from the last-good nixpkgs-held until it builds again, so one broken
   # leaf cannot keep the whole fleet on stale nixpkgs. The rolling updater adds
