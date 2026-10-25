@@ -395,6 +395,9 @@
       test ${lib.escapeShellArg dumpTimeout} = 20min
       test ${toString observer.homelab.services.doc2Recovery.captureFailureThreshold} -eq 10
       test ${toString observer.homelab.services.doc2Recovery.resetFailureThreshold} -eq 25
+      test ${toString observer.homelab.services.doc2Recovery.nmiGraceSeconds} -eq 1200
+      test ${toString doc2.boot.kernel.sysctl."kernel.unknown_nmi_panic"} -eq 1
+      test ${toString doc2.boot.kernel.sysctl."kernel.nmi_watchdog"} -eq 1
       test ${toString doc2.boot.kernel.sysctl."kernel.panic_on_oops"} -eq 1
       test ${toString doc2.boot.kernel.sysctl."kernel.panic_print"} -eq 63
       test ${lib.boolToString hasStaleDoc1Socket} = false

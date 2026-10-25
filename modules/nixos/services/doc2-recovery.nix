@@ -277,6 +277,8 @@
       tcp_failures_file="$state_dir/consecutive-tcp-failures"
       dual_failures_file="$state_dir/consecutive-dual-failures"
       cooldown_file="$state_dir/cooldown-until"
+      nmi_file="$state_dir/nmi-sent"
+      nmi_grace=${toString cfg.nmiGraceSeconds}
       last_observation_file="$state_dir/last-observation"
       known_hosts="$state_dir/known_hosts"
       prom=${lib.escapeShellArg cfg.promHost}
@@ -373,6 +375,7 @@
         fi
         printf '0\n' > "$tcp_failures_file"
         printf '0\n' > "$dual_failures_file"
+        rm -f "$nmi_file"
         exit 0
       fi
 
@@ -402,6 +405,24 @@
       fi
       echo "DOC2-RECOVERY unhealthy tcp_failures=$tcp_failures dual_failures=$dual_failures required=$required mode=$mode tcp_ok=0 qga_ok=$qga_ok"
       [ "$current" -ge "$required" ] || exit 0
+
+      # An NMI already sent to this QEMU process (same pid) is a kdump in
+      # progress: wait out nmiGraceSeconds instead of re-collecting evidence
+      # every minute, then fall through to the reset. Markers older than two
+      # grace windows, or for another pid, are stale and ignored.
+      nmi_sent_at=""
+      nmi_at=""
+      nmi_pid=""
+      { read -r nmi_at nmi_pid < "$nmi_file"; } 2>/dev/null || true
+      if [ "$mode" = dual-failure ] && [ -n "$nmi_at" ] && [[ "$nmi_at" != *[!0-9]* ]] \
+        && [ "$nmi_pid" = "$vm_pid" ] && [ "$nmi_at" -le "$now" ] \
+        && [ "$((now - nmi_at))" -lt "$((2 * nmi_grace))" ]; then
+        nmi_sent_at=$nmi_at
+        if [ "$((now - nmi_at))" -lt "$nmi_grace" ]; then
+          echo "DOC2-RECOVERY awaiting-kdump vmid=$vmid nmi_age=$((now - nmi_at)) grace_seconds=$nmi_grace"
+          exit 0
+        fi
+      fi
 
       stamp=$(date -u +%Y%m%dT%H%M%SZ)
       incident="$state_dir/incidents/$stamp"
@@ -542,7 +563,22 @@
         exit 0
       fi
 
+      # doc2 sets kernel.unknown_nmi_panic=1 (crash-capture), so an injected NMI
+      # turns a wedged-but-unpanicked guest into a kdump. That keeps the evidence
+      # a reset would discard. The capture kernel then reboots doc2 itself, and
+      # TCP recovery clears the marker. Reset only if it is still dead after the
+      # grace window, or if the NMI could not be sent.
+      if [ -z "$nmi_sent_at" ]; then
+        if ssh_prom "printf 'nmi\\nquit\\n' | qm monitor $vmid" > "$incident/nmi.txt" 2>&1; then
+          printf '%s %s\n' "$now" "$vm_pid" > "$nmi_file"
+          echo "DOC2-RECOVERY nmi-sent vmid=$vmid incident=$incident grace_seconds=$nmi_grace"
+          exit 0
+        fi
+        echo "DOC2-RECOVERY nmi-failed vmid=$vmid incident=$incident action=reset"
+      fi
+
       if ssh_prom "qm reset $vmid"; then
+        rm -f "$nmi_file"
         printf '0\n' > "$tcp_failures_file"
         printf '0\n' > "$dual_failures_file"
         printf '%s\n' "$(( $(date +%s) + cooldown_seconds ))" > "$cooldown_file"
@@ -605,6 +641,14 @@ in {
       type = lib.types.ints.positive;
       default = 600;
       description = "Never reset a newly started VM during its boot window.";
+    };
+
+    nmiGraceSeconds = lib.mkOption {
+      type = lib.types.ints.positive;
+      # crash-capture's 15-minute vmcore deadline plus five minutes for capture
+      # kernel boot and the reboot back into the main system.
+      default = 1200;
+      description = "After injecting an NMI at the reset threshold, how long to wait for kdump to save and reboot before resetting.";
     };
 
     cooldownSeconds = lib.mkOption {

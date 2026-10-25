@@ -27,7 +27,19 @@
     # A kernel panic must not leave this service appliance frozen indefinitely.
     # The independent doc1 watchdog still captures the console before resetting
     # failures that do not reach the kernel's own reboot path.
-    kernelParams = ["panic=30"];
+    #
+    # ttyS0 is a QEMU file chardev on prom (/var/log/doc2-serial.log, VM 114
+    # `args:`), crash text that does not depend on the dying guest; tty0 stays
+    # last so it remains /dev/console. No crash_kexec_post_notifiers here:
+    # SeaBIOS means no EFI pstore backend for it to write to.
+    # See docs/wiki/infrastructure/fleet-crash-capture.md.
+    kernelParams = [
+      "panic=30"
+      "console=ttyS0,115200"
+      "console=tty0"
+    ];
+    # Merges with crash-capture's list: the capture kernel prints to serial too.
+    crashDump.kernelParams = ["console=ttyS0,115200"];
   };
 
   # Kernel printk streaming now comes from homelab.crashCapture, which generalises
@@ -56,7 +68,9 @@
     # can inspect the first fault rather than only its recursive aftermath.
     kdump = {
       enable = true;
-      reservedMemory = "512M";
+      # 512M left doc1's 2026-10-24 capture kernel ~170M usable; 768M passed
+      # doc1's end-to-end test on 2026-10-25.
+      reservedMemory = "768M";
     };
   };
 

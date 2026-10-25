@@ -280,6 +280,23 @@ verify: `cat /proc/sys/kernel/nmi_watchdog` should print 1, and dmesg should sho
 `NMI watchdog: Enabled`. What still needs a manual `nmi` from prom (runbook above) is a hang the
 guest cannot detect itself, such as all vCPUs blocked in the host.
 
+### doc2 brought to parity (2026-10-25)
+
+- `reservedMemory = "768M"` (was 512M, the size that starved doc1's capture kernel).
+- Serial console on both kernels, written by QEMU to `/var/log/doc2-serial.log` on prom (VM 114
+  `args:` file chardev, plus `/etc/logrotate.d/doc2-serial`). The old `serial0: socket` was
+  removed: it never delivered to a reader. The original config is at `/root/114.conf.bak-20261025`.
+- No `crash_kexec_post_notifiers`: doc2 is SeaBIOS/GRUB, so it has no EFI pstore backend. Its
+  text channels are the dedicated netconsole receiver (UDP/6667), the serial file, and the dmesg
+  the capture kernel saves.
+- `doc2-recovery` (on doc1) no longer resets first. At the 25-minute dual-failure threshold it
+  collects evidence, then injects an `nmi` through the QEMU monitor. With `unknown_nmi_panic=1`, a
+  hang becomes a kdump and the capture kernel reboots doc2 itself. The watchdog logs
+  `awaiting-kdump` for `nmiGraceSeconds` (1200), and `qm reset`s only if doc2 is still dead
+  afterwards or the NMI could not be sent. The marker is `/var/lib/doc2-recovery/nmi-sent`
+  (`<epoch> <qemu-pid>`); TCP recovery and resets clear it. Worst case for an undetectable hang:
+  about 25 minutes to the NMI, then up to 20 more before the fallback reset.
+
 ## When to revisit
 
 If a host panics and the netconsole capture still does not name the faulting function, that is the
