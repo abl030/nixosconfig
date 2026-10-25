@@ -248,6 +248,109 @@
       exit 0
     '';
   };
+
+  sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
+
+  # A captured crash is silent by design: the host is back in minutes and the
+  # service pages clear on their own. Page once per new crash on the first boot
+  # after it, so someone knows a dump is waiting. Runs in the main system only
+  # (never the capture kernel), so the alert path is fully up.
+  notifyScript = pkgs.writeShellApplication {
+    name = "crash-capture-notify";
+    runtimeInputs = with pkgs; [coreutils gnugrep gnused findutils];
+    # negative-alert.nix interpolates the Gotify URL at build time, so its
+    # `[ -z "<literal>" ]` guard is constant by construction.
+    excludeShellChecks = ["SC2157"];
+    text = ''
+      set -uo pipefail
+      ${sendNegativeAlert}
+      dir=${lib.escapeShellArg cfg.kdump.dumpDir}
+      pstore=/var/lib/systemd/pstore
+      state=/var/lib/crash-capture/notified
+      host=${lib.escapeShellArg config.networking.hostName}
+
+      first_fault() {
+        grep -m1 -aE 'Kernel panic|BUG:|Oops|general protection|watchdog: (BUG|Watchdog detected)|NMI received|deadlocked on memory' "$1" 2>/dev/null \
+          | sed -E 's/^(<[0-9]+>)?\[ *[0-9.]+\] //' | cut -c1-200
+      }
+
+      seed=0
+      [ -e "$state" ] || seed=1
+      touch "$state"
+
+      kdump_keys=()
+      for ctx in "$dir"/kernel-context-*.txt; do
+        [ -e "$ctx" ] || continue
+        stamp=''${ctx##*/kernel-context-}
+        stamp=''${stamp%.txt}
+        grep -Fqx "kdump:$stamp" "$state" || kdump_keys+=("$stamp")
+      done
+      pstore_keys=()
+      for rec in "$pstore"/*/; do
+        [ -d "$rec" ] || continue
+        id=$(basename "$rec")
+        grep -Fqx "pstore:$id" "$state" || pstore_keys+=("$id")
+      done
+
+      record() {
+        local s
+        for s in "''${kdump_keys[@]}"; do printf 'kdump:%s\n' "$s" >> "$state"; done
+        for s in "''${pstore_keys[@]}"; do printf 'pstore:%s\n' "$s" >> "$state"; done
+      }
+
+      # First run on a host: adopt whatever already exists without paging.
+      if [ "$seed" -eq 1 ]; then
+        record
+        echo "crash-capture-notify: seeded kdump=''${#kdump_keys[@]} pstore=''${#pstore_keys[@]}"
+        exit 0
+      fi
+      if [ "''${#kdump_keys[@]}" -eq 0 ] && [ "''${#pstore_keys[@]}" -eq 0 ]; then
+        exit 0
+      fi
+
+      message=""
+      for stamp in "''${kdump_keys[@]}"; do
+        fault=$(first_fault "$dir/dmesg-$stamp.txt")
+        if [ -e "$dir/vmcore-$stamp.gz" ]; then
+          core="complete, $(du -h "$dir/vmcore-$stamp.gz" | cut -f1)"
+        elif [ -e "$dir/vmcore-$stamp.gz.partial" ]; then
+          core="PARTIAL, $(du -h "$dir/vmcore-$stamp.gz.partial" | cut -f1)"
+        elif [ -e "$dir/vmcore-$stamp.skipped" ]; then
+          core="SKIPPED: $(head -c 160 "$dir/vmcore-$stamp.skipped")"
+        else
+          core="MISSING (capture kernel died mid-save?)"
+        fi
+        message+="kdump $stamp UTC. First fault: ''${fault:-not found in dmesg}. vmcore: $core. Artifacts: $dir/*-$stamp.* (crash(8) against vmlinux-$stamp.gz). "
+      done
+      if [ "''${#kdump_keys[@]}" -eq 0 ]; then
+        # pstore without a kdump set means the capture path failed: this is
+        # exactly the 2026-10-24 failure mode, and the only record is here.
+        for id in "''${pstore_keys[@]}"; do
+          fault=$(first_fault "$pstore/$id/001/dmesg.txt")
+          [ -n "$fault" ] || fault=$(find "$pstore/$id" -type f -exec grep -h -m1 -aE 'Kernel panic|BUG:|Oops' {} + 2>/dev/null | head -n1 | cut -c1-200)
+          message+="EFI pstore record $pstore/$id only: kdump did NOT save a dump. First fault: ''${fault:-unknown}. "
+        done
+      elif [ "''${#pstore_keys[@]}" -gt 0 ]; then
+        message+="EFI pstore also kept the log under $pstore. "
+      fi
+      message+="The host rebooted itself. See docs/wiki/infrastructure/fleet-crash-capture.md."
+
+      title="Kernel crash captured on $host"
+      # Hermes runs on doc1, which may be the host that just rebooted: give the
+      # RCA path a few minutes before falling back to a direct Gotify page.
+      sent=0
+      for _ in $(seq 1 10); do
+        if send_rca_alert "$title" "$message" 8; then
+          sent=1
+          break
+        fi
+        sleep 30
+      done
+      [ "$sent" -eq 1 ] || send_gotify_alert "$title" "$message" 8
+      record
+      echo "crash-capture-notify: paged kdump=''${#kdump_keys[@]} pstore=''${#pstore_keys[@]} via=$([ "$sent" -eq 1 ] && echo rca || echo gotify)"
+    '';
+  };
 in {
   options.homelab.crashCapture = {
     netconsole = {
@@ -443,6 +546,32 @@ in {
           TimeoutStopSec = "30s";
           KillMode = "control-group";
           SendSIGKILL = true;
+        };
+      };
+
+      systemd.services.crash-capture-notify = {
+        description = "Page once for each new kernel crash capture";
+        unitConfig.ConditionPathExists = "!/proc/vmcore";
+        wantedBy = ["multi-user.target"];
+        wants = ["network-online.target"];
+        after = ["network-online.target" "systemd-pstore.service"];
+        # A deploy must not block on (or re-run) the paging retry loop.
+        restartIfChanged = false;
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = lib.getExe notifyScript;
+          TimeoutStartSec = "10min";
+          # Root only to read the 0700 dump dir and pstore; writes only its
+          # own state file.
+          StateDirectory = "crash-capture";
+          StateDirectoryMode = "0700";
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateDevices = true;
+          NoNewPrivileges = true;
+          CapabilityBoundingSet = ["CAP_DAC_READ_SEARCH"];
+          RestrictAddressFamilies = ["AF_INET" "AF_INET6" "AF_UNIX"];
         };
       };
 

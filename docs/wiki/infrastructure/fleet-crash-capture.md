@@ -242,6 +242,25 @@ squeeze above is the probable cause of both. The kernel-module tarballs were 179
 are a jump to the unrelocated `0xffffffff81001280` from `swapper/N` with an **empty call trace**, so
 the text alone cannot name the caller. A complete vmcore plus `crash(8)` is what closes #51.
 
+### Crash paging and retention
+
+A captured crash is otherwise silent: the host is back in about 4 minutes and the service pages
+clear. `crash-capture-notify` (kdump hosts, main system only) runs once per boot. For each new
+`kernel-context-<stamp>.txt` in `/var/crash` and each new `/var/lib/systemd/pstore/<id>`, it sends
+one priority-8 "Kernel crash captured on <host>" alert through Hermes RCA. It retries for up to
+5 minutes, since Hermes is on doc1, then falls back to direct Gotify. The alert carries the first
+fault line, the vmcore status (complete / PARTIAL / SKIPPED / MISSING) and the artifact paths. A
+pstore record with no kdump set is reported as "kdump did NOT save a dump", which is the
+2026-10-24 failure mode. State is kept in `/var/lib/crash-capture/notified`. The first run on a host
+records existing artifacts without paging. To re-page a crash, delete its `kdump:<stamp>` line and
+`systemctl start crash-capture-notify`.
+
+Retention is by count, not age: `keepDumps = 2` crash sets per host. Older sets are pruned before a
+new dump is written. A set is the vmcore (about 25–35% of the RAM in use at crash time, gzip -1)
+plus about 370 MB of vmlinux and modules. Worst case is about 20 GB on doc1 or doc2, plus the
+transient 8 GB reserve during a save. pstore (under 1 MB) and doc2-recovery incidents (newest 20,
+about 6 MB) are negligible.
+
 ### Runbook: guest hung but not panicked
 
 Kdump hosts set `kernel.unknown_nmi_panic=1`. Before you stop a hung kdump guest, force it into kdump
