@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Replay source transaction functions with mocked external boundaries.
 
+Covers both non-flake package groups (mongodb80, whatsapp-archive): each has
+an updater script and owns package files instead of flake inputs.
+
 No real git command, commit, push, Nix build, network or credentials are used.
 The package updater itself is independently exercised by test_mongodb80_update.
 """
@@ -14,7 +17,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+WA_PATHS = "nix/pkgs/whatsapp-archive/go.mod nix/pkgs/whatsapp-archive/go.sum nix/pkgs/whatsapp-archive/package.nix".split()
 SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_flake_update.sh"))
+
+
+# group -> (updater script, file the fake updater edits, transaction-owned paths)
+GROUPS = {
+    "mongodb80": ("update_mongodb80.sh", "nix/pkgs/mongodb80.nix", "nix/pkgs/mongodb80.nix"),
+    "whatsapp-archive": ("update_whatsapp_archive.sh", "nix/pkgs/whatsapp-archive/go.mod",
+                         "nix/pkgs/whatsapp-archive/go.mod nix/pkgs/whatsapp-archive/go.sum nix/pkgs/whatsapp-archive/package.nix"),
+}
 
 
 def main():
@@ -44,7 +56,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="mongodb80-transaction-fixture-") as temp:
         root = Path(temp)
         (root / "scripts").mkdir()
-        (root / "nix/pkgs").mkdir(parents=True)
+        (root / "nix/pkgs/whatsapp-archive").mkdir(parents=True)
         (root / "bin").mkdir()
         # Minimal PATH makes accidental real git/nix/network calls impossible.
         for command in ("cp", "cmp"):
@@ -52,7 +64,10 @@ def main():
             assert resolved, command
             (root / "bin" / command).symlink_to(resolved)
         for name, body in {
-            "update_mongodb80.sh": 'printf "update\\n" >> calls\n[ "$NO_CHANGE" -eq 1 ] || printf candidate > nix/pkgs/mongodb80.nix\nexit "$UPDATE_RC"\n',
+            **{
+                updater: f'printf "update\\n" >> calls\n[ "$NO_CHANGE" -eq 1 ] || printf candidate > {file}\nexit "$UPDATE_RC"\n'
+                for updater, file, _ in GROUPS.values()
+            },
             "populate_cache.sh": 'printf "cache\\n" >> calls\n[ "$CHECK_RC" -eq 0 ] || exit "$CHECK_RC"\nexit "$CACHE_RC"\n',
         }.items():
             path = root / "scripts" / name
@@ -63,6 +78,8 @@ def main():
         prelude = r'''
 set -euo pipefail
 GROUP_MONGODB80=mongodb80
+GROUP_WHATSAPP=whatsapp-archive
+WHATSAPP_PATHS="nix/pkgs/whatsapp-archive/go.mod nix/pkgs/whatsapp-archive/go.sum nix/pkgs/whatsapp-archive/package.nix"
 HELD_FILE=nix/held-packages.json
 ONLY_GROUP=
 WORK_DIR=$PWD
@@ -81,33 +98,34 @@ nix() {
 git() {
   printf 'git %s\n' "$*" >> calls
   case "$1" in
-    diff) [ "$*" = 'diff --quiet -- nix/pkgs/mongodb80.nix' ] || return 96
-          cmp -s baseline nix/pkgs/mongodb80.nix ;;
-    add) [ "$*" = 'add -- nix/pkgs/mongodb80.nix' ] || return 95
+    diff) [ "$*" = "diff --quiet -- $GROUP_PATHS" ] || return 96
+          cmp -s baseline "$GROUP_FILE" ;;
+    add) [ "$*" = "add -- $GROUP_PATHS" ] || return 95
          return "$ADD_RC" ;;
     commit) return "$COMMIT_RC" ;;
     reset) return "$RESET_RC" ;;
     checkout)
       [ "$CHECKOUT_RC" -eq 0 ] || return "$CHECKOUT_RC"
-      if [ "$3" = nix/pkgs/mongodb80.nix ]; then cp baseline "$3"; fi ;;
+      if [ "$3" = "$GROUP_FILE" ]; then cp baseline "$3"; fi ;;
     *) return 94 ;;
   esac
 }
 '''
-        for label, overrides in cases:
+        for (group, (_, group_file, group_paths)), (label, overrides) in (
+                (g, c) for g in GROUPS.items() for c in cases):
             values = dict.fromkeys(("UPDATE_RC", "CHECK_RC", "CACHE_RC", "ADD_RC", "COMMIT_RC", "RESET_RC", "CHECKOUT_RC", "NO_CHANGE"), 0)
             values.update(overrides)
             failed = any(value for key, value in values.items() if key != "NO_CHANGE")
             poisoned = bool(values["RESET_RC"] or values["CHECKOUT_RC"])
             committed = not failed and not values["NO_CHANGE"]
-            for name in ("baseline", "nix/pkgs/mongodb80.nix"):
+            for name in ("baseline", group_file):
                 (root / name).write_text("baseline")
             for name in ("calls", "messages"):
                 (root / name).write_text("")
             body = f'''
 ANY_FAIL=0; ANY_COMMIT=0; FATAL_TRANSACTION=0; SUMMARY_LINES=()
 rc=0
-try_group mongodb80 mongodb80 || rc=$?
+try_group {group} {group} || rc=$?
 test "$rc" -eq {int(failed)}
 test "$ANY_FAIL" -eq {int(failed)}
 test "$ANY_COMMIT" -eq {int(committed)}
@@ -123,7 +141,9 @@ ANY_COMMIT=1
 ''' + final_gate.group() + "\nprintf 'escaped-poison-gate\\n' >> calls\n"
             script = root / "replay.sh"
             script.write_text(prelude + f"\nexport PATH={shlex.quote(str(root / 'bin'))}\n" + "\n".join(functions) + body)
-            environment = {"PATH": str(root / "bin"), "HOME": str(root), "LC_ALL": "C", **{key: str(value) for key, value in values.items()}}
+            environment = {"PATH": str(root / "bin"), "HOME": str(root), "LC_ALL": "C",
+                           "GROUP_FILE": group_file, "GROUP_PATHS": group_paths,
+                           **{key: str(value) for key, value in values.items()}}
             result = subprocess.run([bash, "--noprofile", "--norc", str(script)], cwd=root, env=environment,
                                     text=True, capture_output=True, timeout=10)
             calls = (root / "calls").read_text().splitlines()
@@ -131,17 +151,17 @@ ANY_COMMIT=1
             assert result.returncode == int(poisoned), (label, result.stdout, result.stderr, calls, messages)
             assert calls[0] == "update", (label, calls)
             if failed:
-                for path in ("flake.lock", "nix/overlay.nix", "nix/pkgs/mongodb80.nix"):
+                for path in ("flake.lock", "nix/overlay.nix", "nix/pkgs/mongodb80.nix", *WA_PATHS):
                     assert f"git reset -q -- {path}" in calls, (label, calls)
                     assert f"git checkout -- {path}" in calls, (label, calls)
                 if not values["CHECKOUT_RC"]:
-                    assert (root / "nix/pkgs/mongodb80.nix").read_text() == "baseline"
+                    assert (root / group_file).read_text() == "baseline"
             if committed:
-                assert calls == ["update", "git diff --quiet -- nix/pkgs/mongodb80.nix", "cache",
-                                 "git add -- nix/pkgs/mongodb80.nix", "git commit -q -m rolling: mongodb80 (fixture)"], calls
-                assert (root / "nix/pkgs/mongodb80.nix").read_text() == "candidate"
+                assert calls == ["update", f"git diff --quiet -- {group_paths}", "cache",
+                                 f"git add -- {group_paths}", f"git commit -q -m rolling: {group} (fixture)"], calls
+                assert (root / group_file).read_text() == "candidate"
             if values["NO_CHANGE"]:
-                assert calls == ["update", "git diff --quiet -- nix/pkgs/mongodb80.nix"]
+                assert calls == ["update", f"git diff --quiet -- {group_paths}"]
             if values["UPDATE_RC"]:
                 assert "cache" not in calls
             assert not any(call.startswith("nix ") for call in calls), (label, calls)
@@ -150,8 +170,8 @@ ANY_COMMIT=1
             if poisoned:
                 assert calls[calls.index("before-poison-gate") + 1:] == ["notify"], calls
                 assert "no commits were pushed or deployed" in messages
-            print(f"PASS source rolling MongoDB transaction: {label}")
-    print(f"{len(cases)} transaction cases passed; no real git/Nix/network commands")
+            print(f"PASS source rolling {group} transaction: {label}")
+    print(f"{len(cases) * len(GROUPS)} transaction cases passed; no real git/Nix/network commands")
 
 
 if __name__ == "__main__":

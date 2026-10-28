@@ -58,6 +58,7 @@ def main():
             (root / "bin" / command).symlink_to(resolved)
         for name, body in {
             "update_mongodb80.sh": 'printf "mongodb-update\\n" >> calls\nexit 0\n',
+            "update_whatsapp_archive.sh": 'printf "whatsapp-update\\n" >> calls\nexit 0\n',
             "populate_cache.sh": 'printf "cache\\n" >> calls\nexit "$CACHE_RC"\n',
         }.items():
             path = root / "scripts" / name
@@ -66,6 +67,7 @@ def main():
         prelude = r'''
 set -euo pipefail
 GROUP_CORE=nixpkgs
+WHATSAPP_PATHS="nix/pkgs/whatsapp-archive/go.mod nix/pkgs/whatsapp-archive/go.sum nix/pkgs/whatsapp-archive/package.nix"
 HELD_FILE=nix/held-packages.json
 GROUP_YTDLP=yt-dlp-src
 GROUP_LLM=claude-code-nix
@@ -84,8 +86,9 @@ git() {
   printf 'git %s\n' "$*" >> calls
   case "$1" in
     diff)
-      # The MongoDB package file never changes in these cases.
+      # The MongoDB and whatsapp-archive package files never change here.
       if [ "$#" -eq 4 ] && [ "$4" = nix/pkgs/mongodb80.nix ]; then return 0; fi
+      if [ "$4" = nix/pkgs/whatsapp-archive/go.mod ]; then return 0; fi
       cmp -s base.lock flake.lock ;;
     add) return 0 ;;
     commit) return "$COMMIT_RC" ;;
@@ -129,12 +132,13 @@ printf '%s\\n' "${{SUMMARY_LINES[@]:-}}" > summary
                 assert commits == [f"git commit -q -m {want_message}"], (label, calls)
                 assert "✅ core — nixpkgs" in summary and "✅ rest — other-input" in summary, (label, summary)
                 assert "➖ yt-dlp — no changes" in summary and "➖ mongodb80 — no changes" in summary, (label, summary)
+                assert "➖ whatsapp-archive — no changes" in summary, (label, summary)
             elif label == "commit failure falls back":
                 assert len(commits) == 1, (label, calls)
             else:
                 assert not commits, (label, calls)
             if label == "no change":
-                assert "cache" not in calls and len(summary) == 6, (label, calls, summary)
+                assert "cache" not in calls and len(summary) == 7, (label, calls, summary)
             if values["UPDATE_RC"]:
                 assert "cache" not in calls, (label, calls)
             if want_rc:

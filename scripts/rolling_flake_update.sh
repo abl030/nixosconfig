@@ -54,6 +54,9 @@ GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound
 # Deliberately not configurable: MongoDB's package-file update must never be
 # folded into the ordinary flake-input groups or silently cross series.
 GROUP_MONGODB80="mongodb80"
+# Not a flake input: Go deps of nix/pkgs/whatsapp-archive (scripts/update_whatsapp_archive.sh).
+GROUP_WHATSAPP="whatsapp-archive"
+WHATSAPP_PATHS="nix/pkgs/whatsapp-archive/go.mod nix/pkgs/whatsapp-archive/go.sum nix/pkgs/whatsapp-archive/package.nix"
 # Deliberately not configurable: upstream yt-dlp tip must advance even when an
 # unrelated rest input fails.
 GROUP_YTDLP="yt-dlp-src"
@@ -486,7 +489,7 @@ restore_group_state() {
     # Keep every transaction-owned path in this list. Each command is checked
     # explicitly because this function is called from a conditional context
     # where Bash's errexit is suppressed.
-    for path in flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix flake.nix "$HELD_FILE"; do
+    for path in flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix $WHATSAPP_PATHS flake.nix "$HELD_FILE"; do
         if ! git reset -q -- "$path" >>"$glog" 2>&1; then
             restore_failed=1
         fi
@@ -891,7 +894,7 @@ hold_summary() {
 # See docs/wiki/infrastructure/rolling-flake-update.md.
 try_all_groups() {
     local glog="$WORK_DIR/all.build.log"
-    local paths="flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix flake.nix $HELD_FILE"
+    local paths="flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix $WHATSAPP_PATHS flake.nix $HELD_FILE"
     local base_lock="$WORK_DIR/all.base.flake.lock"
     local inputs="$GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD $GROUP_REST"
     local group group_inputs changed=()
@@ -903,7 +906,9 @@ try_all_groups() {
     ACTIVE_GROUP="all"
     ACTIVE_GROUP_LOG="$glog"
     # shellcheck disable=SC2086  # $inputs is a space-separated list of input names
-    if ! ./scripts/update_mongodb80.sh >"$glog" 2>&1 || ! nix flake update $inputs >>"$glog" 2>&1; then
+    if ! ./scripts/update_mongodb80.sh >"$glog" 2>&1 \
+        || ! ./scripts/update_whatsapp_archive.sh >>"$glog" 2>&1 \
+        || ! nix flake update $inputs >>"$glog" 2>&1; then
         log "↩️  [all] combined update failed; falling back to one group at a time."
         restore_group_state all "$glog" || true
         ACTIVE_GROUP=""
@@ -914,7 +919,7 @@ try_all_groups() {
     # shellcheck disable=SC2086  # deliberate path list
     if git diff --quiet -- $paths; then
         log "➖ [all] no changes."
-        for group in mongodb80 core yt-dlp llm nvchad rest; do
+        for group in mongodb80 whatsapp-archive core yt-dlp llm nvchad rest; do
             SUMMARY_LINES+=("➖ $group — no changes")
         done
         ACTIVE_GROUP=""
@@ -936,9 +941,9 @@ try_all_groups() {
     fi
 
     local summary=()
-    for group in mongodb80 core yt-dlp llm nvchad rest; do
+    for group in mongodb80 whatsapp-archive core yt-dlp llm nvchad rest; do
         case "$group" in
-            mongodb80) group_inputs="" ;;
+            mongodb80 | whatsapp-archive) group_inputs="" ;;
             core) group_inputs="$GROUP_CORE" ;;
             yt-dlp) group_inputs="$GROUP_YTDLP" ;;
             llm) group_inputs="$GROUP_LLM" ;;
@@ -946,11 +951,13 @@ try_all_groups() {
             rest) group_inputs="$GROUP_REST" ;;
         esac
         # shellcheck disable=SC2086  # $group_inputs is a space-separated input list
+        # shellcheck disable=SC2086  # WHATSAPP_PATHS is a deliberate path list
         if { [ "$group" = mongodb80 ] && ! git diff --quiet -- nix/pkgs/mongodb80.nix; } \
+            || { [ "$group" = whatsapp-archive ] && ! git diff --quiet -- $WHATSAPP_PATHS; } \
             || { [ -n "${group_inputs// /}" ] && lock_inputs_changed "$base_lock" $group_inputs; }; then
             changed+=("$group")
-            if [ "$group" = mongodb80 ]; then
-                summary+=("✅ mongodb80 — mongodb80")
+            if [ "$group" = mongodb80 ] || [ "$group" = whatsapp-archive ]; then
+                summary+=("✅ $group — $group")
             else
                 summary+=("✅ $group — $(printf '%s' "$group_inputs" | tr -s ' ' | sed 's/^ //; s/ $//; s/ /, /g')")
             fi
@@ -1007,6 +1014,20 @@ try_group() {
         fi
         local rc=0
         finish_updated_group "$name" "$inputs" "$glog" "nix/pkgs/mongodb80.nix" || rc=$?
+        ACTIVE_GROUP=""
+        ACTIVE_GROUP_LOG=""
+        return "$rc"
+    fi
+
+    if [ "$name" = "$GROUP_WHATSAPP" ]; then
+        if ! ./scripts/update_whatsapp_archive.sh >"$glog" 2>&1; then
+            record_group_update_failure "$name" "$glog" "whatsapp-archive Go dependency bump failed"
+            ACTIVE_GROUP=""
+            ACTIVE_GROUP_LOG=""
+            return 1
+        fi
+        local rc=0
+        finish_updated_group "$name" "$inputs" "$glog" "$WHATSAPP_PATHS" || rc=$?
         ACTIVE_GROUP=""
         ACTIVE_GROUP_LOG=""
         return "$rc"
@@ -1246,6 +1267,7 @@ if [ "$COMBINED_LANDED" -eq 0 ]; then
     # MongoDB is first so its package candidate is independently verified before
     # the core lock moves; a core failure cannot discard a good binary patch.
     try_group mongodb80 $GROUP_MONGODB80 || true
+    try_group whatsapp-archive $GROUP_WHATSAPP || true
     # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
     try_group core $GROUP_CORE || true
     # shellcheck disable=SC2086

@@ -501,6 +501,14 @@
         };
       };
 
+      # Receive-only WhatsApp linked device -> SQLite archive + media under
+      # /mnt/data/Life/Andy/WhatsApp. Query with `whatsapp-sql`.
+      # See docs/wiki/services/whatsapp-archive.md.
+      whatsapp-archive = {
+        enable = true;
+        readers = ["abl030"];
+      };
+
       # kopia MOVED to its own LXC (CT 111, hosts/kopia/) on 2026-09-11.
       #
       # It lived here until a stray kopia process wedged doc2's kernel-update

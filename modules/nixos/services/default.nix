@@ -73,6 +73,7 @@
     ./kopia.nix
     ./mailarchive.nix
     ./mailsearch.nix
+    ./whatsapp-archive.nix
     ./domain-monitor.nix
     ./forgejo.nix
     ./nfs-watchdog.nix
