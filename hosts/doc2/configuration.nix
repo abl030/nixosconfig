@@ -217,6 +217,15 @@
         devices = ["phone"];
         type = "receiveonly";
       };
+      # Phone's Android/media/com.whatsapp/WhatsApp (nightly crypt15 backup +
+      # full-resolution Media/) for whatsapp-archive-import. Receive-only: a
+      # bug on doc2 can never reach the phone. See whatsapp-archive.md.
+      extraFolders.whatsapp-phone = {
+        id = "whatsapp-phone";
+        path = "/mnt/data/Life/Andy/WhatsApp/phone";
+        devices = ["phone"];
+        type = "receiveonly";
+      };
       options = {
         listenAddresses = ["tcp://0.0.0.0:22000"];
         globalAnnounceEnabled = false;

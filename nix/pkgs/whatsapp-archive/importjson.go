@@ -109,6 +109,11 @@ func runImportJSON(cfg Config, jsonPath, baseDir string) error {
 				continue
 			}
 			text := unhtml(str(m.Data))
+			if text == "" && !m.Media {
+				// A type wtsexporter can't represent (polls, ...): an empty row
+				// would only shadow the live/history copy of the same id.
+				continue
+			}
 			kind := "text"
 			if m.Meta {
 				if text == "" {

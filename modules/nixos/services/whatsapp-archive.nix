@@ -57,27 +57,40 @@
   '';
 
   importCmd = pkgs.writeShellScriptBin "whatsapp-archive-import" ''
-    # Usage: whatsapp-archive-import DIR KEY
-    #   DIR  (outside your 0700 home, e.g. /var/tmp/wa-import) holds msgstore.db.crypt15 (and optionally the WhatsApp Media/
-    #        folder, wa.db.crypt15 for contact names), copied off the phone.
-    #   KEY  the 64-character end-to-end backup key, or a path to the key file.
-    # The service is stopped during the merge; the phone queues new messages.
+    # Usage: ssh -t doc2 whatsapp-archive-import [WHATSAPP_DIR]
+    #   WHATSAPP_DIR is a copy of the phone's Android/media/com.whatsapp/WhatsApp
+    #   (Databases/msgstore.db.crypt15, optional Media/). Default: the Syncthing
+    #   mirror ${cfg.phoneDir}. It is only read, never written.
+    # wtsexporter prompts for the 64-digit end-to-end backup key, so it never
+    # reaches argv or shell history. The decrypted DB and result.json live in a
+    # private temp dir that is removed on exit. The service is stopped during
+    # the merge; the phone queues new messages meanwhile.
     set -euo pipefail
-    dir=$(realpath "$1")
-    key=$2
-    cd "$dir"
-    media=()
-    [ -d Media ] && media=(-m Media)
+    src=$(realpath "''${1:-${cfg.phoneDir}}")
+    db="$src/Databases/msgstore.db.crypt15"
+    [ -f "$db" ] || { echo "no $db (has the phone made an end-to-end encrypted backup and synced?)" >&2; exit 1; }
+    work=$(mktemp -d /var/tmp/whatsapp-import.XXXXXX)
+    stopped=0
+    cleanup() {
+      rm -rf "$work"
+      [ "$stopped" -eq 1 ] && sudo systemctl start whatsapp-archive.service
+      return 0
+    }
+    trap cleanup EXIT
+    # Media paths in the backup are relative to the WhatsApp root; wtsexporter
+    # also creates thumbnails/ under -m, so point it at the temp dir and reach
+    # the media through a symlink instead of writing into the mirror.
+    [ -d "$src/Media" ] && ln -s "$src/Media" "$work/Media"
     contacts=()
-    [ -f wa.db.crypt15 ] && contacts=(--wab wa.db.crypt15)
-    ${pkgs.whatsapp-chat-exporter}/bin/wtsexporter -a -k "$key" -b msgstore.db.crypt15 \
-      "''${media[@]}" "''${contacts[@]}" -j result.json --no-html -o "$dir/out"
-    sudo chgrp -R ${user} "$dir"
-    sudo chmod -R g+rX "$dir"
+    [ -f "$src/Databases/wa.db.crypt15" ] && contacts=(--wab "$src/Databases/wa.db.crypt15")
+    cd "$work"
+    ${pkgs.whatsapp-chat-exporter}/bin/wtsexporter -a -b "$db" -m "$work" "''${contacts[@]}" \
+      -j "$work/result.json" --no-html -o "$work/out"
+    chgrp -R ${user} "$work"
+    chmod -R g+rX "$work"
     sudo systemctl stop whatsapp-archive.service
-    trap 'sudo systemctl start whatsapp-archive.service' EXIT
-    sudo -u ${user} ${pkg}/bin/whatsapp-archive import-json ${flags} -json "$dir/result.json" -base "$dir"
-    echo "Imported. result.json is plaintext history: delete $dir when satisfied."
+    stopped=1
+    sudo -u ${user} ${pkg}/bin/whatsapp-archive import-json ${flags} -json "$work/result.json" -base "$work"
   '';
 
   hardening = {
@@ -124,6 +137,17 @@ in {
       type = lib.types.str;
       default = "${cfg.archiveRoot}/media";
       description = "Where downloaded media is written (YYYY/MM/<message id>.<ext>).";
+    };
+
+    phoneDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.archiveRoot}/phone";
+      description = ''
+        Receive-only Syncthing mirror of the phone's
+        Android/media/com.whatsapp/WhatsApp folder (the host config declares
+        the folder). whatsapp-archive-import reads the nightly crypt15 backup
+        and Media/ from here.
+      '';
     };
 
     healthPort = lib.mkOption {

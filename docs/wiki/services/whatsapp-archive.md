@@ -70,20 +70,38 @@ dropped it); recent media is downloaded.
 
 ## Full history from the Android backup (optional)
 
-The linked device only receives what the phone chooses to sync. For
-everything:
+The linked device only receives what the phone chooses to sync (about 4k
+messages here), and media older than ~30 days is gone from WhatsApp's CDN.
+The phone's own nightly backup has everything.
 
-1. On the phone, turn on end-to-end encrypted backup **with the 64-digit key**
-   option (Settings -> Chats -> Chat backup). The password option keeps the
-   real key in WhatsApp's HSM, so it can't be decrypted locally. Run a backup.
-2. Copy `Android/media/com.whatsapp/WhatsApp/Databases/msgstore.db.crypt15`
-   (and optionally `.../WhatsApp/Media/` as `Media/`, and `wa.db.crypt15` for
-   contact names) to a dir on doc2 **outside your home**, e.g. `/var/tmp/wa-import`.
-3. `whatsapp-archive-import /var/tmp/wa-import <64-char-key>`
-4. Delete the directory: `result.json` is your whole history in plaintext.
+Transport is the existing phone Syncthing pairing (as voice-diary): doc2
+declares a **receive-only** folder `whatsapp-phone` at
+`/mnt/data/Life/Andy/WhatsApp/phone` (`hosts/doc2/configuration.nix`), so
+nothing on doc2 can write back to the phone.
 
-The import de-duplicates on WhatsApp's message id, so it merges cleanly with
-live and history-sync rows and is safe to re-run.
+1. Phone, WhatsApp: Settings -> Chats -> Chat backup -> End-to-end encrypted
+   backup -> turn on -> **"Use 64-digit encryption key instead"**. Save the
+   key in the password manager. (The password option keeps the real key in
+   WhatsApp's HSM, so it can't be decrypted locally.) Then tap **Back up**,
+   which writes `Databases/msgstore.db.crypt15` on the phone.
+2. Phone, Syncthing-Fork: it needs "All files access" to read `Android/media`.
+   Accept doc2's share of `whatsapp-phone` and point it at
+   `/storage/emulated/0/Android/media/com.whatsapp/WhatsApp`, folder type
+   **Send only**. Wait for it to finish (`Media/` can be several GB).
+3. From a terminal: `ssh -t doc2 whatsapp-archive-import` and paste the key at
+   the prompt (`-t` is needed; the key never goes on a command line).
+
+The helper treats the mirror as read-only: it decrypts into a private
+`/var/tmp/whatsapp-import.*` dir (deleted on exit, it holds the plaintext
+history), reaches `Media/` through a symlink, stops the service for the
+merge and restarts it. The import de-duplicates on WhatsApp's message id, so
+it merges with live and history rows and is safe to re-run after any later
+backup. Media is copied into `media/`, so the archive keeps it even if the
+phone deletes it and the mirror follows.
+
+wtsexporter does not export polls, reactions or other non-text types; it
+emits empty rows for them, which the importer skips so they cannot shadow
+the live copy.
 
 ## Querying
 
