@@ -69,6 +69,13 @@
     src=$(realpath "''${1:-${cfg.phoneDir}}")
     db="$src/Databases/msgstore.db.crypt15"
     [ -f "$db" ] || { echo "no $db (has the phone made an end-to-end encrypted backup and synced?)" >&2; exit 1; }
+    # Syncthing writes .syncthing.*.tmp while a file is in flight. Importing
+    # mid-sync would miss media (a later run does attach it, but wait anyway).
+    if [ -z "''${WHATSAPP_IMPORT_PARTIAL:-}" ] && [ -n "$(find "$src" -name '.syncthing.*.tmp' -print -quit)" ]; then
+      echo "Syncthing is still transferring into $src; re-run when the phone shows Up to Date" >&2
+      echo "(or set WHATSAPP_IMPORT_PARTIAL=1 to import what has arrived)." >&2
+      exit 1
+    fi
     work=$(mktemp -d /var/tmp/whatsapp-import.XXXXXX)
     stopped=0
     cleanup() {
@@ -81,8 +88,14 @@
     # also creates thumbnails/ under -m, so point it at the temp dir and reach
     # the media through a symlink instead of writing into the mirror.
     [ -d "$src/Media" ] && ln -s "$src/Media" "$work/Media"
+    # Contact names (better sender names); WhatsApp keeps it under Backups/.
     contacts=()
-    [ -f "$src/Databases/wa.db.crypt15" ] && contacts=(--wab "$src/Databases/wa.db.crypt15")
+    for wab in "$src/Backups/wa.db.crypt15" "$src/Databases/wa.db.crypt15"; do
+      if [ -f "$wab" ]; then
+        contacts=(--wab "$wab")
+        break
+      fi
+    done
     cd "$work"
     ${pkgs.whatsapp-chat-exporter}/bin/wtsexporter -a -b "$db" -m "$work" "''${contacts[@]}" \
       -j "$work/result.json" --no-html -o "$work/out"

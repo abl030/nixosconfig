@@ -194,6 +194,21 @@ func (a *Archive) SetMedia(ctx context.Context, msgID, file, state string) error
 	return err
 }
 
+// AttachMedia gives an archived media message a file it lacks (expired,
+// skipped, failed, missing). Text rows and rows that already have media are
+// left alone. Reports rows changed.
+func (a *Archive) AttachMedia(ctx context.Context, msgID, file, mimeType string) (int, error) {
+	res, err := a.db.ExecContext(ctx, `
+		UPDATE messages SET media_file = ?, media_status = 'ok', media_mime = COALESCE(media_mime, ?)
+		WHERE msg_id = ? AND media_status IS NOT NULL AND media_status != 'ok'`,
+		file, nullable(mimeType), msgID)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 // RecordEdit keeps the previous text in message_edits before replacing it.
 func (a *Archive) RecordEdit(ctx context.Context, msgID, newText string, at time.Time) error {
 	tx, err := a.db.BeginTx(ctx, nil)

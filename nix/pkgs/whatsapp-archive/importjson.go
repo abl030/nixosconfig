@@ -84,7 +84,7 @@ func runImportJSON(cfg Config, jsonPath, baseDir string) error {
 		return err
 	}
 	pending := 0
-	var chats, added, seen, copied int
+	var chats, added, seen, copied, attached int
 	for dec.More() {
 		tok, err := dec.Token()
 		if err != nil {
@@ -135,7 +135,11 @@ func runImportJSON(cfg Config, jsonPath, baseDir string) error {
 			if !isGroup && !m.FromMe {
 				msg.SenderJID = jid
 			}
-			if m.Media && !m.Meta {
+			if m.Media && str(m.Mime) == "media" {
+				// wtsexporter's marker for a media message whose file is not on
+				// the phone ("The media is missing"): media row, not a system note.
+				msg.Kind, msg.Text, msg.MediaState = "media", unhtml(str(m.Caption)), "missing"
+			} else if m.Media && !m.Meta {
 				msg.Kind = kindForMime(str(m.Mime), m.Sticker)
 				msg.MediaMime = str(m.Mime)
 				msg.Text = unhtml(str(m.Caption))
@@ -158,6 +162,15 @@ func runImportJSON(cfg Config, jsonPath, baseDir string) error {
 				added++
 			} else {
 				seen++
+				// Already archived (live/history) but its media expired or was
+				// skipped: the phone's copy fills it in.
+				if msg.MediaFile != "" {
+					n, err := arc.AttachMedia(ctx, keyID, msg.MediaFile, msg.MediaMime)
+					if err != nil {
+						return fmt.Errorf("attach media %s: %w", keyID, err)
+					}
+					attached += n
+				}
 			}
 			if pending++; pending >= 2000 {
 				if _, err := arc.db.Exec("COMMIT; BEGIN"); err != nil {
@@ -171,7 +184,7 @@ func runImportJSON(cfg Config, jsonPath, baseDir string) error {
 		return err
 	}
 	_ = arc.SetMeta(ctx, "last_backup_import", time.Now().UTC().Format(time.RFC3339))
-	log.Printf("import: %d chats, %d new messages, %d already archived, %d media files copied", chats, added, seen, copied)
+	log.Printf("import: %d chats, %d new messages, %d already archived, %d media files copied, %d attached to archived messages", chats, added, seen, copied, attached)
 	return nil
 }
 

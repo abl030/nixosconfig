@@ -97,7 +97,15 @@ history), reaches `Media/` through a symlink, stops the service for the
 merge and restarts it. The import de-duplicates on WhatsApp's message id, so
 it merges with live and history rows and is safe to re-run after any later
 backup. Media is copied into `media/`, so the archive keeps it even if the
-phone deletes it and the mirror follows.
+phone deletes it and the mirror follows. For messages the live feed already
+archived, the backup's file is attached when the row has none (expired,
+skipped), which is how old media gets filled in. Contact names come from
+`Backups/wa.db.crypt15`.
+
+The helper refuses to run while Syncthing still has `.syncthing.*.tmp`
+files in the mirror (set `WHATSAPP_IMPORT_PARTIAL=1` to override). On the
+first sync (2026-10-28) the 7 MB `msgstore.db.crypt15` was queued behind
+~3 GB of media, so check the phone shows "Up to Date" first.
 
 wtsexporter does not export polls, reactions or other non-text types; it
 emits empty rows for them, which the importer skips so they cannot shadow
