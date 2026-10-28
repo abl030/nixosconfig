@@ -265,6 +265,11 @@ in the triage chat walk-through. Operator decision, 2026-10-15.
    failing commit's code, and the package version actually in the lock. The
    checkout is `/home/abl030/cratedigger`, and the canary runs
    `inputs.cratedigger-src` scripts. A wrong issue is worse than none.
+   **Upstream causes get no issue.** If the verified cause is a nixpkgs (or
+   other upstream) regression and cratedigger needs no change — the gate
+   already refuses the bad lock — report it in the summary with the upstream
+   issue/PR link and say whether the fleet's own lock is exposed. Operator
+   decision, 2026-10-29 (nginx/libxcrypt, cratedigger#1446 closed).
 3. **File it** with `gh issue create -R abl030/cratedigger --body-file <f>`. The
    body needs: the unit, host and schedule; the failure start date and streak;
    the verified cause with file:line evidence; production impact; a proposed
