@@ -12,7 +12,7 @@
   aardvarkVersion = pkgs.aardvark-dns.version;
   buildahVersion = pkgs.buildah.version;
   skopeoVersion = pkgs.skopeo.version;
-  graphRoot = config.virtualisation.containers.storage.settings.storage.graphroot;
+  graphRoot = config.virtualisation.containers.storage.rootful.settings.storage.graphroot;
 
   databaseBackendGuardPackage = pkgs.writeShellScript "podman-database-backend-guard" ''
     if [ "$#" -ne 1 ]; then
@@ -213,6 +213,12 @@ in {
         flags = ["--all"];
       };
     };
+
+    # The BoltDB migration guard is for rootful Podman. Keep its storage path
+    # explicit: nixpkgs no longer defines graphroot in the shared storage.conf
+    # because that file is also read by rootless container tools.
+    virtualisation.containers.storage.rootful.settings.storage.graphroot =
+      lib.mkDefault "/var/lib/containers/storage";
 
     virtualisation.oci-containers.backend = "podman";
 

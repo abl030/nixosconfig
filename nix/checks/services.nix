@@ -464,7 +464,7 @@
       allPodmanServicesGuarded = lib.all guardReachable podmanServiceNames;
       bootGuardExec = host.systemd.services.podman-database-backend-guard.serviceConfig.ExecStart;
       bootGuardMounts = host.systemd.services.podman-database-backend-guard.unitConfig.RequiresMountsFor;
-      graphRoot = host.virtualisation.containers.storage.settings.storage.graphroot;
+      graphRoot = host.virtualisation.containers.storage.rootful.settings.storage.graphroot;
     in ''
       echo 'Checking Podman 6 cutover invariants on ${name}'
       test '${lib.versions.major podmanVersion}' = 6
