@@ -6,6 +6,8 @@ archives anything. Android backup import is optional, for full history.
 **Host:** `doc2`
 **Module:** `modules/nixos/services/whatsapp-archive.nix`
 **Code:** `nix/pkgs/whatsapp-archive/` (Go, whatsmeow + pure-Go SQLite)
+**Updated:** 2026-10-28, polls (all versions), poll votes, events, and
+`unsupported:` rows for unknown types; see "Replaying history".
 **Revisit:** if WhatsApp changes the linked-device protocol in a way whatsmeow
 can't follow, or if the account gets a temporary ban.
 
@@ -97,13 +99,26 @@ Schema (see `nix/pkgs/whatsapp-archive/db.go`):
 - `messages(msg_id, chat_jid, sender_jid, sender_name, from_me, ts, kind, text,
   quoted_id, media_mime, media_file, media_status, source, edited_at, deleted_at)`
   - `ts` is unix seconds; `kind` is text/image/video/audio/voice/document/
-    sticker/location/contact/poll/reaction/system
+    sticker/location/contact/poll/poll-result/event/reaction/system, or
+    `unsupported:<protoField>` for a content type with no handler yet (kept
+    so gaps are visible: `SELECT kind, count(*) FROM messages WHERE kind
+    LIKE 'unsupported:%' GROUP BY 1`)
   - `text` holds the body, or the caption/filename for media
   - `source` is `live`, `history` or `backup`
 - `messages_fts` — FTS5 over `text` (`rowid = messages.id`)
 - `chats(jid, name, is_group)`, `contacts(jid, name, push_name)`
 - `message_edits(msg_id, edited_at, old_text)`, `meta(key, value)`
-  (`last_connected`, `logged_out`, `last_backup_import`)
+  (`last_connected`, `logged_out`, `last_backup_import`, `own_jid`)
+- Polls: the question and options are a `kind = 'poll'` message. Votes:
+  - `poll_options(poll_msg_id, idx, name, hash)`: votes name options by
+    SHA-256 of the option text, so options are kept to translate them
+  - `poll_votes(poll_msg_id, voter_jid, ts, options, source)`: append-only
+    log; `options` is a JSON array of option names (`[]` = vote retracted)
+  - `poll_current_votes`: latest vote per voter
+  - `poll_results`: per option, the count and the voters' names
+  - Live votes are decrypted with the poll's message secret; history-synced
+    polls carry their votes already decrypted. The Android backup exporter
+    (wtsexporter) does not export polls, so the backup import adds none.
 
 Display names: `chats.name` for groups; for 1:1 chats join `contacts` on
 `chat_jid` (`name` is the address-book name, `push_name` their own).
@@ -125,7 +140,22 @@ WHERE chat_jid = '61400000000@s.whatsapp.net' ORDER BY ts DESC LIMIT 50;
 
 -- is the feed alive?
 SELECT * FROM meta;
+
+-- poll results in a chat
+SELECT m.text, r.option, r.votes, r.voters
+FROM poll_results r JOIN messages m ON m.msg_id = r.poll_msg_id
+JOIN chats c ON c.jid = m.chat_jid
+WHERE c.name LIKE '%bucks%' ORDER BY m.ts, r.idx;
 ```
+
+## Replaying history after a handler fix
+
+Messages of a type the daemon could not handle were dropped before
+2026-10-28 (polls V2/V5/V6, poll votes, events). The phone only sends history
+once per link, so to recover them: on the phone, Settings -> Linked devices ->
+`homelab-archive` -> Log out (the daemon exits with LOGGED OUT, which pages),
+then run `whatsapp-archive-link` again. Inserts are de-duplicated by message
+id and vote timestamp, so the replay only adds what was missing.
 
 ## Health and alerts
 

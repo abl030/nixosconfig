@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -69,6 +72,38 @@ CREATE TABLE IF NOT EXISTS meta (
 	key   TEXT PRIMARY KEY,
 	value TEXT
 );
+-- Votes reference options by SHA-256 of the option name, so options are kept
+-- per poll to translate them. poll_votes is an append-only log (a changed or
+-- retracted vote is a new row); poll_current_votes is the latest per voter.
+CREATE TABLE IF NOT EXISTS poll_options (
+	poll_msg_id TEXT NOT NULL,
+	idx         INTEGER NOT NULL,
+	name        TEXT NOT NULL,
+	hash        TEXT NOT NULL,
+	PRIMARY KEY (poll_msg_id, idx)
+);
+CREATE TABLE IF NOT EXISTS poll_votes (
+	poll_msg_id TEXT NOT NULL,
+	voter_jid   TEXT NOT NULL,
+	ts          INTEGER NOT NULL,
+	options     TEXT NOT NULL,
+	source      TEXT NOT NULL,
+	UNIQUE (poll_msg_id, voter_jid, ts)
+);
+CREATE VIEW IF NOT EXISTS poll_current_votes AS
+	SELECT v.* FROM poll_votes v
+	WHERE v.ts = (SELECT max(w.ts) FROM poll_votes w
+	              WHERE w.poll_msg_id = v.poll_msg_id AND w.voter_jid = v.voter_jid);
+CREATE VIEW IF NOT EXISTS poll_results AS
+	SELECT o.poll_msg_id, o.idx, o.name AS option, count(cv.voter_jid) AS votes,
+	       group_concat(CASE WHEN cv.voter_jid = (SELECT value FROM meta WHERE key = 'own_jid') THEN 'me'
+	                         ELSE COALESCE(ct.name, ct.push_name, substr(cv.voter_jid, 1, instr(cv.voter_jid, '@') - 1)) END,
+	                    ', ') AS voters
+	FROM poll_options o
+	LEFT JOIN poll_current_votes cv ON cv.poll_msg_id = o.poll_msg_id
+	     AND EXISTS (SELECT 1 FROM json_each(cv.options) j WHERE j.value = o.name)
+	LEFT JOIN contacts ct ON ct.jid = cv.voter_jid
+	GROUP BY o.poll_msg_id, o.idx;
 `
 
 type Archive struct {
@@ -189,6 +224,40 @@ func (a *Archive) ChatName(ctx context.Context, jid string) string {
 	var name sql.NullString
 	_ = a.db.QueryRowContext(ctx, `SELECT name FROM chats WHERE jid = ?`, jid).Scan(&name)
 	return name.String
+}
+
+func (a *Archive) PutPollOptions(ctx context.Context, pollID string, names []string) error {
+	for i, name := range names {
+		sum := sha256.Sum256([]byte(name))
+		if _, err := a.db.ExecContext(ctx,
+			`INSERT INTO poll_options (poll_msg_id, idx, name, hash) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+			pollID, i, name, hex.EncodeToString(sum[:])); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RecordPollVote maps the selected option hashes to names (unknown hashes are
+// kept as hex) and appends the vote. An empty selection is a retraction.
+func (a *Archive) RecordPollVote(ctx context.Context, pollID, voter string, at time.Time, hashes [][]byte, source string) error {
+	selected := make([]string, 0, len(hashes))
+	for _, h := range hashes {
+		hx := hex.EncodeToString(h)
+		var name sql.NullString
+		_ = a.db.QueryRowContext(ctx,
+			`SELECT name FROM poll_options WHERE poll_msg_id = ? AND hash = ?`, pollID, hx).Scan(&name)
+		if name.Valid {
+			selected = append(selected, name.String)
+		} else {
+			selected = append(selected, "sha256:"+hx)
+		}
+	}
+	opts, _ := json.Marshal(selected)
+	_, err := a.db.ExecContext(ctx, `
+		INSERT INTO poll_votes (poll_msg_id, voter_jid, ts, options, source) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT DO NOTHING`, pollID, voter, at.Unix(), string(opts), source)
+	return err
 }
 
 func (a *Archive) SetMeta(ctx context.Context, key, value string) error {

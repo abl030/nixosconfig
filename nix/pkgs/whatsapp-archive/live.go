@@ -17,12 +17,14 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Exit codes systemd must NOT restart on (RestartPreventExitStatus): the
@@ -162,6 +164,7 @@ func (a *archiver) handle(evt any) {
 		a.healthy.Store(true)
 		_ = a.arc.SetMeta(ctx, "last_connected", time.Now().UTC().Format(time.RFC3339))
 		_ = a.arc.SetMeta(ctx, "logged_out", "")
+		_ = a.arc.SetMeta(ctx, "own_jid", a.normJID(ctx, a.cli.Store.GetJID()).String())
 		log.Printf("connected")
 	case *events.Disconnected:
 		a.healthy.Store(false)
@@ -266,9 +269,18 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 		return
 	}
 
+	if evt.Message.GetPollUpdateMessage() != nil {
+		a.storeLiveVote(ctx, evt, sender)
+		return
+	}
+
 	kind, text, quoted, mimeType, dl := describe(evt.Message)
 	if kind == "" {
-		return // receipts, key distribution, app-state and other non-content messages
+		kind = unsupportedKind(evt.Message)
+		if kind == "" {
+			return // key distribution, app-state and other non-content messages
+		}
+		log.Printf("stored %s as %s (no handler yet)", info.ID, kind)
 	}
 	a.ensureChat(ctx, chat, info.IsGroup)
 
@@ -296,6 +308,16 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 		log.Printf("insert %s: %v", info.ID, err)
 		return
 	}
+	// Even for an already-archived poll: backfills options for polls stored
+	// before options were recorded.
+	if p := pollOf(evt.Message); p != nil {
+		if err := a.arc.PutPollOptions(ctx, info.ID, pollOptions(p)); err != nil {
+			log.Printf("poll options %s: %v", info.ID, err)
+		}
+	}
+	if web := evt.SourceWebMsg; web != nil {
+		a.storeHistoryVotes(ctx, info.ID, chat, web.GetPollUpdates())
+	}
 	if added && dl != nil {
 		if source == "history" && time.Since(info.Timestamp) > time.Duration(a.cfg.HistoryMediaDays)*24*time.Hour {
 			// Old history media is long gone from the CDN; the backup import has it.
@@ -306,6 +328,42 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 		case a.media <- mediaJob{msgID: info.ID, ts: info.Timestamp, mime: mimeType, dl: dl}:
 		default:
 			_ = a.arc.SetMedia(ctx, info.ID, "", "queue-full")
+		}
+	}
+}
+
+// storeLiveVote decrypts a vote with the poll's message secret (whatsmeow
+// keeps secrets for live and history-synced polls).
+func (a *archiver) storeLiveVote(ctx context.Context, evt *events.Message, voter types.JID) {
+	pollID := evt.Message.GetPollUpdateMessage().GetPollCreationMessageKey().GetID()
+	vote, err := a.cli.DecryptPollVote(ctx, evt)
+	if err != nil {
+		log.Printf("poll vote %s on %s: %v", evt.Info.ID, pollID, err)
+		return
+	}
+	if err := a.arc.RecordPollVote(ctx, pollID, voter.String(), evt.Info.Timestamp, vote.GetSelectedOptions(), "live"); err != nil {
+		log.Printf("poll vote %s: %v", evt.Info.ID, err)
+	}
+}
+
+// storeHistoryVotes records the (already decrypted) votes a history sync
+// attaches to a poll message.
+func (a *archiver) storeHistoryVotes(ctx context.Context, pollID string, chat types.JID, updates []*waWeb.PollUpdate) {
+	for _, u := range updates {
+		key := u.GetPollUpdateMessageKey()
+		var voter types.JID
+		switch {
+		case key.GetFromMe():
+			voter = a.cli.Store.GetJID()
+		case key.GetParticipant() != "":
+			voter, _ = types.ParseJID(key.GetParticipant())
+		default:
+			voter = chat
+		}
+		voter = a.normJID(ctx, voter)
+		at := time.UnixMilli(u.GetSenderTimestampMS())
+		if err := a.arc.RecordPollVote(ctx, pollID, voter.String(), at, u.GetVote().GetSelectedOptions(), "history"); err != nil {
+			log.Printf("history vote on %s: %v", pollID, err)
 		}
 	}
 }
@@ -446,16 +504,99 @@ func describe(m *waE2E.Message) (string, string, string, string, whatsmeow.Downl
 	case m.ReactionMessage != nil:
 		x := m.GetReactionMessage()
 		return "reaction", x.GetText(), x.GetKey().GetID(), "", nil
-	case m.PollCreationMessage != nil || m.PollCreationMessageV3 != nil:
-		x := m.GetPollCreationMessage()
+	case pollOf(m) != nil:
+		x := pollOf(m)
+		lines := []string{x.GetName()}
+		for _, o := range pollOptions(x) {
+			lines = append(lines, "- "+o)
+		}
+		return "poll", strings.Join(lines, "\n"), x.GetContextInfo().GetStanzaID(), "", nil
+	case m.PollResultSnapshotMessage != nil || m.PollResultSnapshotMessageV3 != nil:
+		x := m.GetPollResultSnapshotMessage()
 		if x == nil {
-			x = m.GetPollCreationMessageV3()
+			x = m.GetPollResultSnapshotMessageV3()
 		}
-		opts := []string{x.GetName()}
-		for _, o := range x.GetOptions() {
-			opts = append(opts, "- "+o.GetOptionName())
+		lines := []string{x.GetName()}
+		for _, v := range x.GetPollVotes() {
+			lines = append(lines, fmt.Sprintf("- %s: %d", v.GetOptionName(), v.GetOptionVoteCount()))
 		}
-		return "poll", strings.Join(opts, "\n"), "", "", nil
+		return "poll-result", strings.Join(lines, "\n"), "", "", nil
+	case m.EventMessage != nil:
+		x := m.GetEventMessage()
+		lines := []string{x.GetName()}
+		if x.GetStartTime() != 0 {
+			when := time.Unix(x.GetStartTime(), 0).Local().Format("Mon 2 Jan 2006 15:04")
+			if x.GetEndTime() != 0 {
+				when += " – " + time.Unix(x.GetEndTime(), 0).Local().Format("Mon 2 Jan 2006 15:04")
+			}
+			lines = append(lines, "When: "+when)
+		}
+		if loc := x.GetLocation(); loc != nil {
+			lines = append(lines, strings.TrimSpace("Where: "+loc.GetName()+" "+loc.GetAddress()))
+		}
+		if x.GetDescription() != "" {
+			lines = append(lines, x.GetDescription())
+		}
+		if x.GetIsCanceled() {
+			lines = append(lines, "(cancelled)")
+		}
+		return "event", strings.Join(lines, "\n"), x.GetContextInfo().GetStanzaID(), "", nil
 	}
 	return "", "", "", "", nil
+}
+
+// pollOf returns the poll in any of WhatsApp's poll message versions.
+func pollOf(m *waE2E.Message) *waE2E.PollCreationMessage {
+	for _, p := range []*waE2E.PollCreationMessage{
+		m.GetPollCreationMessage(), m.GetPollCreationMessageV2(), m.GetPollCreationMessageV3(),
+		m.GetPollCreationMessageV5(), m.GetPollCreationMessageV6(),
+	} {
+		if p != nil {
+			return p
+		}
+	}
+	if inner := m.GetPollCreationMessageV4().GetMessage(); inner != nil {
+		return pollOf(inner)
+	}
+	return nil
+}
+
+func pollOptions(p *waE2E.PollCreationMessage) []string {
+	var names []string
+	for _, o := range p.GetOptions() {
+		names = append(names, o.GetOptionName())
+	}
+	return names
+}
+
+// Message fields that carry no user content (key exchange, wrappers, state).
+var nonContentFields = map[string]bool{
+	"messageContextInfo":                         true,
+	"senderKeyDistributionMessage":               true,
+	"fastRatchetKeySenderKeyDistributionMessage": true,
+	"protocolMessage":                            true,
+	"pollUpdateMessage":                          true,
+	"keepInChatMessage":                          true,
+	"pinInChatMessage":                           true,
+	"encReactionMessage":                         true,
+	"encCommentMessage":                          true,
+	"encEventResponseMessage":                    true,
+	"secretEncryptedMessage":                     true,
+	"callLogMesssage":                            true,
+}
+
+// unsupportedKind names the content field(s) of a message describe() does not
+// understand, so such messages are kept (and counted) instead of vanishing.
+func unsupportedKind(m *waE2E.Message) string {
+	var names []string
+	m.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+		if name := string(fd.JSONName()); !nonContentFields[name] {
+			names = append(names, name)
+		}
+		return true
+	})
+	if len(names) == 0 {
+		return ""
+	}
+	return "unsupported:" + strings.Join(names, "+")
 }
