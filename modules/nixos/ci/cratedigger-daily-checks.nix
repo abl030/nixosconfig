@@ -297,6 +297,14 @@ in {
       }
       {
         assertion =
+          !config.systemd.services.cratedigger-daily-checks.restartIfChanged
+          && !config.systemd.services.cratedigger-daily-checks.stopIfChanged
+          && !config.systemd.services.cratedigger-beets-tip-canary.restartIfChanged
+          && !config.systemd.services.cratedigger-beets-tip-canary.stopIfChanged;
+        message = "candidate runs must survive unrelated NixOS activations";
+      }
+      {
+        assertion =
           lib.elem pkgs.util-linux config.systemd.services.cratedigger-daily-checks.path
           && lib.elem pkgs.util-linux config.systemd.services.cratedigger-beets-tip-canary.path;
         message = "daily and tip candidates must provide flock through util-linux";
@@ -349,6 +357,11 @@ in {
         wants = ["network-online.target"];
         after = ["network-online.target"];
         unitConfig.OnFailure = ["cratedigger-daily-checks-notify-failure.service"];
+        # A candidate run can consume most of its 17-hour budget. Activation
+        # must not SIGTERM an in-flight run merely because its generated unit
+        # changed; the next timer invocation naturally uses the new unit.
+        restartIfChanged = false;
+        stopIfChanged = false;
 
         path = dailyCandidatePath;
 
@@ -459,6 +472,10 @@ in {
         wants = ["network-online.target"];
         after = ["network-online.target"];
         unitConfig.OnFailure = ["cratedigger-beets-tip-canary-notify-failure.service"];
+        # Keep the same activation invariant as the daily candidate: neither
+        # long-running checks-only transaction may be killed mid-disposition.
+        restartIfChanged = false;
+        stopIfChanged = false;
 
         path = tipCandidatePath;
 
