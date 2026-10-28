@@ -195,9 +195,11 @@
 
     # Base.nix enables update=true.
     # We just add specific timing/dates here.
+    # Keep clear of prom's 03:00 vzdump of VM 104 (doc1): a kernel reboot
+    # mid-backup hung the guest for 45 min on 2026-10-27 until manual qmstop.
     update = {
-      updateDates = "03:00";
-      gcDates = "03:30";
+      updateDates = "01:30";
+      gcDates = "02:00";
       rebootOnKernelUpdate = true;
     };
 
