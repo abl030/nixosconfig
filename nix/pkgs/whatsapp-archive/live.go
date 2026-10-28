@@ -83,6 +83,9 @@ type archiver struct {
 	groups  sync.Map // chat jid -> struct{} once the group name is fetched
 	healthy atomic.Bool
 	exit    chan int
+
+	unsupported sync.Map  // unsupported kind -> struct{}, to log each once
+	reprocessed sync.Once // reprocessUnsupported on the first connect
 }
 
 type mediaJob struct {
@@ -166,6 +169,7 @@ func (a *archiver) handle(evt any) {
 		_ = a.arc.SetMeta(ctx, "logged_out", "")
 		_ = a.arc.SetMeta(ctx, "own_jid", a.normJID(ctx, a.cli.Store.GetJID()).String())
 		log.Printf("connected")
+		a.reprocessed.Do(func() { go a.reprocessUnsupported(context.Background()) })
 	case *events.Disconnected:
 		a.healthy.Store(false)
 		log.Printf("disconnected; auto-reconnecting")
@@ -275,12 +279,17 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 	}
 
 	kind, text, quoted, mimeType, dl := describe(evt.Message)
+	var raw []byte
 	if kind == "" {
 		kind = unsupportedKind(evt.Message)
 		if kind == "" {
 			return // key distribution, app-state and other non-content messages
 		}
-		log.Printf("stored %s as %s (no handler yet)", info.ID, kind)
+		// Keep the protobuf so a later handler can upgrade the row in place.
+		raw, _ = proto.Marshal(evt.Message)
+		if _, seen := a.unsupported.LoadOrStore(kind, struct{}{}); !seen {
+			log.Printf("storing %s messages as raw placeholders (no handler yet), e.g. %s", kind, info.ID)
+		}
 	}
 	a.ensureChat(ctx, chat, info.IsGroup)
 
@@ -295,6 +304,7 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 		QuotedID:  quoted,
 		MediaMime: mimeType,
 		Source:    source,
+		Raw:       raw,
 	}
 	if !info.IsFromMe {
 		m.SenderName = info.PushName
@@ -319,16 +329,56 @@ func (a *archiver) storeMessage(ctx context.Context, evt *events.Message, source
 		a.storeHistoryVotes(ctx, info.ID, chat, web.GetPollUpdates())
 	}
 	if added && dl != nil {
-		if source == "history" && time.Since(info.Timestamp) > time.Duration(a.cfg.HistoryMediaDays)*24*time.Hour {
-			// Old history media is long gone from the CDN; the backup import has it.
-			_ = a.arc.SetMedia(ctx, info.ID, "", "skipped")
-			return
+		a.queueMedia(ctx, info.ID, info.Timestamp, source, mimeType, dl)
+	}
+}
+
+func (a *archiver) queueMedia(ctx context.Context, msgID string, ts time.Time, source, mimeType string, dl whatsmeow.DownloadableMessage) {
+	if source != "live" && time.Since(ts) > time.Duration(a.cfg.HistoryMediaDays)*24*time.Hour {
+		// Old history media is long gone from the CDN; the backup import has it.
+		_ = a.arc.SetMedia(ctx, msgID, "", "skipped")
+		return
+	}
+	select {
+	case a.media <- mediaJob{msgID: msgID, ts: ts, mime: mimeType, dl: dl}:
+	default:
+		_ = a.arc.SetMedia(ctx, msgID, "", "queue-full")
+	}
+}
+
+// reprocessUnsupported upgrades unsupported:* rows whose kept protobuf a
+// newer describe() now understands. Runs once per daemon start.
+func (a *archiver) reprocessUnsupported(ctx context.Context) {
+	rows, err := a.arc.UnsupportedRaw(ctx)
+	if err != nil {
+		log.Printf("reprocess: %v", err)
+		return
+	}
+	upgraded := 0
+	for _, r := range rows {
+		var msg waE2E.Message
+		if err := proto.Unmarshal(r.Raw, &msg); err != nil {
+			continue
 		}
-		select {
-		case a.media <- mediaJob{msgID: info.ID, ts: info.Timestamp, mime: mimeType, dl: dl}:
-		default:
-			_ = a.arc.SetMedia(ctx, info.ID, "", "queue-full")
+		kind, text, quoted, mimeType, dl := describe(&msg)
+		if kind == "" {
+			continue
 		}
+		m := Msg{Kind: kind, Text: text, QuotedID: quoted, MediaMime: mimeType}
+		if dl != nil {
+			m.MediaState = "pending"
+		}
+		if err := a.arc.UpgradeUnsupported(ctx, r.MsgID, m); err != nil {
+			log.Printf("reprocess %s: %v", r.MsgID, err)
+			continue
+		}
+		upgraded++
+		if dl != nil {
+			a.queueMedia(ctx, r.MsgID, r.TS, r.Source, mimeType, dl)
+		}
+	}
+	if len(rows) > 0 {
+		log.Printf("reprocess: upgraded %d of %d unsupported rows", upgraded, len(rows))
 	}
 }
 
@@ -541,8 +591,72 @@ func describe(m *waE2E.Message) (string, string, string, string, whatsmeow.Downl
 			lines = append(lines, "(cancelled)")
 		}
 		return "event", strings.Join(lines, "\n"), x.GetContextInfo().GetStanzaID(), "", nil
+	case m.PtvMessage != nil:
+		x := m.GetPtvMessage()
+		return "video-note", x.GetCaption(), x.GetContextInfo().GetStanzaID(), x.GetMimetype(), x
+	case m.AlbumMessage != nil:
+		// The photos follow as their own (associatedChild-wrapped) messages.
+		x := m.GetAlbumMessage()
+		return "album", fmt.Sprintf("album: %d photos, %d videos",
+			x.GetExpectedImageCount(), x.GetExpectedVideoCount()), "", "", nil
+	case m.GroupInviteMessage != nil:
+		x := m.GetGroupInviteMessage()
+		return "invite", strings.TrimSpace(x.GetGroupName() + "\n" + x.GetCaption()), "", "", nil
+	case m.TemplateMessage != nil:
+		return "template", templateText(m.GetTemplateMessage()), "", "", nil
+	case m.InteractiveMessage != nil:
+		x := m.GetInteractiveMessage()
+		return "template", strings.TrimSpace(x.GetHeader().GetTitle() + "\n" + x.GetBody().GetText()), "", "", nil
+	case m.ButtonsMessage != nil:
+		return "template", m.GetButtonsMessage().GetContentText(), "", "", nil
+	case m.ListMessage != nil:
+		x := m.GetListMessage()
+		return "template", strings.TrimSpace(x.GetTitle() + "\n" + x.GetDescription()), "", "", nil
+	case m.ButtonsResponseMessage != nil:
+		x := m.GetButtonsResponseMessage()
+		return "reply", x.GetSelectedDisplayText(), x.GetContextInfo().GetStanzaID(), "", nil
+	case m.TemplateButtonReplyMessage != nil:
+		x := m.GetTemplateButtonReplyMessage()
+		return "reply", x.GetSelectedDisplayText(), x.GetContextInfo().GetStanzaID(), "", nil
+	case m.ListResponseMessage != nil:
+		x := m.GetListResponseMessage()
+		return "reply", x.GetTitle(), x.GetContextInfo().GetStanzaID(), "", nil
+	case m.PlaceholderMessage != nil:
+		// Content WhatsApp withholds from linked devices (kept on the phone).
+		return "placeholder", m.GetPlaceholderMessage().GetType().String(), "", "", nil
+	}
+	// WhatsApp keeps adding FutureProofMessage envelopes (album children,
+	// group mentions, event covers, ...). Describe whatever they wrap.
+	var inner *waE2E.Message
+	m.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Message() != nil && fd.Message().FullName() == "WAWebProtobufsE2E.FutureProofMessage" {
+			if fp, ok := v.Message().Interface().(*waE2E.FutureProofMessage); ok && fp.GetMessage() != nil {
+				inner = fp.GetMessage()
+				return false
+			}
+		}
+		return true
+	})
+	if inner != nil {
+		return describe(inner)
 	}
 	return "", "", "", "", nil
+}
+
+func templateText(t *waE2E.TemplateMessage) string {
+	h := t.GetHydratedTemplate()
+	if h == nil {
+		h = t.GetHydratedFourRowTemplate()
+	}
+	if h != nil {
+		return strings.TrimSpace(strings.Join([]string{
+			h.GetHydratedTitleText(), h.GetHydratedContentText(), h.GetHydratedFooterText(),
+		}, "\n"))
+	}
+	if im := t.GetInteractiveMessageTemplate(); im != nil {
+		return strings.TrimSpace(im.GetHeader().GetTitle() + "\n" + im.GetBody().GetText())
+	}
+	return ""
 }
 
 // pollOf returns the poll in any of WhatsApp's poll message versions.
@@ -583,6 +697,7 @@ var nonContentFields = map[string]bool{
 	"encEventResponseMessage":                    true,
 	"secretEncryptedMessage":                     true,
 	"callLogMesssage":                            true,
+	"messageHistoryNotice":                       true,
 }
 
 // unsupportedKind names the content field(s) of a message describe() does not

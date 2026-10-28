@@ -124,6 +124,7 @@ type Msg struct {
 	MediaFile  string
 	MediaState string
 	Source     string
+	Raw        []byte // only for unsupported:* kinds
 }
 
 func openArchive(path string) (*Archive, error) {
@@ -135,6 +136,18 @@ func openArchive(path string) (*Archive, error) {
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+	// Columns added after the first deploy (2026-10-28). raw holds the
+	// protobuf of unsupported:* rows so a later handler can upgrade them in
+	// place (reprocessUnsupported) without asking the phone for history again.
+	var hasRaw int
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('messages') WHERE name = 'raw'`).Scan(&hasRaw); err != nil {
+		return nil, err
+	}
+	if hasRaw == 0 {
+		if _, err := db.Exec(`ALTER TABLE messages ADD COLUMN raw BLOB`); err != nil {
+			return nil, fmt.Errorf("add raw column: %w", err)
+		}
 	}
 	return &Archive{db: db}, nil
 }
@@ -148,16 +161,25 @@ func nullable(s string) any {
 
 // InsertMessage is append-only: an existing msg_id is never overwritten, so a
 // live copy, a history-sync copy and a backup-import copy of one message merge.
-// It reports whether a new row was written.
+// The one exception is an unsupported:* placeholder row, which a handled copy
+// replaces. It reports whether a row was written (new or upgraded).
 func (a *Archive) InsertMessage(ctx context.Context, m Msg) (bool, error) {
+	var raw any
+	if len(m.Raw) > 0 {
+		raw = m.Raw
+	}
 	res, err := a.db.ExecContext(ctx, `
 		INSERT INTO messages (msg_id, chat_jid, sender_jid, sender_name, from_me, ts, kind,
-			text, quoted_id, media_mime, media_file, media_status, source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(msg_id) DO NOTHING`,
+			text, quoted_id, media_mime, media_file, media_status, source, raw)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(msg_id) DO UPDATE SET
+			kind = excluded.kind, text = excluded.text, quoted_id = excluded.quoted_id,
+			media_mime = excluded.media_mime, media_file = excluded.media_file,
+			media_status = excluded.media_status, raw = NULL
+		WHERE messages.kind LIKE 'unsupported:%' AND excluded.kind NOT LIKE 'unsupported:%'`,
 		m.MsgID, m.ChatJID, nullable(m.SenderJID), nullable(m.SenderName), m.FromMe, m.TS.Unix(), m.Kind,
 		nullable(m.Text), nullable(m.QuotedID), nullable(m.MediaMime), nullable(m.MediaFile),
-		nullable(m.MediaState), m.Source)
+		nullable(m.MediaState), m.Source, raw)
 	if err != nil {
 		return false, err
 	}
@@ -224,6 +246,43 @@ func (a *Archive) ChatName(ctx context.Context, jid string) string {
 	var name sql.NullString
 	_ = a.db.QueryRowContext(ctx, `SELECT name FROM chats WHERE jid = ?`, jid).Scan(&name)
 	return name.String
+}
+
+type rawRow struct {
+	MsgID  string
+	TS     time.Time
+	Source string
+	Raw    []byte
+}
+
+// UnsupportedRaw lists unsupported:* rows that kept their protobuf.
+func (a *Archive) UnsupportedRaw(ctx context.Context) ([]rawRow, error) {
+	rows, err := a.db.QueryContext(ctx,
+		`SELECT msg_id, ts, source, raw FROM messages WHERE kind LIKE 'unsupported:%' AND raw IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []rawRow
+	for rows.Next() {
+		var r rawRow
+		var ts int64
+		if err := rows.Scan(&r.MsgID, &ts, &r.Source, &r.Raw); err != nil {
+			return nil, err
+		}
+		r.TS = time.Unix(ts, 0)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// UpgradeUnsupported rewrites a placeholder row once a handler understands it.
+func (a *Archive) UpgradeUnsupported(ctx context.Context, msgID string, m Msg) error {
+	_, err := a.db.ExecContext(ctx, `
+		UPDATE messages SET kind = ?, text = ?, quoted_id = ?, media_mime = ?, media_status = ?, raw = NULL
+		WHERE msg_id = ? AND kind LIKE 'unsupported:%'`,
+		m.Kind, nullable(m.Text), nullable(m.QuotedID), nullable(m.MediaMime), nullable(m.MediaState), msgID)
+	return err
 }
 
 func (a *Archive) PutPollOptions(ctx context.Context, pollID string, names []string) error {

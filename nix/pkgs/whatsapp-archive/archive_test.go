@@ -45,13 +45,13 @@ func TestDescribeEventAndUnsupported(t *testing.T) {
 		t.Errorf("event: %q %q", kind, text)
 	}
 	unknown := &waE2E.Message{
-		GroupInviteMessage: &waE2E.GroupInviteMessage{GroupName: proto.String("x")},
+		StickerPackMessage: &waE2E.StickerPackMessage{},
 		MessageContextInfo: &waE2E.MessageContextInfo{},
 	}
 	if k, _, _, _, _ := describe(unknown); k != "" {
-		t.Fatalf("expected no handler for group invite, got %q", k)
+		t.Fatalf("expected no handler for sticker packs, got %q", k)
 	}
-	if got := unsupportedKind(unknown); got != "unsupported:groupInviteMessage" {
+	if got := unsupportedKind(unknown); got != "unsupported:stickerPackMessage" {
 		t.Errorf("unsupported: %q", got)
 	}
 	keyOnly := &waE2E.Message{SenderKeyDistributionMessage: &waE2E.SenderKeyDistributionMessage{}}
@@ -119,5 +119,103 @@ func TestPollVotes(t *testing.T) {
 	_ = arc.db.QueryRow(`SELECT count(*) FROM poll_votes`).Scan(&logged)
 	if logged != 5 {
 		t.Errorf("vote log rows = %d, want 5 (append-only, deduped)", logged)
+	}
+}
+
+func TestDescribeWrappersAndBusiness(t *testing.T) {
+	child := &waE2E.Message{AssociatedChildMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{
+		ImageMessage: &waE2E.ImageMessage{Caption: proto.String("golf day"), Mimetype: proto.String("image/jpeg")},
+	}}}
+	kind, text, _, mimeType, dl := describe(child)
+	if kind != "image" || text != "golf day" || mimeType != "image/jpeg" || dl == nil {
+		t.Errorf("album child: %q %q %q dl=%v", kind, text, mimeType, dl != nil)
+	}
+	tpl := &waE2E.Message{TemplateMessage: &waE2E.TemplateMessage{HydratedTemplate: &waE2E.TemplateMessage_HydratedFourRowTemplate{
+		HydratedContentText: proto.String("Your booking is confirmed"), HydratedFooterText: proto.String("Byrons"),
+	}}}
+	if kind, text, _, _, _ := describe(tpl); kind != "template" || text != "Your booking is confirmed\nByrons" {
+		t.Errorf("template: %q %q", kind, text)
+	}
+	ph := &waE2E.Message{PlaceholderMessage: &waE2E.PlaceholderMessage{
+		Type: waE2E.PlaceholderMessage_MASK_LINKED_DEVICES.Enum(),
+	}}
+	if kind, _, _, _, _ := describe(ph); kind != "placeholder" {
+		t.Errorf("placeholder: %q", kind)
+	}
+	notice := &waE2E.Message{MessageHistoryNotice: &waE2E.MessageHistoryNotice{}}
+	if k := unsupportedKind(notice); k != "" {
+		t.Errorf("history notice should be non-content, got %q", k)
+	}
+}
+
+func TestUnsupportedUpgrade(t *testing.T) {
+	ctx := context.Background()
+	arc, err := openArchive(filepath.Join(t.TempDir(), "archive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown := &waE2E.Message{GroupMentionedMessage: &waE2E.FutureProofMessage{}}
+	raw, _ := proto.Marshal(unknown)
+	base := Msg{MsgID: "M1", ChatJID: "c@g.us", TS: time.Unix(1_700_000_000, 0), Source: "history"}
+
+	u := base
+	u.Kind, u.Raw = "unsupported:x", raw
+	if ok, err := arc.InsertMessage(ctx, u); !ok || err != nil {
+		t.Fatalf("insert unsupported: %v %v", ok, err)
+	}
+	rows, err := arc.UnsupportedRaw(ctx)
+	if err != nil || len(rows) != 1 || string(rows[0].Raw) != string(raw) {
+		t.Fatalf("raw kept: %v %d", err, len(rows))
+	}
+	// A replay that now understands the message upgrades the placeholder...
+	h := base
+	h.Kind, h.Text = "text", "now readable"
+	if ok, err := arc.InsertMessage(ctx, h); !ok || err != nil {
+		t.Fatalf("upgrade: %v %v", ok, err)
+	}
+	// ...but a handled row is never downgraded or overwritten.
+	if ok, _ := arc.InsertMessage(ctx, u); ok {
+		t.Error("handled row was downgraded")
+	}
+	other := base
+	other.Kind, other.Text = "text", "different"
+	if ok, _ := arc.InsertMessage(ctx, other); ok {
+		t.Error("handled row was overwritten")
+	}
+	var kind, text string
+	var rawLeft []byte
+	_ = arc.db.QueryRow(`SELECT kind, text, raw FROM messages WHERE msg_id = 'M1'`).Scan(&kind, &text, &rawLeft)
+	if kind != "text" || text != "now readable" || rawLeft != nil {
+		t.Errorf("after upgrade: %q %q raw=%d", kind, text, len(rawLeft))
+	}
+	// The offline path used by reprocessUnsupported.
+	u2 := base
+	u2.MsgID, u2.Kind, u2.Raw = "M2", "unsupported:y", raw
+	_, _ = arc.InsertMessage(ctx, u2)
+	if err := arc.UpgradeUnsupported(ctx, "M2", Msg{Kind: "image", MediaState: "pending"}); err != nil {
+		t.Fatal(err)
+	}
+	if rows, _ := arc.UnsupportedRaw(ctx); len(rows) != 0 {
+		t.Errorf("%d unsupported rows left after upgrade", len(rows))
+	}
+}
+
+func TestRawColumnMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "archive.db")
+	old, err := openArchive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate the first-deploy schema, which had no raw column.
+	if _, err := old.db.Exec(`ALTER TABLE messages DROP COLUMN raw`); err != nil {
+		t.Fatal(err)
+	}
+	old.db.Close()
+	arc, err := openArchive(path)
+	if err != nil {
+		t.Fatalf("reopen old schema: %v", err)
+	}
+	if _, err := arc.InsertMessage(context.Background(), Msg{MsgID: "X", ChatJID: "c", Kind: "unsupported:z", Raw: []byte{1}, Source: "live"}); err != nil {
+		t.Fatalf("insert after migration: %v", err)
 	}
 }

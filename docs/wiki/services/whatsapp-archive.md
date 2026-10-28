@@ -6,8 +6,9 @@ archives anything. Android backup import is optional, for full history.
 **Host:** `doc2`
 **Module:** `modules/nixos/services/whatsapp-archive.nix`
 **Code:** `nix/pkgs/whatsapp-archive/` (Go, whatsmeow + pure-Go SQLite)
-**Updated:** 2026-10-28, polls (all versions), poll votes, events, and
-`unsupported:` rows for unknown types; see "Replaying history".
+**Updated:** 2026-10-28, polls (all versions), poll votes, events, album
+photos and other wrapped messages, business templates, and `unsupported:`
+rows (with raw protobuf) for unknown types; see "Replaying history".
 **Revisit:** if WhatsApp changes the linked-device protocol in a way whatsmeow
 can't follow, or if the account gets a temporary ban.
 
@@ -98,11 +99,20 @@ Schema (see `nix/pkgs/whatsapp-archive/db.go`):
 
 - `messages(msg_id, chat_jid, sender_jid, sender_name, from_me, ts, kind, text,
   quoted_id, media_mime, media_file, media_status, source, edited_at, deleted_at)`
-  - `ts` is unix seconds; `kind` is text/image/video/audio/voice/document/
-    sticker/location/contact/poll/poll-result/event/reaction/system, or
-    `unsupported:<protoField>` for a content type with no handler yet (kept
-    so gaps are visible: `SELECT kind, count(*) FROM messages WHERE kind
-    LIKE 'unsupported:%' GROUP BY 1`)
+  - `ts` is unix seconds; `kind` is text/image/video/video-note/audio/voice/
+    document/sticker/location/contact/poll/poll-result/event/album/invite/
+    template (business messages)/reply (button/list answers)/placeholder
+    (content WhatsApp keeps off linked devices)/reaction/system, or
+    `unsupported:<protoField>` for a content type with no handler yet
+    (`SELECT kind, count(*) FROM messages WHERE kind LIKE 'unsupported:%' GROUP BY 1`)
+  - Album photos arrive as separate messages wrapped in
+    `associatedChildMessage`; any `FutureProofMessage` envelope is unwrapped
+    generically, so they are stored as ordinary `image`/`video` rows. The
+    `album` row is only the header ("N photos, M videos").
+  - `raw` holds the protobuf of `unsupported:*` rows only. When a later build
+    adds a handler, the daemon upgrades those rows in place on its next start
+    (`reprocess: upgraded N of M` in the journal), and a replayed copy of the
+    message also upgrades its placeholder. Handled rows are never overwritten.
   - `text` holds the body, or the caption/filename for media
   - `source` is `live`, `history` or `backup`
 - `messages_fts` — FTS5 over `text` (`rowid = messages.id`)
@@ -150,12 +160,17 @@ WHERE c.name LIKE '%bucks%' ORDER BY m.ts, r.idx;
 
 ## Replaying history after a handler fix
 
-Messages of a type the daemon could not handle were dropped before
-2026-10-28 (polls V2/V5/V6, poll votes, events). The phone only sends history
-once per link, so to recover them: on the phone, Settings -> Linked devices ->
-`homelab-archive` -> Log out (the daemon exits with LOGGED OUT, which pages),
-then run `whatsapp-archive-link` again. Inserts are de-duplicated by message
-id and vote timestamp, so the replay only adds what was missing.
+Since the raw-protobuf change (2026-10-28) a new handler upgrades
+`unsupported:*` rows by itself on the next daemon start; no replay needed.
+
+Before that, unknown types were either dropped (first deploy: polls V2/V5/V6,
+votes, events, album photos) or stored without raw (the poll-fix build:
+`associatedChildMessage`, `albumMessage`, `templateMessage`,
+`placeholderMessage`). The phone only sends history once per link, so those
+need a replay: on the phone, Settings -> Linked devices -> `homelab-archive`
+-> Log out (the daemon exits with LOGGED OUT, which pages), then run
+`whatsapp-archive-link` again. Rows are de-duplicated by message id and vote
+timestamp; a replayed copy upgrades its `unsupported:*` placeholder.
 
 ## Health and alerts
 
