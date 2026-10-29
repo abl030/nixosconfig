@@ -474,7 +474,13 @@ in {
 
     systemd.services.slskd = {
       unitConfig.RequiresMountsFor = [guestStateDir downloadDir musicDir "/run/host-secrets/slskd"];
+      # .NET 10.0.13+ stores user-scoped named mutexes below XDG_RUNTIME_DIR,
+      # falling back to HOME when it is unset. The system user has no writable
+      # home, so provide a private runtime directory for slskd's singleton mutex.
+      environment.XDG_RUNTIME_DIR = "/run/slskd";
       serviceConfig = {
+        RuntimeDirectory = "slskd";
+        RuntimeDirectoryMode = "0700";
         UMask = "0002";
         # The guest deliberately has no management plane. Mirror service output
         # to its serial console so the host journal remains a usable diagnostic
