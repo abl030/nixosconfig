@@ -244,7 +244,10 @@
       bdday.enable = true;
       cullenCarbon.enable = true;
       familyMap.enable = true;
-      familyArchive.enable = true;
+      familyArchive = {
+        enable = true;
+        publicPreview.enable = true;
+      };
       riversleaMap.enable = true;
       mrnews.enable = true;
 

@@ -49,6 +49,14 @@ browser → doc1 nginx :443 sources.ablz.au (localProxy TLS/ACME, LAN DNS)
   (`mumrouter`). See [mum-site-gateway](../infrastructure/mum-site-gateway.md).
 - nginx binds both paths with `-`, so a NAS outage doesn't stop nginx; the
   originals return 404 until nginx restarts after the NAS is back.
+- **Public preview** (`publicPreview.enable`, since 2026-10-29):
+  `public-preview.ablz.au`, LAN only, serves
+  `/var/lib/family-archive/public-site`: the public export (family-history
+  issue #137), with living people and unpublishable sources removed and
+  images downscaled. Written by `bin/fh export --public --out DIR --serve
+  /var/lib/family-archive/public-site`, which replaces it only after the
+  export's leak check passes. Nothing from the NAS is bound into it. It is
+  the rehearsal for the public host (an isolated VM, later).
 
 ## Operations
 

@@ -14,6 +14,7 @@
   servedOriginals = "/run/family-archive-originals";
   servedTiles = "/run/family-archive-tiles";
   servedBasemap = "/run/family-archive-basemap";
+  servedPublic = "/run/family-archive-public";
 in {
   options.homelab.services.familyArchive = {
     enable = lib.mkEnableOption "family-history source archive viewer";
@@ -63,22 +64,73 @@ in {
       default = 8854;
       description = "Loopback HTTP port of the static nginx server behind localProxy.";
     };
+
+    # The public site (`fh export --public`, family-history issue #137): the
+    # catalogue scrubbed of living people and of what can't be published,
+    # downscaled images inside it. Previewed here on the LAN before it is
+    # hosted publicly from an isolated VM; nothing else is mounted.
+    publicPreview = {
+      enable = lib.mkEnableOption "LAN preview of the public family-history site";
+
+      siteDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/family-archive/public-site";
+        description = "The cleared site `fh export --serve` writes (abl030-writable, regenerable).";
+      };
+
+      fqdn = lib.mkOption {
+        type = lib.types.str;
+        default = "public-preview.ablz.au";
+        description = "LAN HTTPS hostname served by homelab.localProxy.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8855;
+        description = "Loopback HTTP port of the preview's static nginx server.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.tmpfiles.rules = [
-      "d /var/lib/family-archive 0755 abl030 users - -"
-      "d ${cfg.siteDir} 0755 abl030 users - -"
-    ];
+    systemd.tmpfiles.rules =
+      [
+        "d /var/lib/family-archive 0755 abl030 users - -"
+        "d ${cfg.siteDir} 0755 abl030 users - -"
+      ]
+      ++ lib.optional cfg.publicPreview.enable "d ${cfg.publicPreview.siteDir} 0755 abl030 users - -";
 
     # Read-only directory binds; "-" keeps nginx starting if the NAS is down
     # (the Kuma monitor on an original then fails instead).
-    systemd.services.nginx.serviceConfig.BindReadOnlyPaths = [
-      "-${cfg.siteDir}:${servedSite}"
-      "-${cfg.originalsDir}:${servedOriginals}"
-      "-${cfg.tilesDir}:${servedTiles}"
-      "-${cfg.basemapDir}:${servedBasemap}"
-    ];
+    systemd.services.nginx.serviceConfig.BindReadOnlyPaths =
+      [
+        "-${cfg.siteDir}:${servedSite}"
+        "-${cfg.originalsDir}:${servedOriginals}"
+        "-${cfg.tilesDir}:${servedTiles}"
+        "-${cfg.basemapDir}:${servedBasemap}"
+      ]
+      ++ lib.optional cfg.publicPreview.enable "-${cfg.publicPreview.siteDir}:${servedPublic}";
+
+    # The public preview: only the cleared site, nothing from the NAS. The
+    # same headers the public host will send, so the preview behaves like it.
+    services.nginx.virtualHosts."family-public-preview" = lib.mkIf cfg.publicPreview.enable {
+      listen = [
+        {
+          addr = "127.0.0.1";
+          inherit (cfg.publicPreview) port;
+        }
+      ];
+      root = servedPublic;
+      locations."/" = {
+        tryFiles = "$uri $uri/index.html =404";
+        extraConfig = ''
+          add_header Cache-Control "no-cache" always;
+          add_header X-Content-Type-Options nosniff always;
+          add_header Referrer-Policy same-origin always;
+          add_header X-Robots-Tag "noindex" always;
+        '';
+      };
+    };
     # Ordering only, never Requires: on a normal boot let the NFS mount land
     # before nginx builds its namespace so the originals bind isn't skipped;
     # if tower is down the mount job fails and nginx starts anyway.
@@ -156,24 +208,34 @@ in {
       };
     };
 
-    homelab.localProxy.hosts = [
-      {
-        host = cfg.fqdn;
-        inherit (cfg) port;
-      }
-    ];
+    homelab.localProxy.hosts =
+      [
+        {
+          host = cfg.fqdn;
+          inherit (cfg) port;
+        }
+      ]
+      ++ lib.optional cfg.publicPreview.enable {
+        host = cfg.publicPreview.fqdn;
+        inherit (cfg.publicPreview) port;
+      };
 
     homelab.monitoring = {
-      monitors = [
-        {
-          name = "Family sources";
-          url = "https://${cfg.fqdn}/";
-        }
-        {
-          name = "Family sources map tiles";
-          url = "https://${cfg.fqdn}/tiles/manifest.json";
-        }
-      ];
+      monitors =
+        [
+          {
+            name = "Family sources";
+            url = "https://${cfg.fqdn}/";
+          }
+          {
+            name = "Family sources map tiles";
+            url = "https://${cfg.fqdn}/tiles/manifest.json";
+          }
+        ]
+        ++ lib.optional cfg.publicPreview.enable {
+          name = "Family public preview";
+          url = "https://${cfg.publicPreview.fqdn}/";
+        };
       errorPatterns = [];
     };
   };
