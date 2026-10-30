@@ -121,6 +121,19 @@ First run, 2026-10-30 13:03: every target blocked; `region1=198.41.192.67`, SRV
 `region2.v2.argotunnel.com:7844`; edge reachable; `ISOLATION OK`. Time synced from
 `162.159.200.123`.
 
+### Publish path (2026-10-30)
+
+- **First publish:** leak check clean; 49,344 files, 2.37 GB, at about 83 MB/s; 3 min 28 s
+  end to end.
+- **Unchanged re-publish:** 0 bytes of literal data. `--delete` removed a stray test file.
+- **The release survives a guest restart:** `status` shows loopback 200 on `/`,
+  `/api/index.json` and `/robots.txt`.
+- **The publish key refused everything else:** an arbitrary command ("refused"), a PTY,
+  reading back through rsync (write-only rrsync), writing to `../current`, and `-L` port
+  forwarding ("administratively prohibited"). Root login fails with publickey.
+- **Absolute paths:** an rsync to an absolute path like `/etc/` lands inside `staging/`
+  (rrsync confines it). The next publish's `--delete` removes it.
+
 ## Remaining (#250)
 
 1. Cloudflare: create the locally-managed tunnel. Put its credentials JSON in
