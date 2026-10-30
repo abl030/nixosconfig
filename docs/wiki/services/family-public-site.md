@@ -179,7 +179,46 @@ First run, 2026-10-30 13:03: every target blocked; `region1=198.41.192.67`, SRV
 - The isolation probe still reports `ISOLATION OK` with the tunnel running.
 - Kuma monitor "Family public site" polls `/api/index.json`.
 
+## Reader reports: `report@barrett-lennard.com`
+
+Decided with the user on 2026-10-30 (option A of three; the others were Gmail filters
+only, or Google Workspace with a Google Group). It runs entirely at Cloudflare, so nothing
+of it is in the fleet.
+
+```text
+sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
+       → rule: to report@ → Worker family-reports (scripts/family-reports/worker.js)
+           approved (KV family-reports-approved has the envelope or From address)
+               → abl030+familyreports@gmail.com   Gmail filter: label "Family reports"
+           anyone else
+               → abl030+familystaging@gmail.com   filter: skip inbox, "Family reports/Staging"
+               + one "waiting for review" reply per sender per 30 days
+                 (never to Auto-Submitted, list or bounce mail; Cloudflare only
+                 lets replies reach authenticated senders, so no backscatter)
+```
+
+- **Deny by default, but first contacts are kept.** Nothing is dropped. Staging is the
+  triage queue. Every message, approved or not, lands only with the user, who passes
+  real reports on to family-history by hand. Nothing goes to Forgejo or an agent.
+- **Triage:** read the Staging label. To approve a sender, run `family-reports approve <address> [note]`
+  on doc1; their later mail skips staging. To discard, delete the message. To revoke, run
+  `family-reports remove <address>`. `family-reports list` shows the approved list.
+- **Self-service:** a newcomer's first email is their registration, and the auto-reply
+  tells them it's awaiting review. There's no confirmation link: since nothing is dropped,
+  proving the address adds nothing.
+- **Spoofing:** a forged From of an approved address only changes which label the mail
+  gets; both labels are read by the user. No auth check is made in the Worker.
+- **Other addresses** on the domain are rejected (catch-all disabled). The domain had no
+  mail before this; the old Namecheap forwarding MX/SPF records were deleted. DMARC
+  stays `p=none` with Cloudflare's report address.
+- **Tokens:** `family-reports-approve` (id `55e2b002…`) has Workers KV Storage Write on the
+  account and nothing else. It's stored doc1-only at `secrets/hosts/proxmox-vm/family-reports-kv`.
+  Redeploying the Worker (`scripts/family-reports/deploy.sh <auth-header-file>`) needs a
+  fresh short-lived token with Workers Scripts and KV Write.
+- KV namespaces: `family-reports-approved` `8efb90cb…`, `family-reports-replies` `c974ab8a…`.
+
 ## Remaining (#250)
 
-1. Reader reports address (not built).
+1. End-to-end test: a known sender, a new sender, then approval. Both destinations were
+   verified on 2026-10-30. `abl030@gmail.com` is pre-approved as the known sender.
 2. Tell family-history the address for the footer line.
