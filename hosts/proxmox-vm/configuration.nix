@@ -252,6 +252,7 @@
         publicSite = {
           enable = true;
           hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ94hE47yW3YipoSFR/+8hfG3f8hUiHCQGopGz1pfGs/";
+          reports.enable = true;
         };
       };
       riversleaMap.enable = true;
