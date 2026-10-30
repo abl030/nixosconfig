@@ -25,7 +25,7 @@
   pub = cfg.publicSite;
   publishScript = pkgs.writeShellApplication {
     name = "family-public-publish";
-    runtimeInputs = with pkgs; [rsync openssh coreutils util-linux];
+    runtimeInputs = with pkgs; [rsync openssh coreutils util-linux curl];
     text = ''
       site=''${1:-${cfg.publicPreview.siteDir}}
       ssh_cmd=(ssh -i ${config.sops.secrets."family-public/publish-key".path}
@@ -56,6 +56,15 @@
       echo "upload to ${pub.host}"
       rsync -a --delete --stats -e "''${ssh_cmd[*]}" "$snap/site/" publish@${pub.host}:
       "''${ssh_cmd[@]}" publish@${pub.host} activate
+
+      # Cloudflare holds pages a day at the edge and the asset URLs carry no
+      # version, so a new release purges the zone. The token can only purge.
+      echo "purge Cloudflare cache"
+      curl -fsS -X POST -H 'Content-Type: application/json' \
+        -H @<(printf 'Authorization: Bearer %s\n' "$(cat ${config.sops.secrets."family-public/cf-purge".path})") \
+        --data '{"purge_everything":true}' \
+        "https://api.cloudflare.com/client/v4/zones/${pub.cloudflareZoneId}/purge_cache" >/dev/null
+      echo "purged"
     '';
   };
 in {
@@ -155,6 +164,12 @@ in {
         default = "/home/abl030/family-history/bin/fh";
         description = "The family-history CLI whose `export --check` gates every publish.";
       };
+
+      cloudflareZoneId = lib.mkOption {
+        type = lib.types.str;
+        default = "3312c076271b9036adcbd0ec5df55dda";
+        description = "The barrett-lennard.com zone, purged after each publish.";
+      };
     };
   };
 
@@ -168,6 +183,13 @@ in {
 
     sops.secrets."family-public/publish-key" = lib.mkIf pub.enable {
       sopsFile = config.homelab.secrets.sopsFile "family-public-publish-key";
+      format = "binary";
+      owner = "abl030";
+      mode = "0400";
+    };
+    # Purge-only Cloudflare token for barrett-lennard.com (no other scope).
+    sops.secrets."family-public/cf-purge" = lib.mkIf pub.enable {
+      sopsFile = config.homelab.secrets.sopsFile "family-public-cf-purge";
       format = "binary";
       owner = "abl030";
       mode = "0400";
@@ -320,6 +342,11 @@ in {
         ++ lib.optional cfg.publicPreview.enable {
           name = "Family public preview";
           url = "https://${cfg.publicPreview.fqdn}/";
+        }
+        # The public site end to end: Cloudflare, the tunnel, the guest.
+        ++ lib.optional pub.enable {
+          name = "Family public site";
+          url = "https://family.barrett-lennard.com/api/index.json";
         };
       errorPatterns = [];
     };

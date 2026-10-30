@@ -30,10 +30,11 @@
   # key) stays root's.
   liveDir = "${siteRoot}/live";
 
-  # Set once the locally-managed tunnel exists in the Cloudflare account (its
-  # UUID names the cloudflared unit). Until then the guest serves nothing
-  # publicly; publishing into it still works.
-  tunnelId = null;
+  # The locally-managed tunnel `familypub` in the Cloudflare account; its
+  # UUID names the cloudflared unit, and the proxied CNAME
+  # family.barrett-lennard.com points at <id>.cfargotunnel.com. null turns
+  # the tunnel off (the guest then serves nothing publicly).
+  tunnelId = "55ab03aa-d40a-479c-b897-5802edf2404a";
   tunnelEnabled = tunnelId != null;
 
   # Shared with family-archive.nix on doc1 (it holds the private half in sops).
