@@ -2,9 +2,8 @@
 
 - **Built:** 2026-10-30 · **Tracking:** Forgejo [#250](https://git.ablz.au/abl030/nixosconfig/issues/250),
   phase 6 of `abl030/family-history#137` (plan: `docs/plans/public-export.md` there)
-- **Status:** guest, VLAN, firewall and publish path live and verified. The Cloudflare
-  tunnel is waiting on a barrett-lennard.com tunnel credential (`tunnelId = null`); reader
-  reports email not built yet.
+- **Status:** **live** since 2026-10-30 13:31 AWST, verified from outside. The reader
+  reports email is not built yet.
 - **Config:** `hosts/doc2/family-public-microvm.nix` (guest), `modules/nixos/services/family-archive.nix`
   (`publicSite`, the doc1 publish command)
 - **Related:** [family-archive](family-archive.md) (the private site and LAN preview),
@@ -39,6 +38,38 @@ twins). Zone settings to keep: Bot Fight Mode **off**, "Block AI bots" / AI Craw
 Control **off**, managed robots.txt **off**, security level lowest, plus a WAF skip
 rule for `/api/`, `/robots.txt`, `/llms.txt` and `/sitemap.xml`. The rate limit answers 429,
 never a challenge page. Verify from outside with plain `curl` and a bot user agent.
+
+### Cloudflare objects (account `50e4b918…`, zone `3312c076…`, Free plan)
+
+Everything was created by API on 2026-10-30; change it the same way.
+
+- **Tunnel:** `familypub`, id `55ab03aa-d40a-479c-b897-5802edf2404a`, locally managed: the
+  ingress lives in the Nix config, not the dashboard. Credentials JSON:
+  `secrets/hosts/doc2/family-public-tunnel.json` (doc2-only). The guest reads it as the qemu
+  credential `family-tunnel`.
+- **DNS:** a proxied CNAME `family` → `<id>.cfargotunnel.com`. The apex (Cloudways) and the
+  Namecheap MX/SPF records are untouched.
+- **Zone settings:**
+  - security level `essentially_off`, Browser Integrity Check off;
+  - Bot Fight Mode, AI-bot blocking, content/crawler protection and managed robots.txt all
+    off (they were already);
+  - HTTPS redirect on, TLS ≥ 1.2, Brotli on.
+
+  The security settings are zone-wide, but nothing else on the zone is proxied.
+- **Cache rule** (`http_request_cache_settings`): host `family.` is cacheable, with edge and
+  browser TTL taken from the origin.
+- **Rate limit** (`http_ratelimit`, the Free plan's one rule): 300 requests per 10 s per IP and
+  colo, block (429), 10 s timeout.
+- **Tokens:**
+  - `familypub-publish-purge` (id `0dd95b09…`): Cache Purge on this zone only, no expiry,
+    `secrets/hosts/proxmox-vm/family-public-cf-purge` (doc1-only).
+  - `familypub-setup` (id `e83c2cb5…`): tunnel, DNS, settings, cache, WAF, bots and email
+    routing. It expires 2026-11-02 and was never stored in the repo. Mint a fresh scoped
+    token for later changes.
+  - The full-access token used to mint these was handed to the agent on 2026-10-30 and is
+    to be destroyed by the user.
+  - All are account-owned tokens, so verify them at `/accounts/<id>/tokens/verify`, not
+    `/user/tokens/verify`.
 
 ### Containment
 
@@ -89,7 +120,7 @@ Revisit if the site stays up comfortably. What was settled for later:
 # on doc1, after a clean export:
 cd ~/family-history && bin/fh export --public --out ~/.cache/fh/public-export \
   --serve /var/lib/family-archive/public-site
-family-public-publish            # leak-check the snapshot, push, make it live
+family-public-publish            # leak-check the snapshot, push, make it live, purge the edge
 family-public-publish status     # live release, releases kept, loopback HTTP codes
 ```
 
@@ -134,12 +165,21 @@ First run, 2026-10-30 13:03: every target blocked; `region1=198.41.192.67`, SRV
 - **Absolute paths:** an rsync to an absolute path like `/etc/` lands inside `staging/`
   (rrsync confines it). The next publish's `--delete` removes it.
 
+### From outside (2026-10-30, after the tunnel went live)
+
+- The guest holds 4 registered tunnel connections, over QUIC.
+- cloudflared's `api.cloudflare.com` precheck fails by design (blocked; it is only used for
+  self-update).
+- `/api/index.json` returns 200 JSON, with no challenge, for plain `curl`, a GPTBot user
+  agent and a ClaudeBot user agent. `robots.txt` is ours.
+- Pages: first request MISS, then HIT. `content-encoding: br` at the edge.
+- A 400-request burst (cache-busting queries) got 115 × 200 and 285 × 429: the origin's
+  nginx limit answered first, and a plain 429 is the only refusal.
+- Publish then purge: the next request is a MISS.
+- The isolation probe still reports `ISOLATION OK` with the tunnel running.
+- Kuma monitor "Family public site" polls `/api/index.json`.
+
 ## Remaining (#250)
 
-1. Cloudflare: create the locally-managed tunnel. Put its credentials JSON in
-   `secrets/hosts/doc2/family-public-tunnel.json` and set `tunnelId`. Add a proxied CNAME
-   `family → <uuid>.cfargotunnel.com`, a cache rule (cache everything on the host),
-   the agent-friendly bot settings above, an edge rate-limit rule, and a cache purge in
-   `family-public-publish`.
-2. Reader reports address (not built).
-3. Kuma monitor on `https://family.barrett-lennard.com/` once live.
+1. Reader reports address (not built).
+2. Tell family-history the address for the footer line.
