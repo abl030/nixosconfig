@@ -217,8 +217,19 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   fresh short-lived token with Workers Scripts and KV Write.
 - KV namespaces: `family-reports-approved` `8efb90cb…`, `family-reports-replies` `c974ab8a…`.
 
-## Remaining (#250)
+### Reports test (2026-10-30)
 
-1. End-to-end test: a known sender, a new sender, then approval. Both destinations were
-   verified on 2026-10-30. `abl030@gmail.com` is pre-approved as the known sender.
-2. Tell family-history the address for the footer line.
+- **New sender:** `andy@cullenwines.com.au`, not yet approved, was staged and got the
+  auto-reply (its `replied:` key is in KV). The user confirmed it arrived.
+- **Approval:** `family-reports approve` round-trips in KV. The work address was approved
+  for the known-sender test. A test of the approved path from it is pending the user, who
+  accepted "assume working".
+- **Own-Gmail test:** a send from `abl030@gmail.com` (approved) never showed up. That matches
+  Gmail discarding forwarded copies of the account's own sent mail. Don't test with it.
+- The Gmail filters and the footer line are tracked in family-history#163.
+
+## Follow-ups
+
+- family-history#163: the user's Gmail filters, a test from the approved work address,
+  and the footer line `Spotted a mistake, or know more? Write to report@barrett-lennard.com`.
+- Map imagery, if the site stays up (see above).
