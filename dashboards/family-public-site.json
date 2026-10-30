@@ -5,7 +5,7 @@
   "tags": ["family", "cloudflare"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5m",
   "time": {"from": "now-7d", "to": "now"},
@@ -77,8 +77,8 @@
       "gridPos": {"h": 10, "w": 12, "x": 0, "y": 14},
       "datasource": {"type": "prometheus", "uid": "Prometheus"},
       "targets": [{"refId": "A", "expr": "sort_desc(topk(15, sum by (country) (increase(familypub_edge_country_requests_total[$__range])) > 0))", "legendFormat": "{{country}}", "instant": true}],
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0}, "overrides": []},
-      "options": {"orientation": "horizontal", "displayMode": "basic", "reduceOptions": {"calcs": ["lastNotNull"]}, "showUnfilled": true}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "displayName": "${__field.labels.country}"}, "overrides": []},
+      "options": {"orientation": "horizontal", "displayMode": "basic", "namePlacement": "left", "valueMode": "text", "reduceOptions": {"calcs": ["lastNotNull"]}, "showUnfilled": true}
     },
     {
       "id": 9, "type": "timeseries", "title": "Cumulative data served",
