@@ -137,6 +137,7 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 | OPT2 (TORRENT_DMZ) | opt2 | 192.168.20.0/24 | igc1.20 (VLAN 20) | qbt microVM cage — default-deny, egress AirVPN NZ + kill-switch |
 | OPT7 (SLSKD_DMZ) | opt7 | 192.168.21.0/24 | igc1.21 (VLAN 21) | single-tenant slskd microVM cage — RFC1918 deny, AirVPN failover + kill-switch |
 | OPT6 (MEDIA_DMZ) | opt6 | 192.168.30.0/24 | igc1.30 (VLAN 30) | Plex cage — default-deny to RFC1918, egress WAN only (GitHub #277) |
+| OPT8 (FAMILY_DMZ) | opt8 | 192.168.22.0/24 | igc1.22 (VLAN 22) | single-tenant family-history microVM cage (doc2) — no DHCP, guest static `.22.2`; egress only Cloudflare Tunnel edge :7844 via WAN, 20 Mbit upload limiter (Forgejo #250, built 2026-10-30) |
 
 ### VLANs
 
@@ -144,6 +145,7 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 - **VLAN 20** (igc1.20) — TORRENT_DMZ — 192.168.20.0/24 — UniFi name: "Torrent_DMZ" — qbt microVM cage (egress AirVPN NZ). See docs/wiki/services/servarr-and-qbt-cage.md
 - **VLAN 21** (igc1.21) — SLSKD_DMZ — 192.168.21.0/24 — UniFi name: "SLSKD_DMZ" — jailed slskd microVM. See docs/wiki/services/slskd-cage.md
 - **VLAN 30** (igc1.30) — MEDIA_DMZ — 192.168.30.0/24 — UniFi name: "MEDIA_DMZ" — Plex cage (egress WAN only, GitHub #277). See docs/wiki/services/plex-media-dmz.md
+- **VLAN 22** (igc1.22) — FAMILY_DMZ — 192.168.22.0/24 — UniFi name: "FAMILY_DMZ" (vlan-only) — public family-history static site, outbound-only Cloudflare Tunnel, no WAN port forwards (Forgejo #250)
 - **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24 — UniFi name: "IOT_OF_DEATH"
 
 Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, and firewall rules for each.
@@ -211,6 +213,9 @@ Default-deny template: block DoT/DoH; pass DNS → .20.1; block → LAN/Docker/I
 ### SLSKD_DMZ Rules (opt7, VLAN 21 — slskd cage, Forgejo #38)
 Single-tenant default-deny template: block DoT/DoH; pass DNS to `.21.1:53`; block the complete `RFC1918` alias; pass egress through `AIRVPN_US_PREFERRED` (Netherlands fallback); final kill-switch block. LAN has one floating quick pass from doc2 `.35` to `.21.2:5030`, followed by a floating quick block to the whole VLAN. Outbound NAT exists on USA and Netherlands; inbound `45727` remains USA-only. Full detail: docs/wiki/services/slskd-cage.md.
 
+### FAMILY_DMZ Rules (opt8, VLAN 22 — family-history cage, Forgejo #250)
+No DHCP server (guest `192.168.22.2` is static). Order: 1) block DoT :853; 2) block DoH (pfB_DoH_v4:443); 3) pass TCP/UDP opt8 net -> `.22.1:53`; 4) pass UDP opt8 net -> alias `CF_NTP` (`162.159.200.1`, `162.159.200.123`, time.cloudflare.com) :123 via `WAN_DHCP`, no limiter (pfSense ntpd is deliberately left DISABLED, so the guest syncs straight from Cloudflare); 5) block (log) opt8 net -> `RFC1918`; 6) pass TCP+UDP opt8 net -> alias `CF_TUNNEL_EDGE` (`198.41.192.0/24`, `198.41.200.0/24`) port 7844 via `WAN_DHCP` (NOT AirVPN) with `dnpipe` limiter `FAMILY_UP`; 7) terminal block (log) any. Outbound NAT `192.168.22.0/24 -> wan:ip` (hybrid mode). Limiter `FAMILY_UP` (number 3): droptail/fifo, 20 Mb, applied as the in-direction pipe (guest upload). Containment of the VLAN from elsewhere uses floating quick `direction in` blocks (the API cannot reorder interface rules): LAN pass doc1 `.29` -> `.22.2:22` then LAN block -> `192.168.22.0/24`, and one block on opt2/opt3/opt4 -> `192.168.22.0/24` (their egress catch-alls would otherwise match). opt1/opt5 (AirVPN), WAN and Tailscale have no rule that can reach it; opt6/opt7 already block RFC1918. Rule ids drift, match by intent.
+
 ### MEDIA_DMZ Rules (opt6, VLAN 30 — Plex cage, GitHub #277)
 Order: 1) block DoT (:853); 2) block DoH (→ pfB_DoH_v4:443); 3) pass DNS opt6 → .30.1:53; 4) **block opt6 → RFC1918** (the containment rule — no fleet/VLAN reachability); 5) pass opt6 → any (WAN egress, WAN_DHCP). LAN reaches Plex via the LAN catch-all; IoT via the explicit opt4 → .30.2:32400 pass. Full detail: docs/wiki/services/plex-media-dmz.md.
 
@@ -267,6 +272,8 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | pfB_DoH_v4 | urltable | 1664 IPs (auto-updated) | DoH provider IPs — pfBlockerNG Alias_Native feed from dibdot/DoH-IP-blocklists; replaces retired DoH_Providers host alias (2026-06-05) |
 | CullenWinesPubIP | host | Cullen public IPs | Remote access allowlist |
 | AirVPN_IPs | host | (empty) | Placeholder |
+| CF_TUNNEL_EDGE | network | 198.41.192.0/24, 198.41.200.0/24 | Cloudflare Tunnel edge (region1/region2.v2.argotunnel.com) :7844, FAMILY_DMZ only (2026-10-30) |
+| CF_NTP | host | 162.159.200.1, 162.159.200.123 | time.cloudflare.com, FAMILY_DMZ NTP only (pfSense ntpd is disabled) (2026-10-30) |
 | RFC1918 | network | 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 | Private-network containment — the MEDIA_DMZ block-to-fleet rule (created 2026-06-24) |
 
 ## DHCP Static Mappings (Key Hosts)

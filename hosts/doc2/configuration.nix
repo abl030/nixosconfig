@@ -9,6 +9,7 @@
     ./disko.nix
     ./hardware-configuration.nix
     ./slskd-microvm.nix
+    ./family-public-microvm.nix
   ];
 
   boot = {

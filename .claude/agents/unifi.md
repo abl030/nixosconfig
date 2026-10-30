@@ -124,9 +124,10 @@ The change reprovisions the device without rebooting it.
 | Torrent_DMZ | vlan-only | 20 | L2 only | No | pfSense igc1.20 (opt2), 192.168.20.0/24; qbt microVM cage (egress AirVPN NZ). Created 2026-06-22 |
 | SLSKD_DMZ | vlan-only | 21 | L2 only | No | pfSense igc1.21 (opt7), 192.168.21.0/24; single-tenant slskd microVM cage. Created 2026-07-19, Forgejo #38 |
 | MEDIA_DMZ | vlan-only | 30 | L2 only | No | pfSense igc1.30 (opt6), 192.168.30.0/24; Plex cage (egress WAN only). Created 2026-06-24, GitHub #277 |
+| FAMILY_DMZ | vlan-only | 22 | L2 only | No | pfSense opt8 `192.168.22.1/24` (Forgejo #250); isolated public family-history web host. Created 2026-10-30, id 6ae42053a0470f2df3683e0b |
 | IOT_OF_DEATH | vlan-only | 100 | L2 only | No | pfSense provides gateway/DHCP (192.168.101.0/24) |
 
-**Key point:** VLANs 10, 20, 21, 30, and 100 are L2-only in UniFi. pfSense handles all L3 services for them. All trunk ports use `tagged_vlan_mgmt: auto`, so a new vlan-only network is carried on every trunk automatically once created — but pfSense still needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
+**Key point:** VLANs 10, 20, 21, 22, 30, and 100 are L2-only in UniFi. pfSense handles all L3 services for them. All trunk ports use `tagged_vlan_mgmt: auto`, so a new vlan-only network is carried on every trunk automatically once created — but pfSense still needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
 
 ## WLANs
 

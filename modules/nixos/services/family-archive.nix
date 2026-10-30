@@ -7,6 +7,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.services.familyArchive;
@@ -15,6 +16,48 @@
   servedTiles = "/run/family-archive-tiles";
   servedBasemap = "/run/family-archive-basemap";
   servedPublic = "/run/family-archive-public";
+
+  # One step from doc1 after each export: snapshot the served preview with
+  # hard links, leak-check exactly that snapshot, push it one way into the
+  # public guest (doc2's familypub microVM) and make it live. The guest's
+  # forced command allows only an rsync into staging, `activate` and
+  # `status`. See docs/wiki/services/family-public-site.md.
+  pub = cfg.publicSite;
+  publishScript = pkgs.writeShellApplication {
+    name = "family-public-publish";
+    runtimeInputs = with pkgs; [rsync openssh coreutils util-linux];
+    text = ''
+      site=''${1:-${cfg.publicPreview.siteDir}}
+      ssh_cmd=(ssh -i ${config.sops.secrets."family-public/publish-key".path}
+        -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes)
+      if [[ "$site" == status ]]; then
+        exec "''${ssh_cmd[@]}" publish@${pub.host} status
+      fi
+      [[ -f "$site/index.html" ]] || {
+        echo "no site at $site" >&2
+        exit 1
+      }
+
+      exec 9>"''${XDG_RUNTIME_DIR:-/tmp}/family-public-publish.lock"
+      flock -n 9 || {
+        echo "another publish is running" >&2
+        exit 1
+      }
+      mkdir -p "$HOME/.cache/fh"
+      snap=$(mktemp -d "$HOME/.cache/fh/publish.XXXXXX")
+      trap 'rm -rf "$snap"' EXIT
+      # Same filesystem, so this is cheap, and a concurrent `fh export
+      # --serve` can't change what is checked after the check.
+      cp -al "$site" "$snap/site"
+
+      echo "leak check: $snap/site"
+      ${pub.fhCommand} export --check "$snap/site"
+
+      echo "upload to ${pub.host}"
+      rsync -a --delete --stats -e "''${ssh_cmd[*]}" "$snap/site/" publish@${pub.host}:
+      "''${ssh_cmd[@]}" publish@${pub.host} activate
+    '';
+  };
 in {
   options.homelab.services.familyArchive = {
     enable = lib.mkEnableOption "family-history source archive viewer";
@@ -90,9 +133,51 @@ in {
         description = "Loopback HTTP port of the preview's static nginx server.";
       };
     };
+
+    # Publishing to family.barrett-lennard.com (nixosconfig #250); the guest
+    # is defined in hosts/doc2/family-public-microvm.nix.
+    publicSite = {
+      enable = lib.mkEnableOption "the `family-public-publish` command for the public site";
+
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "192.168.22.2";
+        description = "The public guest on FAMILY_DMZ; pfSense admits SSH to it from doc1 only.";
+      };
+
+      hostKey = lib.mkOption {
+        type = lib.types.str;
+        description = "The guest's SSH host key (kept on its site volume), pinned here.";
+      };
+
+      fhCommand = lib.mkOption {
+        type = lib.types.str;
+        default = "/home/abl030/family-history/bin/fh";
+        description = "The family-history CLI whose `export --check` gates every publish.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = pub.enable -> cfg.publicPreview.enable;
+        message = "familyArchive.publicSite publishes the public preview; enable publicPreview";
+      }
+    ];
+
+    sops.secrets."family-public/publish-key" = lib.mkIf pub.enable {
+      sopsFile = config.homelab.secrets.sopsFile "family-public-publish-key";
+      format = "binary";
+      owner = "abl030";
+      mode = "0400";
+    };
+    programs.ssh.knownHosts.family-public = lib.mkIf pub.enable {
+      hostNames = [pub.host];
+      publicKey = pub.hostKey;
+    };
+    environment.systemPackages = lib.optional pub.enable publishScript;
+
     systemd.tmpfiles.rules =
       [
         "d /var/lib/family-archive 0755 abl030 users - -"
