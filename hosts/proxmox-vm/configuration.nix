@@ -248,6 +248,11 @@
       familyArchive = {
         enable = true;
         publicPreview.enable = true;
+        # family.barrett-lennard.com via doc2's familypub guest (#250).
+        publicSite = {
+          enable = true;
+          hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ94hE47yW3YipoSFR/+8hfG3f8hUiHCQGopGz1pfGs/";
+        };
       };
       riversleaMap.enable = true;
       mrnews.enable = true;

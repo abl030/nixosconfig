@@ -294,6 +294,60 @@ in {
       };
       systemd.services.nginx.unitConfig.RequiresMountsFor = [siteRoot];
 
+      # The isolation, checked from inside: at boot and daily, try what the
+      # guest must never reach and what it needs. Any breach fails the unit
+      # and logs "ISOLATION BREACH" to the console (doc2 journal, Loki).
+      systemd.services.familypub-isolation-probe = {
+        description = "Check FAMILY_DMZ containment from inside the guest";
+        wantedBy = ["multi-user.target"];
+        after = ["network-online.target"];
+        wants = ["network-online.target"];
+        path = with pkgs; [bash coreutils dig];
+        serviceConfig = {
+          Type = "oneshot";
+          DynamicUser = true;
+          StandardOutput = "journal+console";
+        };
+        script = ''
+          bad=0
+          tcp() { timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null; }
+          # Must fail: pfSense, doc1, doc2 (both), tower (NFS), prom, the
+          # other DMZ guests, pfSense's tailnet address, the open internet.
+          for t in 192.168.1.1:443 192.168.1.29:22 192.168.1.35:443 192.168.1.36:443 \
+                   192.168.1.2:2049 192.168.1.12:8006 192.168.21.2:5030 \
+                   192.168.20.2:8080 192.168.30.2:32400 100.123.61.111:443 \
+                   1.1.1.1:443 8.8.8.8:53; do
+            if tcp "''${t%:*}" "''${t#*:}"; then
+              echo "ISOLATION BREACH: reached $t"; bad=1
+            else
+              echo "blocked: $t"
+            fi
+          done
+          git=$(dig +short git.ablz.au A | tail -n1)
+          if [ -n "$git" ] && tcp "$git" 443; then
+            echo "ISOLATION BREACH: reached git.ablz.au ($git):443"; bad=1
+          fi
+          # Must work: DNS, the tunnel edge.
+          edge=$(dig +short region1.v2.argotunnel.com A | head -n1)
+          srv=$(dig +short SRV _v2-origintunneld._tcp.argotunnel.com | head -n1)
+          echo "dns: region1=$edge srv=$srv"
+          if [ -n "$edge" ] && tcp "$edge" 7844; then
+            echo "allowed: tunnel edge $edge:7844"
+          else
+            echo "PROBE: tunnel edge unreachable"; bad=1
+          fi
+          [ "$bad" = 0 ] && echo "ISOLATION OK"
+          exit "$bad"
+        '';
+      };
+      systemd.timers.familypub-isolation-probe = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "daily";
+          RandomizedDelaySec = "1h";
+        };
+      };
+
       services.cloudflared = lib.mkIf tunnelEnabled {
         enable = true;
         tunnels.${tunnelId} = {
