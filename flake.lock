@@ -61,11 +61,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1793134901,
-        "narHash": "sha256-thSjW2BhZFECtNX152v67/dbR0vKYnCfFRTQq4JINCo=",
+        "lastModified": 1793325708,
+        "narHash": "sha256-ZRcT5b1ZeYyvldoamBTDlfnpDdtNVmNfUde24E43WzM=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "1ce054c09e8a10c4480c281178ff7e2a737aec17",
+        "rev": "4ce701aac994817823a05576fa3eb0ab06406e2f",
         "type": "github"
       },
       "original": {
@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1793241178,
-        "narHash": "sha256-PQmPIs0or9S7Lc4yENRKMPQYTQ94KrO4EqUQCm2n3fE=",
+        "lastModified": 1793335686,
+        "narHash": "sha256-VIiwkHPwxpPM71b7B+AovzjbLpszC4FAeHLIojNkTtU=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "fbd794f329f5b65d0ea00a5e6487336c385ff2be",
+        "rev": "121a3bd60d296be72b2d3c0b08131b7b08fadc5a",
         "type": "github"
       },
       "original": {
@@ -93,11 +93,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1793171111,
-        "narHash": "sha256-j3PZxYEKiDte2w/woDVIDkQeD6XbJX2yQfMsCEc0LEE=",
+        "lastModified": 1793299886,
+        "narHash": "sha256-tCDwRXJLLNBfBjTtwO8bOKyjEthndtUrspi7Uq7xY1I=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "f3875c2ac2ab1dc3f459396b6d03e193317245da",
+        "rev": "166defa51c606b3c77d45a9b29a459d1f993f357",
         "type": "github"
       },
       "original": {
@@ -114,11 +114,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793135373,
-        "narHash": "sha256-Fq36+839LyeQ9hWYKlyrX7qDF5ITK9OHfoFbIGQjreo=",
+        "lastModified": 1793304696,
+        "narHash": "sha256-ImVFhc6smSmZ7cC8+83Vya6xgcFz42gsMd9nfZICNwU=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "05d1514c424dc4b03b183662a8b3a244019e5d1b",
+        "rev": "f9eefb1b70318cf8f4a5925d1fd5ceb2dddb0f51",
         "type": "github"
       },
       "original": {
@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1793283497,
-        "narHash": "sha256-XLDe9d2+wxqilWnfFiDmgh3KbQZXTipVHjBlfCCKqc8=",
+        "lastModified": 1793372423,
+        "narHash": "sha256-/xeJNz5PkoJ/Ikq5EuiZejrTDxsRA7UhExbr6sfEF8E=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "fcc26fbd9f1641755e49793d7ed608f3b7214c3d",
+        "rev": "fe53d0152d1c37f36d44970b094cfb0e7305c2e5",
         "type": "github"
       },
       "original": {
@@ -500,11 +500,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793236063,
-        "narHash": "sha256-jGFe4xdrCw6xpgH2zgKwslACyt/NGuPwGILPEMFxmcQ=",
+        "lastModified": 1793355509,
+        "narHash": "sha256-/Zs18x+IW4LuVH0rKxra0WPRgsk0DQsi0Bwkf8sOC5c=",
         "owner": "NixOS",
         "repo": "nixos-hardware",
-        "rev": "b6754c901c21478fd8450d62101e712b2a4f0d75",
+        "rev": "04c6b94fa104bc23650983a4513aea196794d321",
         "type": "github"
       },
       "original": {
@@ -1001,11 +1001,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1793228966,
-        "narHash": "sha256-ZaZJMUASOt2UZNK6KDmXoeZnkYUo6G/SHmk3lSsu3MM=",
+        "lastModified": 1793315365,
+        "narHash": "sha256-fdqPwa1U0Z9O3IXxIVpbmKTYnMPBX6oI0kpKYjYTtsg=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "77b3946fdea836cdf8155299f71377246b814eff",
+        "rev": "ce4322edad30442ff7d9eb8be445257acc2ff9d2",
         "type": "github"
       },
       "original": {
@@ -1083,11 +1083,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1793052434,
-        "narHash": "sha256-0gX99Q45+1L4eH0YK0942DVTq5Wwscq3Qkj+N/EjHek=",
+        "lastModified": 1793306177,
+        "narHash": "sha256-9nGOcyf/chd09w0MDjmCA/rvgoj/3cLpfRizWqVW6pU=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "f264a6cbd1f630894da0f368df00f8aae50140e0",
+        "rev": "b77c9304e1c4220cca450c583491904daf8455af",
         "type": "github"
       },
       "original": {
