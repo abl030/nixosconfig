@@ -67,6 +67,47 @@
       echo "purged"
     '';
   };
+
+  # report@barrett-lennard.com: the family-reports Email Worker
+  # (scripts/family-reports/worker.js) forwards approved senders to the
+  # user's +familyreports address and everyone else to +familystaging. This
+  # edits the approved list (a Workers KV namespace). The token can only touch
+  # KV. See docs/wiki/services/family-public-site.md.
+  reportsScript = pkgs.writeShellApplication {
+    name = "family-reports";
+    runtimeInputs = with pkgs; [curl jq coreutils];
+    text = ''
+      kv=https://api.cloudflare.com/client/v4/accounts/${pub.cloudflareAccountId}/storage/kv/namespaces/${pub.reports.approvedNamespace}
+      cf() {
+        curl -fsS -H @<(printf 'Authorization: Bearer %s\n' "$(cat ${config.sops.secrets."family-public/reports-kv".path})") "$@"
+      }
+      usage() {
+        echo "usage: family-reports approve ADDRESS [NOTE] | remove ADDRESS | list" >&2
+        exit 2
+      }
+      case "''${1:-}" in
+        approve)
+          [[ -n "''${2:-}" ]] || usage
+          addr=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
+          [[ "$addr" == *@*.* ]] || usage
+          cf -X PUT -H 'Content-Type: text/plain' \
+            --data "$(jq -cn --arg n "''${3:-}" '{approved: (now | todate), note: $n}')" \
+            "$kv/values/$(jq -rn --arg a "$addr" '$a | @uri')" >/dev/null
+          echo "approved: $addr (their next message goes straight to +familyreports)"
+          ;;
+        remove)
+          [[ -n "''${2:-}" ]] || usage
+          addr=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
+          cf -X DELETE "$kv/values/$(jq -rn --arg a "$addr" '$a | @uri')" >/dev/null
+          echo "removed: $addr"
+          ;;
+        list)
+          cf "$kv/keys?limit=1000" | jq -r '.result[].name'
+          ;;
+        *) usage ;;
+      esac
+    '';
+  };
 in {
   options.homelab.services.familyArchive = {
     enable = lib.mkEnableOption "family-history source archive viewer";
@@ -170,6 +211,22 @@ in {
         default = "3312c076271b9036adcbd0ec5df55dda";
         description = "The barrett-lennard.com zone, purged after each publish.";
       };
+
+      cloudflareAccountId = lib.mkOption {
+        type = lib.types.str;
+        default = "50e4b91849779897b003ddaddf5d10eb";
+        description = "The Cloudflare account holding the tunnel, zone and family-reports Worker.";
+      };
+
+      reports = {
+        enable = lib.mkEnableOption "the `family-reports` command (approve senders to report@barrett-lennard.com)";
+
+        approvedNamespace = lib.mkOption {
+          type = lib.types.str;
+          default = "8efb90cb651440c7b7172ba38ce01979";
+          description = "Workers KV namespace `family-reports-approved` (created by scripts/family-reports/deploy.sh).";
+        };
+      };
     };
   };
 
@@ -198,7 +255,15 @@ in {
       hostNames = [pub.host];
       publicKey = pub.hostKey;
     };
-    environment.systemPackages = lib.optional pub.enable publishScript;
+    sops.secrets."family-public/reports-kv" = lib.mkIf pub.reports.enable {
+      sopsFile = config.homelab.secrets.sopsFile "family-reports-kv";
+      format = "binary";
+      owner = "abl030";
+      mode = "0400";
+    };
+    environment.systemPackages =
+      lib.optional pub.enable publishScript
+      ++ lib.optional pub.reports.enable reportsScript;
 
     systemd.tmpfiles.rules =
       [
