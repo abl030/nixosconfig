@@ -47,10 +47,16 @@
   # so a later upload never alters a release already being served.
   publishCommand = pkgs.writeShellApplication {
     name = "family-public-publish-command";
-    runtimeInputs = with pkgs; [rsync rrsync coreutils findutils];
+    runtimeInputs = with pkgs; [rsync rrsync coreutils findutils curl];
     text = ''
       cmd=''${SSH_ORIGINAL_COMMAND:-}
       cd ${liveDir}
+      # What nginx serves on loopback (the tunnel's origin).
+      served() {
+        for p in / /api/index.json /robots.txt; do
+          echo "served $p: $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' "http://127.0.0.1:8080$p")"
+        done
+      }
       case "$cmd" in
         "rsync --server "*)
           exec rrsync -wo ${liveDir}/staging
@@ -67,10 +73,12 @@
           # Keep the live release and two before it for a quick rollback.
           find releases -mindepth 1 -maxdepth 1 -type d | sort | head -n -3 | xargs -r rm -rf --
           echo "live: $id"
+          served
           ;;
         status)
           readlink current || echo "no release yet"
           ls releases
+          served
           ;;
         *)
           echo "refused: only rsync, activate and status" >&2
@@ -223,6 +231,10 @@ in {
         };
       };
       systemd.services.sshd.unitConfig.RequiresMountsFor = [siteRoot];
+      # No console login: qemu's serial port is only a log stream to doc2.
+      systemd.services."serial-getty@ttyS0".enable = false;
+      systemd.services."autovt@".enable = false;
+
       # rsync must be on the publish user's PATH for the server side.
       environment.systemPackages = [pkgs.rsync pkgs.iproute2];
 
