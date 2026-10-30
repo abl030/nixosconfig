@@ -80,6 +80,7 @@ Everything was created by API on 2026-10-30; change it the same way.
 | pfSense, inbound | Floating rules: pass doc1 `192.168.1.29 → .22.2:22`, then block anything to `.22.0/24`, plus blocks on TORRENT_DMZ, Docker VLAN and IoT, whose catch-alls would otherwise match. |
 | Host windows | **None.** `storeOnDisk` (its own erofs store, not doc2's `/nix/store`), a 20 GiB volume `/var/lib/microvms/familypub/site.img` (`nodev,nosuid,noexec`), and the tunnel credential as a qemu systemd credential (`credentialFiles`, `/run/credentials/@system/family-tunnel`). No virtiofs. That is also why it is qemu: cloud-hypervisor can't pass credentials. |
 | Management | No shell login, Tailscale, fleet key or sops key, and no serial getty. sshd listens on `.22.2` for user `publish` only, whose one key is forced to `family-public-publish-command`. The journal is forwarded to the serial console, so it lands in doc2's `microvm@familypub` journal and Loki. |
+| Resources | The guest has 2 vCPUs and 1.5 GiB. On doc2 the whole qemu unit is capped: `CPUQuota=100%` (one of 12 cores), `CPUWeight`/`IOWeight` 20 (yields to doc2's services), `MemoryMax=2G`, `TasksMax=256`. The volume is a 20 GiB sparse image. A compromised guest running a miner gets at most one core, and its egress (Cloudflare edge :7844 only, 20 Mbit/s) can't reach a pool. In steady state it uses about 340 MB and 8 tasks. |
 
 The publish key's forced command allows exactly three things:
 
