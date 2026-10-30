@@ -1,0 +1,109 @@
+{
+  "uid": "family-public-site",
+  "title": "Family site — family.barrett-lennard.com",
+  "description": "Cloudflare edge traffic (aggregate; no visitor addresses). Exporter: hosts/doc2/family-public-metrics.nix. Counters advance in 5-minute windows about 10 minutes behind real time.",
+  "tags": ["family", "cloudflare"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5m",
+  "time": {"from": "now-7d", "to": "now"},
+  "templating": {"list": []},
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Data served",
+      "gridPos": {"h": 5, "w": 5, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_edge_bytes_total[$__range]))", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "decbytes", "decimals": 2}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "none", "graphMode": "none"}
+    },
+    {
+      "id": 2, "type": "stat", "title": "Requests",
+      "gridPos": {"h": 5, "w": 5, "x": 5, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_edge_requests_total[$__range]))", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "none", "graphMode": "none"}
+    },
+    {
+      "id": 3, "type": "stat", "title": "Served from Cloudflare cache (bytes)",
+      "description": "Share of bytes that never crossed our uplink.",
+      "gridPos": {"h": 5, "w": 5, "x": 10, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_edge_bytes_total{cache=~\"hit|stale|revalidated|updating\"}[$__range])) / sum(increase(familypub_edge_bytes_total[$__range]))", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 0, "min": 0, "max": 1}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "none", "graphMode": "none"}
+    },
+    {
+      "id": 4, "type": "stat", "title": "Page visits",
+      "description": "Cloudflare 'visits': page views arriving from another site or directly.",
+      "gridPos": {"h": 5, "w": 4, "x": 15, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_edge_visits_total[$__range]))", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "none", "graphMode": "none"}
+    },
+    {
+      "id": 5, "type": "stat", "title": "Rate-limited (429)",
+      "gridPos": {"h": 5, "w": 5, "x": 19, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_edge_requests_total{code=\"429\"}[$__range])) or vector(0)", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "none", "graphMode": "none"}
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Data served per interval, by cache status",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 5},
+      "interval": "5m",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum by (cache) (increase(familypub_edge_bytes_total[$__interval]))", "legendFormat": "{{cache}}"}],
+      "fieldConfig": {"defaults": {"unit": "decbytes", "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}, "fillOpacity": 80}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Requests per interval, by response code",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 5},
+      "interval": "5m",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum by (code) (increase(familypub_edge_requests_total[$__interval]))", "legendFormat": "{{code}}"}],
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}, "fillOpacity": 80}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 8, "type": "bargauge", "title": "Requests by country",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sort_desc(topk(15, sum by (country) (increase(familypub_edge_country_requests_total[$__range])) > 0))", "legendFormat": "{{country}}", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0}, "overrides": []},
+      "options": {"orientation": "horizontal", "displayMode": "basic", "reduceOptions": {"calcs": ["lastNotNull"]}, "showUnfilled": true}
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Cumulative data served",
+      "gridPos": {"h": 10, "w": 8, "x": 12, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(familypub_edge_bytes_total)", "legendFormat": "all time (since exporter start)"}],
+      "fieldConfig": {"defaults": {"unit": "decbytes"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}}
+    },
+    {
+      "id": 10, "type": "stat", "title": "Exporter lag",
+      "description": "Seconds since the newest counted window ended. Normally 5-15 minutes; much more means polling has stalled.",
+      "gridPos": {"h": 5, "w": 4, "x": 20, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "time() - max(familypub_exporter_window_end_seconds)", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1800}, {"color": "red", "value": 3600}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}
+    },
+    {
+      "id": 11, "type": "stat", "title": "Exporter errors",
+      "gridPos": {"h": 5, "w": 4, "x": 20, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(increase(familypub_exporter_errors_total[$__range]))", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}
+    }
+  ]
+}

@@ -10,6 +10,7 @@
     ./hardware-configuration.nix
     ./slskd-microvm.nix
     ./family-public-microvm.nix
+    ./family-public-metrics.nix
   ];
 
   boot = {

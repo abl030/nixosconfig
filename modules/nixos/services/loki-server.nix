@@ -124,6 +124,10 @@
     # Custom: ntopng — Client Traffic. Substitution happened at eval time
     # above; just drop the rendered JSON into place.
     cp ${ntopngClientTrafficJson} $out/ntopng-client-traffic.json
+
+    # Custom: family.barrett-lennard.com edge traffic (hosts/doc2/
+    # family-public-metrics.nix, #250).
+    cp ${customDashboardsSrc}/family-public-site.json $out/family-public-site.json
   '';
 in {
   options.homelab.services.loki = {

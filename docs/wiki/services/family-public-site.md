@@ -114,6 +114,33 @@ Revisit if the site stays up comfortably. What was settled for later:
   public-only cut on the family-history side first.
 - The public build passes `FH_BASEMAP=no-basemap` and streams OSM and ArcGIS today.
 
+### Traffic metrics (added 2026-10-30)
+
+- **Grafana:** dashboard **"Family site — family.barrett-lennard.com"** (uid
+  `family-public-site`, `dashboards/family-public-site.json`). It shows data served, requests,
+  the share of bytes served from Cloudflare's cache (bytes that never crossed our uplink),
+  page visits, 429s, per-interval charts by cache status and response code, top countries,
+  and exporter lag and errors.
+- **Source:** `familypub-cf-exporter` on doc2 (`hosts/doc2/family-public-metrics.{nix,py}`)
+  polls Cloudflare's GraphQL `httpRequestsAdaptiveGroups` (Free plan) in closed 5-minute
+  windows, about 10 minutes behind. It adds each window into counters persisted in
+  `/var/lib/familypub-cf-exporter/state.json`. It serves `127.0.0.1:9472/metrics`, which
+  alloy (job `familypub-cf`) remote-writes to Mimir. Its first run backfills 6 hours.
+- **Metrics:**
+  - `familypub_edge_requests_total{cache,code}`
+  - `familypub_edge_bytes_total{cache}`
+  - `familypub_edge_country_requests_total{country}`
+  - `familypub_edge_visits_total`
+  - exporter health: `_window_end_seconds`, `_last_success_seconds`, `_errors_total`
+- **Privacy:** aggregates only. No client IP or per-visitor field is requested or stored, and
+  the guest's nginx access log is off. Cloudflare itself sees visitor IPs, as any proxy
+  does.
+- **Token:** `familypub-analytics-read` (id `d24a6da3…`), zone Analytics Read only, no
+  expiry. Stored doc2-only at `secrets/hosts/doc2/family-public-cf-analytics` and passed to the
+  service as a systemd credential.
+- The Cloudflare dashboard (Analytics & Logs → HTTP Traffic, filtered to the host) shows
+  the same numbers, with 30 days of history.
+
 ## Operations
 
 ```bash
