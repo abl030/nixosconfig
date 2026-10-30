@@ -58,7 +58,8 @@ in {
   # LOCALHOST-ONLY: scraped by this host's alloy and remote_written to Mimir.
   homelab.loki.extraScrapeTargets = [
     {
-      job = "familypub-cf";
+      # Becomes an alloy block label: identifier characters only.
+      job = "familypub_cf";
       address = "localhost:${toString port}";
       instance = "family.barrett-lennard.com";
     }

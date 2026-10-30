@@ -610,6 +610,16 @@ in {
     # Alloy shipper (every host with homelab.loki.enable)
     # ============================================================
     (lib.mkIf cfg.enable {
+      # A job becomes an alloy block label (`prometheus.scrape "<job>"`);
+      # anything but an identifier makes alloy refuse its whole config at
+      # start, silently stopping the host's log and metric shipping.
+      assertions =
+        map (target: {
+          assertion = builtins.match "[A-Za-z_][A-Za-z0-9_]*" target.job != null;
+          message = "homelab.loki.extraScrapeTargets job \"${target.job}\" must be an identifier (letters, digits, _)";
+        })
+        cfg.extraScrapeTargets;
+
       networking.firewall = lib.mkMerge [
         (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
           extraInputRules =
