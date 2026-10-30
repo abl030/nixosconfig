@@ -125,7 +125,7 @@ Revisit if the site stays up comfortably. What was settled for later:
   polls Cloudflare's GraphQL `httpRequestsAdaptiveGroups` (Free plan) in closed 5-minute
   windows, about 10 minutes behind. It adds each window into counters persisted in
   `/var/lib/familypub-cf-exporter/state.json`. It serves `127.0.0.1:9472/metrics`, which
-  alloy (job `familypub-cf`) remote-writes to Mimir. Its first run backfills 6 hours.
+  alloy (job `familypub_cf`) remote-writes to Mimir. Its first run backfills 6 hours.
 - **Metrics:**
   - `familypub_edge_requests_total{cache,code}`
   - `familypub_edge_bytes_total{cache}`

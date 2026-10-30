@@ -34,6 +34,15 @@ HTTP endpoints are never open to the LAN — nginx terminates HTTPS on 443 and p
 
 ## Non-obvious things we learned
 
+### `extraScrapeTargets` job names must be identifiers (2026-10-30)
+
+Each `homelab.loki.extraScrapeTargets` job becomes an alloy block label
+(`prometheus.scrape "<job>"`). A hyphen (`familypub-cf`) makes alloy refuse its
+**whole** config at start, so the host stops shipping logs *and* metrics. doc2 was
+down from 14:12:35 to 14:15:48 AWST on 2026-10-30. Journald logs were backfilled from
+the saved position; the metric samples from those minutes were lost. `loki.nix` now
+asserts `[A-Za-z_][A-Za-z0-9_]*`, so a bad name fails at build time. Use underscores.
+
 ### dskit gRPC ring self-discovery (critical)
 
 `grafana-loki`, `mimir`, and `tempo` all use `dskit` for their internal rings. dskit advertises **the resolved host IP** (not `grpc_listen_address`) as its ring endpoint, then dials that IP to reach its own replicas. Binding `grpc_listen_address = "127.0.0.1"` on a multi-service host will pass module eval, bind the port on loopback… then break at runtime with `connection refused` on `<lan-ip>:<grpc-port>` because the advertised endpoint isn't reachable.
