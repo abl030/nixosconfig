@@ -127,6 +127,19 @@ in {
     "interface-name:vm-familypub"
   ];
 
+  # Host-side ceilings on the whole qemu process, on top of the guest's own
+  # 2 vCPUs / 1.5 GiB. A compromised guest (a miner, a busy loop) then gets at
+  # most one of doc2's 12 cores, always yields to doc2's services, and can't
+  # grow qemu past 2 GiB. A static site mostly served from Cloudflare's cache
+  # needs a fraction of this.
+  systemd.services."microvm@familypub".serviceConfig = {
+    CPUQuota = "100%";
+    CPUWeight = 20;
+    IOWeight = 20;
+    MemoryMax = "2G";
+    TasksMax = 256;
+  };
+
   # No shared host paths, so microvm.nix's own lifecycle is enough (contrast
   # slskd's virtiofs owner unit).
   microvm.vms.familypub = {
