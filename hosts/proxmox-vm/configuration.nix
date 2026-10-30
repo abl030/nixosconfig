@@ -64,8 +64,9 @@
       tailscaleOnly = true;
     }
   ];
-  # Google OAuth refresh token for brain's own "Assistant" calendar (scope
-  # calendar.app.created; Desktop client shared with the doc2 Gmail backup).
+  # Google OAuth refresh token for brain's own "Assistant" calendar (scopes
+  # calendar.app.created + calendar.readonly for clash checks, 2026-10-30;
+  # Desktop client shared with the doc2 Gmail backup).
   sops.secrets."brain-google.env" = {
     sopsFile = config.homelab.secrets.sopsFile "brain-google.env";
     format = "dotenv";
