@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792881864,
-        "narHash": "sha256-ZMkRWUAqSlEB4CjGA5+xtVMPVBGEP1Nu2QSEpN6TchU=",
+        "lastModified": 1793397452,
+        "narHash": "sha256-adhXcUcbOz3x3lS6ZRUnyebJWJpWEAOs4h01MZE/YdE=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "7790f2ae63029f2a5516bfd9119127fd636e17c1",
+        "rev": "6bedfc0d2fbff16a1530f58e5e74c617b234cda8",
         "type": "github"
       },
       "original": {
@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1793372423,
-        "narHash": "sha256-/xeJNz5PkoJ/Ikq5EuiZejrTDxsRA7UhExbr6sfEF8E=",
+        "lastModified": 1793441029,
+        "narHash": "sha256-C+2xwniTgb6YY5AGDPgqDVQcVSImgUVzDWVYztRgE1Q=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "fe53d0152d1c37f36d44970b094cfb0e7305c2e5",
+        "rev": "c419cf7c864ac0ee511dbd9f7091a8bba0b567ee",
         "type": "github"
       },
       "original": {
@@ -1001,11 +1001,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1793315365,
-        "narHash": "sha256-fdqPwa1U0Z9O3IXxIVpbmKTYnMPBX6oI0kpKYjYTtsg=",
+        "lastModified": 1793401765,
+        "narHash": "sha256-+aTGvZZ2nGHVOo5Aty35IRhTJaUcVJhCuI08PkyFM90=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "ce4322edad30442ff7d9eb8be445257acc2ff9d2",
+        "rev": "ea0cd148b0dd6d39e5a841bdabe8713e1ab6b1c0",
         "type": "github"
       },
       "original": {
