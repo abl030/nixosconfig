@@ -76,6 +76,8 @@
     assert lib.intersectLists backfill.unitConfig.OnSuccess backfill.unitConfig.OnFailure == [];
     assert lib.elem "ARCHIVE_MODE=current" current.serviceConfig.Environment;
     assert lib.elem "ARCHIVE_MODE=backfill" backfill.serviceConfig.Environment;
+    assert current.serviceConfig.TimeoutStartSec == "45min";
+    assert backfill.serviceConfig.TimeoutStartSec == "90min";
     assert doc2.systemd.timers.gwm-archiver.timerConfig.OnCalendar == "Sun *-*-* 03:30:00 Australia/Perth";
     assert doc2.systemd.timers.gwm-archiver-backfill.timerConfig.OnCalendar == "Sun *-*-* 05:30:00 Australia/Perth";
     assert lib.all (host: !host.config.services.resolved.enable || host.config.services.resolved.settings.Resolve.StaleRetentionSec == "1h") (builtins.attrValues self.nixosConfigurations);

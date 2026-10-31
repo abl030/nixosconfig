@@ -133,7 +133,12 @@
         "ARCHIVE_MODE=${mode}"
       ];
       ExecStart = "${pkgs.python3}/bin/python3 -u ${archiveScript}";
-      TimeoutStartSec = "45min";
+      # The historical sweep probes every publisher gap and can exceed the
+      # current-issue budget when upstream responses slow down.
+      TimeoutStartSec =
+        if mode == "backfill"
+        then "90min"
+        else "45min";
       NoNewPrivileges = true;
       ProtectSystem = "strict";
       # Hide unrelated host data; fail explicitly if the archive cannot bind.

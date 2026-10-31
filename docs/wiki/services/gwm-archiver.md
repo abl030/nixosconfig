@@ -104,9 +104,11 @@ dictionary. JSON sidecar carries the full structured TOC.
   issue at ~9 s of probe time (1 issue page + 2 article pages + 2 tmp.php
   POSTs + sleeps).
 
-The historical recovery run takes ~24 minutes wall clock, ~3 s CPU, ~38 MB
-inbound traffic. The weekly current run only logs in, fetches the index and skips
-completed local issues, unless something new needs downloading.
+The historical recovery run normally takes ~24 minutes wall clock, but has a
+90-minute start timeout because publisher latency can push a complete sweep past
+45 minutes. The weekly current run retains a 45-minute timeout and only logs in,
+fetches the index and skips completed local issues, unless something new needs
+downloading.
 
 ## Delivery and notifications
 
