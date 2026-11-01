@@ -77,7 +77,9 @@
     assert lib.elem "ARCHIVE_MODE=current" current.serviceConfig.Environment;
     assert lib.elem "ARCHIVE_MODE=backfill" backfill.serviceConfig.Environment;
     assert doc2.systemd.timers.gwm-archiver.timerConfig.OnCalendar == "Sun *-*-* 03:30:00 Australia/Perth";
-    assert doc2.systemd.timers.gwm-archiver-backfill.timerConfig.OnCalendar == "Sun *-*-* 05:30:00 Australia/Perth";
+    assert doc2.systemd.timers.gwm-archiver-backfill.timerConfig.OnCalendar == "*-01,04,07,10-01 05:30:00 Australia/Perth";
+    assert current.serviceConfig.TimeoutStartSec == "45min";
+    assert backfill.serviceConfig.TimeoutStartSec == "3h";
     assert lib.all (host: !host.config.services.resolved.enable || host.config.services.resolved.settings.Resolve.StaleRetentionSec == "1h") (builtins.attrValues self.nixosConfigurations);
       pkgs.runCommand "gwm-archiver-resilience" {
         nativeBuildInputs = [pkgs.python3 pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.shellcheck];

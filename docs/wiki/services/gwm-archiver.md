@@ -14,14 +14,18 @@
 
 ## What this does
 
-Weekly oneshot that walks `https://winetitles.com.au/gwm/articles/` while
+Weekly (current issues) oneshot that walks `https://winetitles.com.au/gwm/articles/` while
 logged in as our subscriber account, downloads every issue's FULL ISSUE PDF,
 and writes a JSON sidecar with the table of contents (per-article title,
 author, keywords, page numbers).
 
 `gwm-archiver.service` handles issues #642 onward, newest first. The separate
 `gwm-archiver-backfill.service` rechecks the publisher's missing pre-July-2017
-files weekly. It cannot delay or suppress the current service's epi handoff.
+files quarterly (1 Jan/Apr/Jul/Oct, 05:30 AWST). It probes a random 25%
+(`BACKFILL_SAMPLE`) of the incomplete historical issues; if any sampled issue
+yields a PDF, the publisher has likely restored the archive as a whole, so the
+same run sweeps every remaining gap. It cannot delay or suppress the current
+service's epi handoff.
 Both use the same script and credentials, with `ARCHIVE_MODE=current|backfill`.
 Their issue ranges do not overlap, so simultaneous runs do not write the same
 artifacts. Missing PDFs in the current range are failures; empty publisher files
@@ -97,15 +101,19 @@ dictionary. JSON sidecar carries the full structured TOC.
 * `existing_artifacts()` checks for `<YYYY>/<MM>_*.pdf` + `<YYYY>/<MM>_*.json`
   and short-circuits with `skip-complete` if both exist. Default weekly run
   on a populated archive does zero work for the 107 known issues.
-* No "unavailable" marker for the 150 dead issues — we re-probe them every
-  week so we auto-heal if the publisher restores the files.
+* No "unavailable" marker for the ~150 dead issues — a quarterly random sample
+  re-probes them so we auto-heal if the publisher restores the files.
 * Fail-fast in `synthesise_from_articles()`: after 2 consecutive empty
   per-article PDFs (no-form / 0-byte), the function returns. Caps each dead
   issue at ~9 s of probe time (1 issue page + 2 article pages + 2 tmp.php
   POSTs + sleeps).
 
-The historical recovery run takes ~24 minutes wall clock, ~3 s CPU, ~38 MB
-inbound traffic. The weekly current run only logs in, fetches the index and skips
+A full historical probe of all ~149 gaps grew from ~24 to over 45 minutes by
+2026-11 (publisher latency ~18 s/issue) and hit the old 45-minute timeout on
+2026-11-01 with every result `no-pdf` (Hermes PR #251, superseded). Since then
+the backfill runs quarterly and probes a 25% sample (~37 issues, ~11 min); its
+3-hour timeout leaves room for the full download sweep a hit triggers. Set
+`BACKFILL_SAMPLE=1` for a manual full probe. The weekly current run only logs in, fetches the index and skips
 completed local issues, unless something new needs downloading.
 
 ## Delivery and notifications

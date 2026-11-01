@@ -133,7 +133,12 @@
         "ARCHIVE_MODE=${mode}"
       ];
       ExecStart = "${pkgs.python3}/bin/python3 -u ${archiveScript}";
-      TimeoutStartSec = "45min";
+      # A backfill sample (~25% of gaps) is ~10 min, but a hit releases the
+      # full historical sweep, which downloads instead of probing.
+      TimeoutStartSec =
+        if mode == "backfill"
+        then "3h"
+        else "45min";
       NoNewPrivileges = true;
       ProtectSystem = "strict";
       # Hide unrelated host data; fail explicitly if the archive cannot bind.
@@ -222,7 +227,7 @@ in {
       default = "Sun *-*-* 03:30:00 Australia/Perth";
       description = ''
         Weekly current-issue check at 03:30 AWST. Completed issues are local
-        skips; the missing pre-July-2017 archive has a separate weekly timer.
+        skips; the missing pre-July-2017 archive has a separate quarterly timer.
       '';
     };
 
@@ -298,10 +303,11 @@ in {
     };
 
     systemd.timers.gwm-archiver-backfill = {
-      description = "Weekly recovery of missing pre-July-2017 GWM issues";
+      # Quarterly random sample of the publisher's gaps; a hit sweeps them all.
+      description = "Quarterly sampled recovery of missing pre-July-2017 GWM issues";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar = "Sun *-*-* 05:30:00 Australia/Perth";
+        OnCalendar = "*-01,04,07,10-01 05:30:00 Australia/Perth";
         Persistent = true;
         RandomizedDelaySec = "1h";
       };

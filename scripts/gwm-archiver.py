@@ -19,7 +19,9 @@ Output layout (idempotent):
   <OUT_ROOT>/<YYYY>/<MM>_<basename>.json
 
 The weekly current-issue run skips the missing pre-July-2017 archive. A separate
-weekly backfill run re-probes those publisher gaps.
+quarterly backfill run probes a random sample of those publisher gaps; if any
+sampled issue comes back, the publisher has likely restored the archive, so the
+same run sweeps every remaining gap.
 
 Env:
   WT_USER, WT_PASS   (required)  winetitles.com.au credentials
@@ -28,6 +30,8 @@ Env:
   LIMIT              (default 0 = unlimited)  stop after N successful issues
   DRY_RUN            (default 0 = off)  report intended actions, no writes
   ARCHIVE_MODE       (default current)  current or backfill (pre-July-2017)
+  BACKFILL_SAMPLE    (default 0.25)  fraction of missing issues a backfill
+                     run probes before deciding whether to sweep the rest
 
 Notifications (failure + new-issue) are wired by the systemd unit, not the
 script — see modules/nixos/services/gwm-archiver.nix.
@@ -40,7 +44,9 @@ from __future__ import annotations
 import http.cookiejar
 import http.client
 import json
+import math
 import os
+import random
 import re
 import shutil
 import socket
@@ -71,8 +77,8 @@ ANCHOR_N = 748
 ANCHOR_YEAR = 2026
 ANCHOR_MONTH = 5  # 1=Jan ... 12=Dec
 
-# The publisher's missing pre-July-2017 files are a separate weekly best-effort
-# sweep. Keep new-issue delivery independent of that long tail.
+# The publisher's missing pre-July-2017 files are a separate quarterly
+# best-effort sample. Keep new-issue delivery independent of that long tail.
 FIRST_AVAILABLE_ISSUE = 642
 RETRY_DELAYS = (5, 15, 30)
 T = TypeVar("T")
@@ -556,6 +562,32 @@ def process_issue(issue: Issue, out_root: Path, sleep_s: float,
 
 # ------------------------------------------------------------------- main --
 
+RECOVERED = ("downloaded", "synthesised", "sidecar-only")
+
+
+def split_backfill_sample(issues: list[tuple[int, str]], out_root: Path,
+                          fraction: float) -> tuple[list[tuple[int, str]],
+                                                    list[tuple[int, str]]]:
+    """Split incomplete historical issues into (probe now, hold back).
+
+    The publisher's gaps are one archive-wide outage, so a random sample is
+    enough to notice a restoration; a hit then releases the held-back rest.
+    Both lists keep the caller's (newest-first) order.
+    """
+    def complete(num: int) -> bool:
+        pdf, sidecar = existing_artifacts(out_root, *year_month_for(num))
+        return bool(pdf and sidecar)
+
+    missing = [iss for iss in issues if not complete(iss[0])]
+    if not missing:
+        return [], []
+    k = min(len(missing), max(1, math.ceil(len(missing) * fraction)))
+    chosen = set(random.sample(range(len(missing)), k))
+    sample = [iss for i, iss in enumerate(missing) if i in chosen]
+    rest = [iss for i, iss in enumerate(missing) if i not in chosen]
+    return sample, rest
+
+
 def main() -> int:
     user = os.environ.get("WT_USER")
     pwd = os.environ.get("WT_PASS")
@@ -569,6 +601,9 @@ def main() -> int:
     mode = os.environ.get("ARCHIVE_MODE", "current")
     if mode not in ("current", "backfill"):
         sys.exit("ERROR: ARCHIVE_MODE must be current or backfill")
+    sample_frac = float(os.environ.get("BACKFILL_SAMPLE", "0.25"))
+    if not 0 < sample_frac <= 1:
+        sys.exit("ERROR: BACKFILL_SAMPLE must be in (0, 1]")
 
     for tool in ("qpdf", "pdfinfo", "exiftool"):
         if not shutil.which(tool):
@@ -588,9 +623,19 @@ def main() -> int:
         print("   (DRY_RUN: no PDFs will be downloaded, no files written)",
               file=sys.stderr)
 
+    queue = list(reversed(all_issues))  # newest first
+    held_back: list[tuple[int, str]] = []
+    if mode == "backfill":
+        queue, held_back = split_backfill_sample(queue, out_root, sample_frac)
+        print(f"   probing {len(queue)} of {len(queue) + len(held_back)} "
+              f"missing historical issues", file=sys.stderr)
+
     counts: dict[str, int] = {}
     n_done = 0
-    for num, slug in reversed(all_issues):  # newest first
+    i = 0
+    while i < len(queue):
+        num, slug = queue[i]
+        i += 1
         if limit and n_done >= limit:
             break
         year, month = year_month_for(num)
@@ -605,14 +650,18 @@ def main() -> int:
         counts[status] = counts.get(status, 0) + 1
         if status not in ("skip-complete",):
             # "NEW_ISSUE:" is the marker the systemd OnSuccess hook greps for.
-            tag = ("NEW_ISSUE: " if status in
-                   ("downloaded", "synthesised", "sidecar-only") else "")
+            tag = "NEW_ISSUE: " if status in RECOVERED else ""
             print(f"   {tag}#{num} {slug}: {r}", file=sys.stderr, flush=True)
             if status in ("downloaded", "synthesised", "sidecar-only", "would-process"):
                 n_done += 1
         # Drop cached HTML for the issue we just processed; large archive walks
         # would otherwise hold a few hundred pages in RAM.
         _ISSUE_HTML_CACHE.pop(slug, None)
+        if held_back and status in RECOVERED:
+            print(f"-> #{num} recovered: publisher restored the archive; "
+                  f"sweeping the other {len(held_back)} gaps", file=sys.stderr)
+            queue.extend(held_back)
+            held_back = []
 
     print(f"\nsummary: {counts}", file=sys.stderr)
 

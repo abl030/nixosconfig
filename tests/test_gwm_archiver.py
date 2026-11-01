@@ -142,9 +142,37 @@ class SweepTests(unittest.TestCase):
         self.assertIn("NEW_ISSUE: #752", self.stderr.getvalue())
 
     def test_backfill_is_separate_and_reprobes_missing_files(self):
-        with patch.dict(gwm.os.environ, {"ARCHIVE_MODE": "backfill"}), patch.object(gwm, "process_issue", return_value={"status": "no-pdf"}) as process:
+        with patch.dict(gwm.os.environ, {"ARCHIVE_MODE": "backfill", "BACKFILL_SAMPLE": "1"}), patch.object(gwm, "process_issue", return_value={"status": "no-pdf"}) as process:
             self.assertEqual(gwm.main(), 0)
         self.assertEqual([c.args[0].num for c in process.call_args_list], [641, 497])
+
+    def historical(self, n):
+        return [(i, f"issue-{i}") for i in range(642 - n, 642)]
+
+    def test_backfill_probes_only_a_quarter_of_missing_issues(self):
+        with patch.object(gwm, "list_issues", return_value=self.historical(8)), patch.dict(gwm.os.environ, {"ARCHIVE_MODE": "backfill"}), patch.object(gwm, "process_issue", return_value={"status": "no-pdf"}) as process:
+            self.assertEqual(gwm.main(), 0)
+        seen = [c.args[0].num for c in process.call_args_list]
+        self.assertEqual(len(seen), 2)
+        self.assertEqual(seen, sorted(seen, reverse=True))
+
+    def test_backfill_skips_completed_issues_when_sampling(self):
+        year, month = gwm.year_month_for(641)
+        (self.root / str(year)).mkdir()
+        for ext in ("pdf", "json"):
+            (self.root / str(year) / f"{month:02d}_x.{ext}").write_text("x")
+        sample, rest = gwm.split_backfill_sample([(641, "a"), (640, "b")], self.root, 1.0)
+        self.assertEqual((sample, rest), ([(640, "b")], []))
+
+    def test_backfill_hit_sweeps_every_remaining_gap(self):
+        def process(issue, *_):
+            return {"status": "downloaded" if issue.num == 641 else "no-pdf"}
+        with patch.object(gwm, "list_issues", return_value=self.historical(8)), patch.dict(gwm.os.environ, {"ARCHIVE_MODE": "backfill"}), patch.object(gwm.random, "sample", return_value=[0, 1]), patch.object(gwm, "process_issue", side_effect=process) as process_mock:
+            self.assertEqual(gwm.main(), 0)
+        seen = [c.args[0].num for c in process_mock.call_args_list]
+        self.assertEqual(sorted(seen, reverse=True), list(range(641, 633, -1)))
+        self.assertEqual(seen[:2], [641, 640])
+        self.assertIn("sweeping the other 6 gaps", self.stderr.getvalue())
 
     def test_delivery_marker_survives_later_failure(self):
         with patch.object(gwm, "process_issue", side_effect=[{"status": "downloaded"}, dns_failure()]):
