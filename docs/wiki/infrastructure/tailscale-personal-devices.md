@@ -32,6 +32,13 @@ Dad NAS TCP 5000 and 5252 over IPv4 and IPv6, without NAS file-service access.
 NAS SSH remains denied to both personal-device sets. Doc1 alone has a separate
 SSH path through its private user-owned daemon; see [Dad NAS](../services/dadnas.md#ssh-from-doc1).
 
+2026-11-02: Cullen gained exact `doc1` tailnet IPv4 `tcp:443` for `brain.ablz.au`
+(a `tailscaleOnly` vhost). doc1's LAN-bound vhosts were already reachable through
+`192.168.1.29:443`. The only other tailnet-bound vhost, `voice.ablz.au`, has no
+authentication, so nginx on doc1 denies both Cullen addresses there
+(`hosts/proxmox-vm/configuration.nix`). If Cullen's addresses change, update
+that deny list as well as the ACL.
+
 New devices get no role until explicitly added. Reauthentication should retain
 addresses; verify both afterward. Do not delete/recreate nodes to change ownership.
 If Cullen's addresses change, its Windows OpenSSH/firewall/portproxy bindings also

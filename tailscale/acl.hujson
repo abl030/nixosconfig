@@ -222,6 +222,12 @@
     { "src": ["ipset:cullen"], "dst": ["readmeabook", "readmeabook-v6"], "ip": ["tcp:80", "tcp:443"] },
     // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
     { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
+    // cullen → doc1:443 (IPv4 host only) for brain.ablz.au, Andy's dashboard — a
+    // tailscaleOnly vhost bound to doc1's tailnet IP. doc1's LAN-bound vhosts were
+    // already reachable via 192.168.1.29:443; the only other tailnet-bound vhost,
+    // voice.ablz.au (unauthenticated transcript SSE), denies the cullen addresses in
+    // nginx (hosts/proxmox-vm/configuration.nix). No other server's tailnet :443.
+    { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:443"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
     // them over tower's 192.168.0.0/23 route (added 2026-06-23, the servarr .4 cutover).
     { "src": ["ipset:cullen"], "dst": ["192.168.1.4/32", "192.168.1.29/32", "192.168.1.35/32", "192.168.1.33/32", "192.168.1.6/32"], "ip": ["tcp:443"] },
@@ -378,7 +384,7 @@
     // route. Syncthing has an exact doc2:22000 exception; the broad server mesh is denied.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:80", "yoto:443", "ali-music:80", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:81", "ali-music:81", "yotodav:80", "yotodav:443", "tag:server:443", "framework:443", "epimetheus:443", "epimetheus-vm:443", "s-a55:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:80", "yoto:443", "ali-music:80", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:81", "ali-music:81", "yotodav:80", "yotodav:443", "doc2:443", "framework:443", "epimetheus:443", "epimetheus-vm:443", "s-a55:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
     { "src": "cullen-v6", "proto": "tcp", "deny": ["tag:server:443", "framework-v6:443", "epimetheus-v6:443", "epimetheus-vm-v6:443", "s-a55-v6:443", "tag:server:22000"] },
     // Named shares over IPv6; no management or backend ports.
     { "src": "cullen-v6", "proto": "tcp", "accept": ["yoto-v6:80", "yoto-v6:443", "ali-music-v6:80", "ali-music-v6:443"], "deny": ["yoto-v6:22", "yoto-v6:81", "ali-music-v6:22", "ali-music-v6:81"] },
@@ -387,8 +393,8 @@
     { "src": "cullen", "proto": "tcp", "accept": ["readmeabook:80", "readmeabook:443"], "deny": ["readmeabook:22", "readmeabook:81", "readmeabook:3031"] },
     { "src": "cullen-v6", "proto": "tcp", "accept": ["readmeabook-v6:80", "readmeabook-v6:443"], "deny": ["readmeabook-v6:22", "readmeabook-v6:81", "readmeabook-v6:3031"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
-    // cullen → doc1 RCA webhook (8644) for negative alert routing.
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },
+    // cullen → doc1 RCA webhook (8644) and brain.ablz.au (443); nothing else on doc1.
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644", "doc1:443"], "deny": ["doc1:80", "doc1:8870", "doc1:3000"] },
     // trusted clients can reach Cullen; Cullen still cannot initiate broadly back.
     { "src": "s-a55", "proto": "tcp", "accept": ["cullen:22", "cullen:443"] },
     // doc1 → rpi diagnostic path.

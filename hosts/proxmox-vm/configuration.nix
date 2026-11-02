@@ -55,8 +55,9 @@
   # SonicWALL Read-Only Admins group, no OTP. Read by cullen-assistant
   # scripts/sonicwall (GET-only). Read-only on the firewall side, doc1-only here.
   # brain.ablz.au: Andy's private dashboard. The app is a home-manager user
-  # service (home.nix, port 8870). Tailnet-only, and tag:edge (hermes) has no
-  # grant to doc1:443, so only trusted clients/servers reach it.
+  # service (home.nix, port 8870). Tailnet-only; trusted clients/servers and the
+  # Cullen laptop (ipset:cullen, exact doc1 tcp:443 grant) reach it. tag:edge
+  # (hermes) has no grant to doc1:443.
   homelab.localProxy.hosts = [
     {
       host = "brain.ablz.au";
@@ -64,6 +65,13 @@
       tailscaleOnly = true;
     }
   ];
+  # The Cullen laptop's doc1:443 grant exists for brain only. voice.ablz.au is
+  # the other tailnet-bound vhost and is unauthenticated, so fence it off here.
+  # Keep in sync with host:cullen / host:cullen-v6 in tailscale/acl.hujson.
+  services.nginx.virtualHosts."voice.ablz.au".locations."/".extraConfig = ''
+    deny 100.75.246.114;
+    deny fd7a:115c:a1e0::1a33:f672;
+  '';
   # Google OAuth refresh token for brain's own "Assistant" calendar (scopes
   # calendar.app.created + calendar.readonly for clash checks, 2026-10-30;
   # Desktop client shared with the doc2 Gmail backup).
