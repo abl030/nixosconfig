@@ -111,6 +111,17 @@
     mode = "0400";
   };
 
+  # Trove API v3 key (NLA, ref RSref189767; 200 calls/min, no full text;
+  # expires 3 Nov 2027). Read by the family-history fh CLI for newspaper
+  # search (header X-API-KEY) instead of the scraped front-end key.
+  sops.secrets."trove/api-key" = {
+    sopsFile = config.homelab.secrets.sopsFile "trove-api-key.yaml";
+    format = "yaml";
+    key = "token";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   # GitHub deploy key used ONLY by the doc1 Forgejo→GitHub mirror timer. The
   # GitHub repo is a read-only human-facing mirror/fallback; Forgejo remains the
   # write root and fleet deploy source. Deploy keys are repo-scoped, so this is
