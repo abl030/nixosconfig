@@ -16,7 +16,7 @@ pkgs.buildGoModule {
     in
       base == "go.mod" || base == "go.sum" || pkgs.lib.hasSuffix ".go" base;
   };
-  vendorHash = "sha256-dvC2nCYQfl8dg/TICYa+M/uyXJUz9i5JYanatLD1ZSQ=";
+  vendorHash = "sha256-wPZ3A0gjd1LMAr8fnAJdpFqcDED7ruANU2UP9wn6O+4=";
   # modernc.org/sqlite is pure Go.
   env.CGO_ENABLED = "0";
   ldflags = ["-s" "-w"];
