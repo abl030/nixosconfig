@@ -301,11 +301,11 @@
     "grafana-dashboards-rfmoz": {
       "flake": false,
       "locked": {
-        "lastModified": 1793818517,
-        "narHash": "sha256-GXX6kUp2B3y1CenVKmp7SAZN3tAk5ISWC+18CZ1mQvI=",
+        "lastModified": 1793901656,
+        "narHash": "sha256-MVy/Ul0xvC15rPTsQ69OYFRnMURTlG2+kOq3vVeXDz4=",
         "owner": "rfmoz",
         "repo": "grafana-dashboards",
-        "rev": "3827b0ad3f69a01266f4127e429160ce01d71ffd",
+        "rev": "b07d8a90d8fadd112e9ac841b777ee863cda850b",
         "type": "github"
       },
       "original": {
@@ -323,17 +323,16 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "npm-lockfile-fix": "npm-lockfile-fix",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1793884699,
-        "narHash": "sha256-B6AsExCoWAwBI55DlNVPbaug0wMCxhyYnaBz3DicUE8=",
+        "lastModified": 1793949162,
+        "narHash": "sha256-9VzFpxiMcfBMIZecNq7dXj1bkWiEcwkopqei+gdS+fQ=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "84a0301415edd6d1385207ec96e4d7f2b6c1fcd9",
+        "rev": "90d6b98fd86d20981ee06ddd5b7d93e4320f26a4",
         "type": "github"
       },
       "original": {
@@ -596,27 +595,6 @@
       "original": {
         "owner": "nix-community",
         "repo": "nixpkgs.lib",
-        "type": "github"
-      }
-    },
-    "npm-lockfile-fix": {
-      "inputs": {
-        "nixpkgs": [
-          "hermes-agent",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1775903712,
-        "narHash": "sha256-2GV79U6iVH4gKAPWYrxUReB0S41ty/Y3dBLquU8AlaA=",
-        "owner": "jeslie0",
-        "repo": "npm-lockfile-fix",
-        "rev": "c6093acb0c0548e0f9b8b3d82918823721930fe8",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jeslie0",
-        "repo": "npm-lockfile-fix",
         "type": "github"
       }
     },
@@ -1001,11 +979,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1793833766,
-        "narHash": "sha256-1ewBDY38tXodjojxF/Rv6Mn8XGu8p+yXUHTMHlzwINw=",
+        "lastModified": 1793920186,
+        "narHash": "sha256-PaLcDGDJ/yH6cLrXxK1nw2uhdUfbwTYcdZhkTimQ4oE=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "de795e8117fd5df38c406b251d75dd20045ff944",
+        "rev": "567ad88c6f3cd4bb4c8dc80d550488ff07ba3d64",
         "type": "github"
       },
       "original": {
