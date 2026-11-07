@@ -328,11 +328,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1793949162,
-        "narHash": "sha256-9VzFpxiMcfBMIZecNq7dXj1bkWiEcwkopqei+gdS+fQ=",
+        "lastModified": 1794057905,
+        "narHash": "sha256-z4PnFrs73PnTOaNEK78PUnmUJVOve5kXn34YTDOwOYc=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "90d6b98fd86d20981ee06ddd5b7d93e4320f26a4",
+        "rev": "a9ff9799e273f525b82718cdc69fdec71b1dca5a",
         "type": "github"
       },
       "original": {
@@ -499,11 +499,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793871777,
-        "narHash": "sha256-DbFyxXHjP4SJDWVVIILkgrUZxj29cDusi8ULXoQGuZ8=",
+        "lastModified": 1794051415,
+        "narHash": "sha256-mJok3uMK0awq2MPKdSnvTxm3UD89KD3LclQzASgtY1s=",
         "owner": "NixOS",
         "repo": "nixos-hardware",
-        "rev": "d645c71a58dbae3eb17ff551a07aea13a541cb1a",
+        "rev": "1a8ff4f57ffe1f732beaa1db842247a381ea471d",
         "type": "github"
       },
       "original": {
@@ -979,11 +979,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1793920186,
-        "narHash": "sha256-PaLcDGDJ/yH6cLrXxK1nw2uhdUfbwTYcdZhkTimQ4oE=",
+        "lastModified": 1794033531,
+        "narHash": "sha256-hTPz/i5yGVRqzDxqDV8Gn3P/RBTUIcb+rGP82HrUgFs=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "567ad88c6f3cd4bb4c8dc80d550488ff07ba3d64",
+        "rev": "bf2c466cf2d012d3c1b8f63242f14d3d5240cab6",
         "type": "github"
       },
       "original": {
