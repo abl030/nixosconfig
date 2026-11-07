@@ -4,9 +4,9 @@ go 1.26.10
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
-	go.mau.fi/whatsmeow v0.0.0-20261105212532-307a2edf117d
+	go.mau.fi/whatsmeow v0.0.0-20261107151902-3d913f0ec948
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.61.1
+	modernc.org/sqlite v1.62.0
 )
 
 require (
@@ -26,7 +26,7 @@ require (
 	go.mau.fi/libsignal v0.2.3 // indirect
 	go.mau.fi/util v0.11.0 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/exp v0.0.0-20261106112924-d498a4c2cc9a // indirect
+	golang.org/x/exp v0.0.0-20261106192419-47ce03d25ef0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
