@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_flake_update.sh"))
 FUNCTIONS = (
     "locked_input_ref", "valid_hold_name", "held_names", "drv_name", "drv_pname",
-    "drv_is_fixed_output", "build_failures", "drv_depends_on", "drv_is_top_level",
+    "drv_is_fixed_output", "fod_failure_is_deterministic", "build_failures", "drv_depends_on", "drv_is_top_level",
     "release_holds", "auto_hold_failures",
     "hold_summary",
 )
@@ -81,6 +81,13 @@ nix() {
 }
 nix-store() {
   printf 'nix-store %s\n' "$*" >> calls
+  if [ "$1" = "--realise" ]; then
+    # A fixture log means the retry fails with that output; none means it passes.
+    local r="realise/${2##*/}"
+    [ -f "$r" ] || return 0
+    cat "$r"
+    return 1
+  fi
   [ "$1 $2" = "--query --requisites" ] || return 97
   local f="closures/${3##*/}"
   printf '%s\n' "$3"
@@ -109,7 +116,7 @@ def store(drv):
 
 
 def run_case(root, bash, functions, *, held, body, log_text="", drvs=None, evals=None,
-             buildable=(), held_rev=OLD_HELD_REV, closures=None):
+             buildable=(), held_rev=OLD_HELD_REV, closures=None, realise=None):
     for name in ("calls", "messages"):
         (root / name).write_text("")
     shutil.rmtree(root / "drvs", ignore_errors=True)
@@ -120,6 +127,10 @@ def run_case(root, bash, functions, *, held, body, log_text="", drvs=None, evals
     (root / "closures").mkdir()
     for drv, inputs in (closures or {}).items():
         (root / "closures" / f"{'0' * 32}-{drv}.drv").write_text("".join(f"{store(i)}\n" for i in inputs))
+    shutil.rmtree(root / "realise", ignore_errors=True)
+    (root / "realise").mkdir()
+    for drv, text in (realise or {}).items():
+        (root / "realise" / f"{'0' * 32}-{drv}.drv").write_text(text)
     for drv, data in (drvs or {}).items():
         (root / "drvs" / f"{'0' * 32}-{drv}.drv.json").write_text(data)
     (root / "evals.json").write_text(json.dumps(evals or {}))
@@ -198,6 +209,38 @@ def main():
                        evals=evals)
         assert rc() == "0" and set(out["held"]) == {"other", "zotero"}, out
         assert out["lock_held"] == OLD_HELD_REV and BASE_REV not in out["flake"], out
+
+        # Fetch (fixed-output) roots: retried once. A fetch that fails the same
+        # way with no network/hash error climbs to the package above it
+        # (2026-11-06 neovide: wrong source hash, so no Cargo.lock to vendor).
+        staging = "neovide-0.17.1-vendor-staging"
+        fod_log = failure(staging, ROOT_FAIL) + failure("neovide-0.17.1-vendor", DEP_FAIL) \
+            + failure("neovide-0.17.1", DEP_FAIL) + failure("home-manager-path", DEP_FAIL)
+        fod_drvs = {staging: drv_json(fod=True), "neovide-0.17.1-vendor": drv_json(),
+                    "neovide-0.17.1": drv_json("neovide"), "home-manager-path": drv_json()}
+        fod_closures = {"neovide-0.17.1-vendor": [staging], "neovide-0.17.1": ["neovide-0.17.1-vendor", staging],
+                        "home-manager-path": ["neovide-0.17.1", "neovide-0.17.1-vendor", staging]}
+        fod_evals = {f"{CAND}#neovide.name": "neovide-0.17.1",
+                     f"github:NixOS/nixpkgs/{BASE_REV}#neovide.name": "neovide-0.17.0"}
+        cargo_fail = ("Compiling rustls and openssl-sys crates listed\n"
+                      "FileNotFoundError: [Errno 2] No such file or directory: 'Cargo.lock'\n")
+        out = run_case(root, bash, functions, held={}, body=auto, log_text=fod_log, drvs=fod_drvs,
+                       evals=fod_evals, closures=fod_closures, realise={staging: cargo_fail})
+        assert rc() == "0", out["messages"]
+        assert "fails the same way on retry" in out["messages"], out["messages"]
+        assert list(out["held"]) == ["neovide"] and out["lock_held"] == BASE_REV, out
+        fod_refusals = {
+            "passed on retry": None,
+            "hit a hash mismatch": "error: hash mismatch in fixed-output derivation '/nix/store/x.drv':\n",
+            "hit a network error": "curl: (6) Could not resolve host: static.crates.io\n",
+        }
+        for why, text in fod_refusals.items():
+            out = run_case(root, bash, functions, held={}, body=auto, log_text=fod_log, drvs=fod_drvs,
+                           evals=fod_evals, closures=fod_closures,
+                           realise={staging: text} if text else None)
+            assert rc() == "1", (why, out["messages"])
+            assert f"fixed-output) failure that {why}" in out["messages"], (why, out["messages"])
+            assert out["held"] == {} and out["lock_held"] == OLD_HELD_REV, (why, out)
 
         # Refusals: each leaves the hold list and pin untouched.
         refusals = {

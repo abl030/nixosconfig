@@ -632,13 +632,40 @@ drv_pname() {
         || true
 }
 
-# Fixed-output derivations are fetches: a failure there is network or hash
-# drift, not a nixpkgs build regression, and must never become a hold.
+# Fixed-output derivations are fetches. Most fetch failures are network blips
+# or hash drift and must never become a hold; fod_failure_is_deterministic
+# separates out the ones that are real nixpkgs regressions.
 drv_is_fixed_output() {
     local n
     n="$(nix derivation show "$1" 2>/dev/null \
         | jq '[.. | objects | (.outputHash?, .hash?) | strings] | length' 2>/dev/null || echo 0)"
     [ "${n:-0}" -gt 0 ]
+}
+
+# Retry a failed fetch once and classify it. Returns 0 only when it fails again
+# with no hash mismatch and no network error: the fetcher's own builder broke
+# the same way twice, which is a nixpkgs regression a hold can route around
+# (2026-11-06: neovide 0.17.1 shipped the Skia source hash, so the cargo
+# vendor-staging builder found no Cargo.lock). Sets FOD_VERDICT for the log.
+fod_failure_is_deterministic() {
+    local drv="$1" rlog
+    rlog="$WORK_DIR/fod-retry-$(drv_name "$drv").log"
+    if nix-store --realise "$drv" >"$rlog" 2>&1; then
+        FOD_VERDICT="passed on retry"
+        return 1
+    fi
+    if grep -q 'hash mismatch in fixed-output derivation' "$rlog"; then
+        FOD_VERDICT="hit a hash mismatch"
+        return 1
+    fi
+    # Specific phrases only: a vendoring log lists crates like rustls and
+    # openssl-sys, so bare "ssl"/"tls" would refuse every Rust package.
+    if grep -qiE 'could not resolve|name resolution|connection (timed out|refused|reset)|failed to connect|timed out|network is unreachable|curl: \([0-9]+\)|unable to download|cannot download|http error|ssl error|tls handshake|certificate verify failed|ConnectionError|max retries exceeded' "$rlog"; then
+        FOD_VERDICT="hit a network error"
+        return 1
+    fi
+    FOD_VERDICT="fails the same way on retry with no network or hash error"
+    return 0
 }
 
 # Failed derivations in a build log. A root failure is "Cannot build '<drv>'."
@@ -713,8 +740,15 @@ auto_hold_failures() {
     for drv in "${roots[@]}"; do
         dname="$(drv_name "$drv")"
         if drv_is_fixed_output "$drv"; then
-            log "🧊 auto-hold refused: $dname is a fetch (fixed-output) failure."
-            return 1
+            if ! fod_failure_is_deterministic "$drv"; then
+                log "🧊 auto-hold refused: $dname is a fetch (fixed-output) failure that $FOD_VERDICT."
+                return 1
+            fi
+            # A fetch is never itself a top-level package: climb to the one
+            # above it, exactly as for a broken library.
+            log "🧊 auto-hold: $dname is a fetch (fixed-output) that $FOD_VERDICT; climbing."
+            climb+=("$drv")
+            continue
         fi
         pname="$(drv_pname "$drv")"
         if [ -z "$pname" ] || ! valid_hold_name "$pname"; then

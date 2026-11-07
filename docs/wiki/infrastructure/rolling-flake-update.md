@@ -174,7 +174,7 @@ and it held back everything else.
     failed`. A dependent says `N dependency failed` instead.
   - It holds the roots only if all of these are true:
     - there are 1–3 roots;
-    - each root has a pname and is not a fixed-output (fetch) failure;
+    - each root has a pname, or is a deterministic fetch failure (below);
     - each root's name equals the candidate nixpkgs' top-level `<pname>.name`,
       or the root climbs (below);
     - none is already held;
@@ -195,6 +195,18 @@ and it held back everything else.
       and boot plumbing, so it can never be held);
     - a topmost package isn't itself an unmodified top-level attribute;
     - the total number of holds would exceed 3.
+  - **Fetch roots (2026-11-07):** a fixed-output (fetch) root is retried
+    once with `nix-store --realise`. It is refused, as before, when the retry
+    passes (transient), shows `hash mismatch in fixed-output derivation`
+    (hash drift), or shows a network error (DNS, connect/timeout, curl, HTTP,
+    SSL/TLS handshake, Python `ConnectionError`). A fetch that fails the same
+    way twice with none of those is a nixpkgs regression in the fetcher's
+    inputs, and climbs like a library root. Why: on 2026-11-06 nixpkgs
+    `6dadaf4` gave neovide 0.17.1 the Skia source hash, so
+    `neovide-0.17.1-vendor-staging` found no `Cargo.lock`. The old blanket
+    fetch refusal reverted the whole core group for one desktop app; the climb
+    now holds `neovide`. The network pattern deliberately avoids bare
+    `ssl`/`tls`, which match crate names like `rustls` in vendoring logs.
   - Holding is all-or-nothing: if any root can't be held or climbed, nothing
     is held, because the retry would still fail on that root.
   - With no other holds active, `nixpkgs-held` is first re-pinned to the
