@@ -259,7 +259,9 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
 ## `tainsh.ablz.au`: a second site, live since 2026-11-08
 
 - **Built:** 2026-11-08. **Status:** **live** since 2026-11-08 at the user's request,
-  open to anyone (no Cloudflare Access), `noindex` on every response. No LAN preview:
+  open to anyone (no Cloudflare Access) and set up exactly like family.barrett-lennard.com
+  (user, 2026-11-08): indexable (the `noindex` header was dropped the same day), the
+  same robots.txt, sitemap and `llms.txt`, the same Cloudflare settings. No LAN preview:
   `tainsh-preview.ablz.au` was removed the same day at the user's request.
 - **Kept current:** every `bin/fh build` on doc1 (main checkout, master) exports the
   family into `/var/lib/family-archive/tainsh-site` and runs
@@ -274,8 +276,15 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   `55ab03aa-….cfargotunnel.com` in ablz.au (record `4aa7184f…`); token
   `tainsh-publish-purge` (id `2d1e41c1…`), Cache Purge on ablz.au only, no expiry,
   `secrets/hosts/proxmox-vm/tainsh-cf-purge`. Minted with a short-lived account token
-  the user supplied and then revoked. No cache rule: on ablz.au Cloudflare caches only
-  static file extensions for this host, and every publish purges the host.
+  the user supplied and then revoked.
+- **ablz.au zone, matched to barrett-lennard.com (2026-11-08):** security level
+  `essentially_off`, Browser Integrity Check off, Always Use HTTPS on, TLS ≥ 1.2;
+  bot settings were already identical (Bot Fight Mode, AI-bot blocking, managed
+  robots.txt all off). Cache rule "tainsh: cache everything, honour origin s-maxage"
+  and rate limit "tainsh: 300 req/10s per IP, 429", both on host `tainsh.ablz.au`.
+  These are zone-wide settings, but tainsh is the only proxied record on ablz.au
+  (everything else is DNS-only LAN A records); a new proxied ablz.au host inherits
+  them. The SSL mode (flexible) was left alone: tunnel traffic doesn't use it.
 
 ### How it is built
 
@@ -294,7 +303,7 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
 ### First publish (2026-11-08)
 
 - Leak check clean; 775 files, 5.7 MB; release `20261108T070826Z`; purge ok.
-- From outside: `/` 200 with `x-robots-tag: noindex` for plain curl and a GPTBot user
+- From outside: `/` 200 (then with `noindex`, since dropped) for plain curl and a GPTBot user
   agent; family.barrett-lennard.com still 200 after the guest restart.
 
 ### Mechanics
@@ -311,7 +320,7 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   plain `rsync --server`. Anything else still goes to the main site's command.
 - **Serving:** a second nginx server on `127.0.0.1:8081`, root `/srv/site/tainsh/current`.
   It has the main site's rate limits, cache headers and `/o/` sandbox CSP, plus
-  `X-Robots-Tag: noindex` on every location. The port, not the Host header, separates
+  no `noindex` (as the main site). The port, not the Host header, separates
   the sites.
 - **Tunnel:** the same `familypub` tunnel gains the ingress `tainsh.ablz.au →
   http://127.0.0.1:8081`, ahead of the `http_status:404` catch-all.

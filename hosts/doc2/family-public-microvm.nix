@@ -137,14 +137,14 @@
     else familyCommand;
 
   # The served headers, per location (a nested add_header drops the
-  # parent's). `extra` is appended to every location: tainsh adds noindex.
-  siteLocations = extra: {
+  # parent's). Both sites serve exactly these.
+  siteLocations = {
     "/" = {
       tryFiles = "$uri $uri/index.html =404";
       extraConfig = ''
         add_header Cache-Control "public, max-age=300, s-maxage=86400" always;
         add_header X-Content-Type-Options nosniff always;
-        add_header Referrer-Policy same-origin always;${extra}
+        add_header Referrer-Policy same-origin always;
       '';
     };
     # Downscaled images and dumps: large and rarely changed.
@@ -155,7 +155,7 @@
         add_header Referrer-Policy same-origin always;
         # /o/ may hold saved third-party pages: no scripts, forms or
         # same-origin access, as on the private site.
-        add_header Content-Security-Policy "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline' data:; font-src data:; media-src 'self'" always;${extra}
+        add_header Content-Security-Policy "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline' data:; font-src data:; media-src 'self'" always;
       '';
     };
     "~ /\\.".return = "404";
@@ -378,11 +378,12 @@ in {
             extraConfig = siteServerConfig;
             # Cloudflare holds pages a day at the edge (s-maxage) and
             # publishing purges it; browsers revalidate after five minutes.
-            locations = siteLocations "";
+            locations = siteLocations;
           };
           # tainsh.ablz.au on its own port, so cloudflared's ingress picks the
-          # site by port and never by Host header. Same limits and headers,
-          # plus noindex: the site is for the family, not for search engines.
+          # site by port and never by Host header. The same limits and
+          # headers as family.barrett-lennard.com, indexable like it (user,
+          # 2026-11-08).
           virtualHosts.${tainshFqdn} = lib.mkIf tainsh.enable {
             listen = [
               {
@@ -392,7 +393,7 @@ in {
             ];
             root = "${tainshDir}/current";
             extraConfig = siteServerConfig;
-            locations = siteLocations "\nadd_header X-Robots-Tag \"noindex\" always;";
+            locations = siteLocations;
           };
         };
         systemd.services.nginx.unitConfig.RequiresMountsFor = [siteRoot];
