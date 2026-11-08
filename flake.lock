@@ -61,11 +61,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1793988107,
-        "narHash": "sha256-O91/HnND0xTpdCecUJedsfRU2n/V5xdTLV4iplOXS7Y=",
+        "lastModified": 1794145993,
+        "narHash": "sha256-VTuZErYZM9Dc5XyXzpejgxsCjYHxEZVTYKRSJYxN9PY=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "623c716377e67e88cd96e505928a03b087e00e8a",
+        "rev": "dcf5354053c67a0c653796cca9af5630e4a54fc4",
         "type": "github"
       },
       "original": {
@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1794031329,
-        "narHash": "sha256-ck8VXlNHbxMCd7d+yX2c/tVOm7dopsjRfYNJBFI1usQ=",
+        "lastModified": 1794118019,
+        "narHash": "sha256-vkaPAoumaPWtR+BENt5BphghxQN08ORLDotRHVyEFRw=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "2921168fc84b4070308a9ef6d115063cf62198cf",
+        "rev": "d307bdb7ce158fc47184097ec258007a1a8e7bb3",
         "type": "github"
       },
       "original": {
@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793829498,
-        "narHash": "sha256-gBOJc8I6aRRq8b6isQphp58ohgykylqOxkzytgmR4eM=",
+        "lastModified": 1794088709,
+        "narHash": "sha256-Fxo8VVd2wAMxrwifFBGTdUOaz5qDc4X/LR4PGW3pquc=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "75811f1c913e37397719dcafbf31642a692a8bea",
+        "rev": "cf19700ec731e47c41f30f075b3b304d339200b3",
         "type": "github"
       },
       "original": {
@@ -328,11 +328,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1794057905,
-        "narHash": "sha256-z4PnFrs73PnTOaNEK78PUnmUJVOve5kXn34YTDOwOYc=",
+        "lastModified": 1794148782,
+        "narHash": "sha256-oMMZCLf1b7+yM8qWeAji1/wSLArs7udRGRTKQZdIYIg=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "a9ff9799e273f525b82718cdc69fdec71b1dca5a",
+        "rev": "3e82260ba041b75cf9eb20abf13bec937bb32e27",
         "type": "github"
       },
       "original": {
@@ -979,11 +979,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1794033531,
-        "narHash": "sha256-hTPz/i5yGVRqzDxqDV8Gn3P/RBTUIcb+rGP82HrUgFs=",
+        "lastModified": 1794092966,
+        "narHash": "sha256-vxMES36btLtbW/jG3CFlK9wkfcby+utmPXp61lrwCiQ=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "bf2c466cf2d012d3c1b8f63242f14d3d5240cab6",
+        "rev": "fdff4b9a8affee5d9cb93739a13883e6fa168533",
         "type": "github"
       },
       "original": {
