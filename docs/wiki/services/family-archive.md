@@ -57,6 +57,11 @@ browser → doc1 nginx :443 sources.ablz.au (localProxy TLS/ACME, LAN DNS)
   /var/lib/family-archive/public-site`, which replaces it only after the
   export's leak check passes. Nothing from the NAS is bound into it. It is
   the rehearsal for the public host (an isolated VM, later).
+- **Tainsh preview** (`tainshPreview.enable`, since 2026-11-08):
+  `tainsh-preview.ablz.au`, LAN only, serves
+  `/var/lib/family-archive/tainsh-site`, the separate export of Rosie
+  Tainsh's family for `tainsh.ablz.au`. Its public side is built but off; see
+  [family-public-site](family-public-site.md#tainshablzau-a-second-site-built-but-switched-off).
 
 ## Operations
 

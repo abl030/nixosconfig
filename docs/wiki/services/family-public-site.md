@@ -256,6 +256,90 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   Gmail discarding forwarded copies of the account's own sent mail. Don't test with it.
 - The Gmail filters and the footer line are tracked in family-history#163.
 
+## `tainsh.ablz.au`: a second site, built but switched off
+
+- **Built:** 2026-11-08. **Status:** LAN preview **on**; public side **off**
+  (no DNS record, no ingress, no guest nginx server, publisher refuses).
+- **What:** Rosie Tainsh's family (the user's stepmother) from the same private
+  catalogue, exported on its own: `fh export … --family rosemary-tainsh-1962`.
+- **Why separate:** her family must never appear on family.barrett-lennard.com, so the
+  user's mum doesn't come across it while browsing. It may be published only once Rosie
+  agrees, on its own hostname. Possibly behind Cloudflare Access (an email allowlist);
+  that is Rosie's call later.
+
+### What exists now
+
+- **Preview** (doc1, `homelab.services.familyArchive.tainshPreview.enable = true`):
+  `https://tainsh-preview.ablz.au`, LAN only (localProxy, ACME, LAN DNS like
+  `public-preview.ablz.au`), serving `/var/lib/family-archive/tainsh-site` (abl030-writable;
+  fh swaps its contents in place). Headers as the public preview, with `noindex`. Nothing
+  from the NAS is bound in. Kuma monitor "Family tainsh preview".
+- **Publisher:** `family-public-publish --site tainsh [status | DIR]`. With no `--site`
+  (or `--site family`) the command behaves exactly as before. While
+  `homelab.services.familyArchive.tainshSite.enable` is false, `--site tainsh` prints
+  `tainsh.ablz.au is not enabled (homelab.services.familyArchive.tainshSite.enable = false); nothing published`
+  and exits **3**, before any rsync or SSH. fh reads exit 3 as "switched off, preview only".
+- **Guest** (`hosts/doc2/family-public-microvm.nix`, option
+  `homelab.familyPublic.tainsh.enable`, default false): with it off, the familypub guest
+  builds to the identical derivation as before (checked 2026-11-08), so doc2 was not
+  redeployed.
+
+### When enabled
+
+- **doc1 publisher:** the same flow as the main site: `cp -al` snapshot → `fh export
+  --check <snapshot> --family rosemary-tainsh-1962` → rsync → `tainsh activate` → purge.
+  The default DIR is the tainsh preview dir. It shares the main site's lock, so only one
+  publish runs at a time.
+- **Upload path:** the same SSH key and pfSense pinhole. rsync runs with
+  `--rsync-path="tainsh rsync"`, and the verbs are `tainsh activate` and `tainsh status`.
+  The key's forced command becomes a dispatcher that sends a leading `tainsh ` to a second
+  copy of the site command, rooted at `/srv/site/tainsh/{staging,releases,current}` (on the
+  same 20 GiB volume, with its own three releases). It strips the prefix so rrsync sees a
+  plain `rsync --server`. Anything else still goes to the main site's command.
+- **Serving:** a second nginx server on `127.0.0.1:8081`, root `/srv/site/tainsh/current`.
+  It has the main site's rate limits, cache headers and `/o/` sandbox CSP, plus
+  `X-Robots-Tag: noindex` on every location. The port, not the Host header, separates
+  the sites.
+- **Tunnel:** the same `familypub` tunnel gains the ingress `tainsh.ablz.au →
+  http://127.0.0.1:8081`, ahead of the `http_status:404` catch-all.
+- **Purge:** only that host, `{"hosts":["tainsh.ablz.au"]}` on the ablz.au zone
+  (`6e11ebc2413104f2220565ccb9c0417e`). A separate purge-only token is needed, because
+  `familypub-publish-purge` is scoped to barrett-lennard.com.
+
+### Switching it on (only after Rosie agrees)
+
+1. **Cloudflare (by API, as for the main site; mint a short-lived setup token):**
+   - DNS in the **ablz.au** zone: a proxied CNAME `tainsh` →
+     `55ab03aa-d40a-479c-b897-5802edf2404a.cfargotunnel.com`. The tunnel is locally
+     managed, so nothing changes on the tunnel object; a tunnel can serve hostnames in
+     any zone of the account. localProxy's DNS sync only touches A records it owns, so
+     it leaves this CNAME alone. Never also add `tainsh.ablz.au` to `homelab.localProxy`.
+   - A purge-only token: Zone → Cache Purge on ablz.au only, no expiry, named
+     `tainsh-publish-purge`. Store it doc1-only:
+     `secrets/hosts/proxmox-vm/tainsh-cf-purge` (binary; `sops` from inside `secrets/`).
+   - Zone settings on ablz.au: the main site's settings (Bot Fight Mode off, etc.) are
+     per zone. ablz.au's defaults are fine for a family site behind `noindex`. Add a
+     cache rule for host `tainsh.ablz.au` (cacheable, TTL from origin) if pages should be
+     edge-cached. Without one, Cloudflare caches only static file extensions.
+   - **Optional, Rosie's call: Cloudflare Access.** Zero Trust → Access → Applications →
+     self-hosted, domain `tainsh.ablz.au`, a policy "Allow" with an Emails include list,
+     and the one-time PIN login method. Nothing in the fleet changes for it. The Kuma monitor
+     "Family tainsh site" would then see the Access login. Give it an Access service
+     token or drop the monitor.
+2. **Nix, in one commit:**
+   - `hosts/proxmox-vm/configuration.nix`: `homelab.services.familyArchive.tainshSite.enable = true;`
+   - `hosts/doc2/configuration.nix` (or the microVM file):
+     `homelab.familyPublic.tainsh.enable = true;`
+3. **Deploy:** `sudo fleet-update` on doc1, then `fleet-deploy doc2`. The guest restarts
+   (a new forced command, nginx server and ingress), so the main site has a short blip.
+4. **First publish:** `family-public-publish --site tainsh`, then
+   `family-public-publish --site tainsh status`. From outside, check
+   `curl -sI https://tainsh.ablz.au/` (noindex header, 200, or the Access redirect).
+
+Switching it off again: set both options back to false and deploy, then delete the
+CNAME. The files stay on the volume under `/srv/site/tainsh` until removed by hand from a
+temporarily added verb, or the volume is recreated.
+
 ## Follow-ups
 
 - family-history#163: the user's Gmail filters, a test from the approved work address,

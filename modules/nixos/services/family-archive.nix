@@ -23,15 +23,62 @@
   # forced command allows only an rsync into staging, `activate` and
   # `status`. See docs/wiki/services/family-public-site.md.
   pub = cfg.publicSite;
+  servedTainsh = "/run/family-archive-tainsh";
+  # tainsh.ablz.au: a second, separate public site for one family (Rosie
+  # Tainsh's), kept off family.barrett-lennard.com and published only once
+  # she agrees. `--site tainsh` selects it; while tainshSite.enable is false
+  # it refuses with exit 3, which fh reads as "switched off, preview only".
+  tpub = cfg.tainshSite;
+  tainshSelect =
+    if tpub.enable
+    then ''
+      default_site=${cfg.tainshPreview.siteDir}
+      remote_prefix="tainsh "
+      check_args=(--family ${tpub.family})
+      rsync_extra=(--rsync-path="tainsh rsync")
+      purge_token=${config.sops.secrets."family-public/tainsh-cf-purge".path}
+      purge_zone=${tpub.cloudflareZoneId}
+      purge_body='{"hosts":["${tpub.fqdn}"]}'
+    ''
+    else ''
+      echo "${tpub.fqdn} is not enabled (homelab.services.familyArchive.tainshSite.enable = false); nothing published" >&2
+      exit 3
+    '';
   publishScript = pkgs.writeShellApplication {
     name = "family-public-publish";
     runtimeInputs = with pkgs; [rsync openssh coreutils util-linux curl];
     text = ''
-      site=''${1:-${cfg.publicPreview.siteDir}}
+      usage() {
+        echo "usage: family-public-publish [--site family|tainsh] [status | DIR]" >&2
+        exit 2
+      }
+      site_name=family
+      if [[ "''${1:-}" == --site ]]; then
+        [[ -n "''${2:-}" ]] || usage
+        site_name=$2
+        shift 2
+      fi
+      case "$site_name" in
+        family)
+          default_site=${cfg.publicPreview.siteDir}
+          remote_prefix=""
+          check_args=()
+          rsync_extra=()
+          purge_token=${config.sops.secrets."family-public/cf-purge".path}
+          purge_zone=${pub.cloudflareZoneId}
+          purge_body='{"purge_everything":true}'
+          ;;
+        tainsh)
+          ${tainshSelect}
+          ;;
+        *) usage ;;
+      esac
+
+      site=''${1:-$default_site}
       ssh_cmd=(ssh -i ${config.sops.secrets."family-public/publish-key".path}
         -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes)
       if [[ "$site" == status ]]; then
-        exec "''${ssh_cmd[@]}" publish@${pub.host} status
+        exec "''${ssh_cmd[@]}" publish@${pub.host} "''${remote_prefix}status"
       fi
       [[ -f "$site/index.html" ]] || {
         echo "no site at $site" >&2
@@ -51,19 +98,23 @@
       cp -al "$site" "$snap/site"
 
       echo "leak check: $snap/site"
-      ${pub.fhCommand} export --check "$snap/site"
+      ${pub.fhCommand} export --check "$snap/site" "''${check_args[@]}"
 
-      echo "upload to ${pub.host}"
-      rsync -a --delete --stats -e "''${ssh_cmd[*]}" "$snap/site/" publish@${pub.host}:
-      "''${ssh_cmd[@]}" publish@${pub.host} activate
+      echo "upload to ${pub.host} ($site_name)"
+      # For tainsh the remote command starts "tainsh rsync --server ...",
+      # which the guest's forced command routes to that site's staging.
+      rsync -a --delete --stats "''${rsync_extra[@]}" -e "''${ssh_cmd[*]}" "$snap/site/" publish@${pub.host}:
+      "''${ssh_cmd[@]}" publish@${pub.host} "''${remote_prefix}activate"
 
       # Cloudflare holds pages a day at the edge and the asset URLs carry no
-      # version, so a new release purges the zone. The token can only purge.
+      # version, so a new release purges the site (the whole
+      # barrett-lennard.com zone; on ablz.au only the tainsh host). The
+      # tokens can only purge.
       echo "purge Cloudflare cache"
       curl -fsS -X POST -H 'Content-Type: application/json' \
-        -H @<(printf 'Authorization: Bearer %s\n' "$(cat ${config.sops.secrets."family-public/cf-purge".path})") \
-        --data '{"purge_everything":true}' \
-        "https://api.cloudflare.com/client/v4/zones/${pub.cloudflareZoneId}/purge_cache" >/dev/null
+        -H @<(printf 'Authorization: Bearer %s\n' "$(cat "$purge_token")") \
+        --data "$purge_body" \
+        "https://api.cloudflare.com/client/v4/zones/$purge_zone/purge_cache" >/dev/null
       echo "purged"
     '';
   };
@@ -228,6 +279,57 @@ in {
         };
       };
     };
+
+    # tainsh.ablz.au: Rosie Tainsh's family on a site of its own, never on
+    # family.barrett-lennard.com. The preview is on; publishing stays off
+    # until she agrees. See docs/wiki/services/family-public-site.md.
+    tainshPreview = {
+      enable = lib.mkEnableOption "LAN preview of the tainsh.ablz.au site";
+
+      siteDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/family-archive/tainsh-site";
+        description = "The tainsh export fh serves into (abl030-writable, regenerable).";
+      };
+
+      fqdn = lib.mkOption {
+        type = lib.types.str;
+        default = "tainsh-preview.ablz.au";
+        description = "LAN HTTPS hostname served by homelab.localProxy.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8856;
+        description = "Loopback HTTP port of the tainsh preview's static nginx server.";
+      };
+    };
+
+    # Switching on also needs the guest side on doc2
+    # (homelab.familyPublic.tainsh.enable), the purge token in sops and the
+    # Cloudflare DNS route: the wiki page has the steps. While off,
+    # `family-public-publish --site tainsh` refuses with exit 3.
+    tainshSite = {
+      enable = lib.mkEnableOption "publishing tainsh.ablz.au with `family-public-publish --site tainsh`";
+
+      fqdn = lib.mkOption {
+        type = lib.types.str;
+        default = "tainsh.ablz.au";
+        description = "The public hostname (a proxied CNAME to the familypub tunnel).";
+      };
+
+      family = lib.mkOption {
+        type = lib.types.str;
+        default = "rosemary-tainsh-1962";
+        description = "The catalogue family the site exports; passed to `fh export --check --family`.";
+      };
+
+      cloudflareZoneId = lib.mkOption {
+        type = lib.types.str;
+        default = "6e11ebc2413104f2220565ccb9c0417e";
+        description = "The ablz.au zone; each publish purges only the tainsh host in it.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -236,7 +338,19 @@ in {
         assertion = pub.enable -> cfg.publicPreview.enable;
         message = "familyArchive.publicSite publishes the public preview; enable publicPreview";
       }
+      {
+        assertion = tpub.enable -> (pub.enable && cfg.tainshPreview.enable);
+        message = "familyArchive.tainshSite publishes the tainsh preview through family-public-publish; enable publicSite and tainshPreview";
+      }
     ];
+
+    # Purge-only Cloudflare token for the ablz.au zone (tainsh.ablz.au).
+    sops.secrets."family-public/tainsh-cf-purge" = lib.mkIf tpub.enable {
+      sopsFile = config.homelab.secrets.sopsFile "tainsh-cf-purge";
+      format = "binary";
+      owner = "abl030";
+      mode = "0400";
+    };
 
     sops.secrets."family-public/publish-key" = lib.mkIf pub.enable {
       sopsFile = config.homelab.secrets.sopsFile "family-public-publish-key";
@@ -270,7 +384,8 @@ in {
         "d /var/lib/family-archive 0755 abl030 users - -"
         "d ${cfg.siteDir} 0755 abl030 users - -"
       ]
-      ++ lib.optional cfg.publicPreview.enable "d ${cfg.publicPreview.siteDir} 0755 abl030 users - -";
+      ++ lib.optional cfg.publicPreview.enable "d ${cfg.publicPreview.siteDir} 0755 abl030 users - -"
+      ++ lib.optional cfg.tainshPreview.enable "d ${cfg.tainshPreview.siteDir} 0755 abl030 users - -";
 
     # Read-only directory binds; "-" keeps nginx starting if the NAS is down
     # (the Kuma monitor on an original then fails instead).
@@ -281,7 +396,8 @@ in {
         "-${cfg.tilesDir}:${servedTiles}"
         "-${cfg.basemapDir}:${servedBasemap}"
       ]
-      ++ lib.optional cfg.publicPreview.enable "-${cfg.publicPreview.siteDir}:${servedPublic}";
+      ++ lib.optional cfg.publicPreview.enable "-${cfg.publicPreview.siteDir}:${servedPublic}"
+      ++ lib.optional cfg.tainshPreview.enable "-${cfg.tainshPreview.siteDir}:${servedTainsh}";
 
     # The public preview: only the cleared site, nothing from the NAS. The
     # same headers the public host will send, so the preview behaves like it.
@@ -293,6 +409,26 @@ in {
         }
       ];
       root = servedPublic;
+      locations."/" = {
+        tryFiles = "$uri $uri/index.html =404";
+        extraConfig = ''
+          add_header Cache-Control "no-cache" always;
+          add_header X-Content-Type-Options nosniff always;
+          add_header Referrer-Policy same-origin always;
+          add_header X-Robots-Tag "noindex" always;
+        '';
+      };
+    };
+    # The tainsh.ablz.au preview, built the same way: its own export, nothing
+    # from the NAS, LAN only.
+    services.nginx.virtualHosts."family-tainsh-preview" = lib.mkIf cfg.tainshPreview.enable {
+      listen = [
+        {
+          addr = "127.0.0.1";
+          inherit (cfg.tainshPreview) port;
+        }
+      ];
+      root = servedTainsh;
       locations."/" = {
         tryFiles = "$uri $uri/index.html =404";
         extraConfig = ''
@@ -390,6 +526,10 @@ in {
       ++ lib.optional cfg.publicPreview.enable {
         host = cfg.publicPreview.fqdn;
         inherit (cfg.publicPreview) port;
+      }
+      ++ lib.optional cfg.tainshPreview.enable {
+        host = cfg.tainshPreview.fqdn;
+        inherit (cfg.tainshPreview) port;
       };
 
     homelab.monitoring = {
@@ -412,6 +552,15 @@ in {
         ++ lib.optional pub.enable {
           name = "Family public site";
           url = "https://family.barrett-lennard.com/api/index.json";
+        }
+        ++ lib.optional cfg.tainshPreview.enable {
+          name = "Family tainsh preview";
+          url = "https://${cfg.tainshPreview.fqdn}/";
+        }
+        # Behind Cloudflare Access, this would need an Access service token.
+        ++ lib.optional tpub.enable {
+          name = "Family tainsh site";
+          url = "https://${tpub.fqdn}/api/index.json";
         };
       errorPatterns = [];
     };

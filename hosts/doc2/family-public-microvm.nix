@@ -30,6 +30,15 @@
   # key) stays root's.
   liveDir = "${siteRoot}/live";
 
+  # tainsh.ablz.au: a second, separate site (Rosie Tainsh's family) with its
+  # own releases on the same volume, its own nginx server on 8081 and its own
+  # ingress on the same tunnel. Off until she agrees to publication; doc1's
+  # homelab.services.familyArchive.tainshSite.enable is the publishing half.
+  tainsh = config.homelab.familyPublic.tainsh;
+  tainshFqdn = "tainsh.ablz.au";
+  tainshDir = "${siteRoot}/tainsh";
+  tainshPort = 8081;
+
   # The locally-managed tunnel `familypub` in the Cloudflare account; its
   # UUID names the cloudflared unit, and the proxied CNAME
   # family.barrett-lennard.com points at <id>.cfargotunnel.com. null turns
@@ -46,341 +55,414 @@
   #   status     print the live release
   # Releases are hard-link snapshots: rsync replaces changed files by rename,
   # so a later upload never alters a release already being served.
-  publishCommand = pkgs.writeShellApplication {
-    name = "family-public-publish-command";
-    runtimeInputs = with pkgs; [rsync rrsync coreutils findutils curl];
-    text = ''
-      cmd=''${SSH_ORIGINAL_COMMAND:-}
-      cd ${liveDir}
-      # What nginx serves on loopback (the tunnel's origin).
-      served() {
-        for p in / /api/index.json /robots.txt; do
-          echo "served $p: $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' "http://127.0.0.1:8080$p")"
-        done
-      }
-      case "$cmd" in
-        "rsync --server "*)
-          exec rrsync -wo ${liveDir}/staging
-          ;;
-        activate)
-          if [[ ! -f staging/index.html || ! -f staging/robots.txt ]]; then
-            echo "staging has no site (index.html, robots.txt); refusing" >&2
+  # One instance per site; the family.barrett-lennard.com one is what the key
+  # runs directly while tainsh is off.
+  mkSiteCommand = {
+    name,
+    dir,
+    port,
+  }:
+    pkgs.writeShellApplication {
+      inherit name;
+      runtimeInputs = with pkgs; [rsync rrsync coreutils findutils curl];
+      text = ''
+        cmd=''${SSH_ORIGINAL_COMMAND:-}
+        cd ${dir}
+        # What nginx serves on loopback (the tunnel's origin).
+        served() {
+          for p in / /api/index.json /robots.txt; do
+            echo "served $p: $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' "http://127.0.0.1:${toString port}$p")"
+          done
+        }
+        case "$cmd" in
+          "rsync --server "*)
+            exec rrsync -wo ${dir}/staging
+            ;;
+          activate)
+            if [[ ! -f staging/index.html || ! -f staging/robots.txt ]]; then
+              echo "staging has no site (index.html, robots.txt); refusing" >&2
+              exit 1
+            fi
+            id=$(date -u +%Y%m%dT%H%M%SZ)
+            cp -al staging "releases/$id"
+            ln -sfn "releases/$id" current.new
+            mv -T current.new current
+            # Keep the live release and two before it for a quick rollback.
+            find releases -mindepth 1 -maxdepth 1 -type d | sort | head -n -3 | xargs -r rm -rf --
+            echo "live: $id"
+            served
+            ;;
+          status)
+            readlink current || echo "no release yet"
+            ls releases
+            served
+            ;;
+          *)
+            echo "refused: only rsync, activate and status" >&2
             exit 1
-          fi
-          id=$(date -u +%Y%m%dT%H%M%SZ)
-          cp -al staging "releases/$id"
-          ln -sfn "releases/$id" current.new
-          mv -T current.new current
-          # Keep the live release and two before it for a quick rollback.
-          find releases -mindepth 1 -maxdepth 1 -type d | sort | head -n -3 | xargs -r rm -rf --
-          echo "live: $id"
-          served
-          ;;
-        status)
-          readlink current || echo "no release yet"
-          ls releases
-          served
-          ;;
-        *)
-          echo "refused: only rsync, activate and status" >&2
-          exit 1
-          ;;
-      esac
-    '';
-  };
-in {
-  sops.secrets."family-public/tunnel" = lib.mkIf tunnelEnabled {
-    sopsFile = config.homelab.secrets.sopsFile "family-public-tunnel.json";
-    format = "binary";
-    # qemu runs as the microvm user and reads the file at start.
-    owner = "microvm";
-    mode = "0400";
-  };
-
-  systemd.network = {
-    enable = true;
-    netdevs."br-familypub".netdevConfig = {
-      Name = "br-familypub";
-      Kind = "bridge";
+            ;;
+        esac
+      '';
     };
-    networks = {
-      "40-br-familypub" = {
-        matchConfig.Name = "br-familypub";
-        networkConfig.ConfigureWithoutCarrier = true;
-        linkConfig.RequiredForOnline = false;
-      };
-      "41-familypub-uplink" = {
-        matchConfig.MACAddress = uplinkMac;
-        networkConfig.Bridge = "br-familypub";
-        linkConfig.RequiredForOnline = false;
-      };
-      "42-familypub-tap" = {
-        matchConfig.Name = "vm-familypub";
-        networkConfig.Bridge = "br-familypub";
-        linkConfig.RequiredForOnline = false;
-      };
-    };
+  familyCommand = mkSiteCommand {
+    name = "family-public-publish-command";
+    dir = liveDir;
+    port = 8080;
   };
-  networking.networkmanager.unmanaged = [
-    "mac:${uplinkMac}"
-    "interface-name:br-familypub"
-    "interface-name:vm-familypub"
-  ];
-
-  # Host-side ceilings on the whole qemu process, on top of the guest's own
-  # 2 vCPUs / 1.5 GiB. A compromised guest (a miner, a busy loop) then gets at
-  # most one of doc2's 12 cores, always yields to doc2's services, and can't
-  # grow qemu past 2 GiB. A static site mostly served from Cloudflare's cache
-  # needs a fraction of this.
-  systemd.services."microvm@familypub".serviceConfig = {
-    CPUQuota = "100%";
-    CPUWeight = 20;
-    IOWeight = 20;
-    MemoryMax = "2G";
-    TasksMax = 256;
+  tainshCommand = mkSiteCommand {
+    name = "tainsh-publish-command";
+    dir = tainshDir;
+    port = tainshPort;
   };
-
-  # No shared host paths, so microvm.nix's own lifecycle is enough (contrast
-  # slskd's virtiofs owner unit).
-  microvm.vms.familypub = {
-    autostart = true;
-    restartIfChanged = true;
-    config = {
-      imports = [inputs.microvm.nixosModules.microvm];
-
-      networking = {
-        hostName = "familypub";
-        useDHCP = false;
-        # sshd is the only listener on the DMZ address; nginx and cloudflared
-        # talk over loopback. pfSense admits 22 from doc1 alone.
-        firewall = {
-          enable = true;
-          allowedTCPPorts = [22];
-        };
-        # pfSense runs no ntpd; its FAMILY_DMZ rules pass UDP 123 to these only.
-        timeServers = ["162.159.200.1" "162.159.200.123"];
-      };
-      system.stateVersion = "26.05";
-
-      microvm = {
-        hypervisor = "qemu";
-        vcpu = 2;
-        mem = 1536;
-        vsock.cid = 22;
-        # No host store share: the guest boots its own closure only, so it
-        # cannot read the rest of doc2's /nix/store.
-        storeOnDisk = true;
-        volumes = [
-          {
-            # /var/lib/microvms/familypub/site.img on doc2's root disk; sparse.
-            image = "site.img";
-            mountPoint = siteRoot;
-            size = 20480;
-            fsType = "ext4";
-            autoCreate = true;
-          }
-        ];
-        credentialFiles = lib.mkIf tunnelEnabled {
-          family-tunnel = config.sops.secrets."family-public/tunnel".path;
-        };
-        interfaces = [
-          {
-            type = "tap";
-            id = "vm-familypub";
-            mac = "02:00:00:00:22:02";
-          }
-        ];
-      };
-
-      fileSystems.${siteRoot}.options = ["nodev" "nosuid" "noexec"];
-
-      systemd.network = {
-        enable = true;
-        networks."10-eth" = {
-          matchConfig.Type = "ether";
-          address = ["${guestAddress}/24"];
-          routes = [{Gateway = dmzGateway;}];
-          networkConfig.DNS = dmzGateway;
-        };
-      };
-
-      systemd.tmpfiles.rules = [
-        "d ${liveDir} 0755 publish publish -"
-        "d ${liveDir}/staging 0755 publish publish -"
-        "d ${liveDir}/releases 0755 publish publish -"
-        "d ${siteRoot}/ssh 0700 root root -"
-      ];
-
-      users.groups.publish = {};
-      users.users.publish = {
-        isSystemUser = true;
-        group = "publish";
-        home = liveDir;
-        shell = pkgs.bashInteractive;
-        openssh.authorizedKeys.keys = [
-          ''restrict,command="${lib.getExe publishCommand}" ${publishKey}''
-        ];
-      };
-
-      services.openssh = {
-        enable = true;
-        openFirewall = false;
-        listenAddresses = [{addr = guestAddress;}];
-        # On the volume: the root disk is rebuilt every boot, and doc1 pins
-        # this key.
-        hostKeys = [
-          {
-            path = "${siteRoot}/ssh/ssh_host_ed25519_key";
-            type = "ed25519";
-          }
-        ];
-        settings = {
-          AllowUsers = ["publish"];
-          PasswordAuthentication = false;
-          KbdInteractiveAuthentication = false;
-          PermitRootLogin = "no";
-          AllowTcpForwarding = false;
-          AllowAgentForwarding = false;
-          X11Forwarding = false;
-        };
-      };
-      systemd.services.sshd.unitConfig.RequiresMountsFor = [siteRoot];
-      # No console login: qemu's serial port is only a log stream to doc2.
-      systemd.services."serial-getty@ttyS0".enable = false;
-      systemd.services."autovt@".enable = false;
-
-      # rsync must be on the publish user's PATH for the server side.
-      environment.systemPackages = [pkgs.rsync pkgs.iproute2];
-
-      # The guest has no management plane: forward the journal to the serial
-      # console, which doc2's microvm@familypub journal (and Loki) keeps.
-      services.journald.settings.Journal = {
-        ForwardToConsole = true;
-        MaxLevelConsole = "info";
-      };
-
-      services.nginx = {
-        enable = true;
-        recommendedGzipSettings = true;
-        recommendedOptimisation = true;
-        # Requests come only from cloudflared on loopback, so the visitor is
-        # Cloudflare's CF-Connecting-IP header; rate-limit per visitor, not
-        # per tunnel. 429 is what agents expect, never a challenge page.
-        appendHttpConfig = ''
-          map $http_cf_connecting_ip $visitor {
-            "" $remote_addr;
-            default $http_cf_connecting_ip;
-          }
-          limit_req_zone $visitor zone=perip:10m rate=20r/s;
-          limit_conn_zone $visitor zone=perconn:10m;
-          limit_req_status 429;
-          limit_conn_status 429;
-          access_log off;
-          error_log stderr warn;
+  # With tainsh on, the key's forced command routes a leading "tainsh " (doc1
+  # sends `tainsh activate`, `tainsh status`, and rsync with --rsync-path
+  # "tainsh rsync") to that site's copy, with the prefix stripped so rrsync
+  # sees a plain rsync command. Everything else goes to the main site.
+  publishCommand =
+    if tainsh.enable
+    then
+      pkgs.writeShellApplication {
+        name = "family-public-dispatch-command";
+        text = ''
+          cmd=''${SSH_ORIGINAL_COMMAND:-}
+          case "$cmd" in
+            "tainsh "*)
+              export SSH_ORIGINAL_COMMAND="''${cmd#tainsh }"
+              exec ${lib.getExe tainshCommand}
+              ;;
+            *) exec ${lib.getExe familyCommand} ;;
+          esac
         '';
-        virtualHosts.${fqdn} = {
-          default = true;
-          listen = [
+      }
+    else familyCommand;
+
+  # The served headers, per location (a nested add_header drops the
+  # parent's). `extra` is appended to every location: tainsh adds noindex.
+  siteLocations = extra: {
+    "/" = {
+      tryFiles = "$uri $uri/index.html =404";
+      extraConfig = ''
+        add_header Cache-Control "public, max-age=300, s-maxage=86400" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy same-origin always;${extra}
+      '';
+    };
+    # Downscaled images and dumps: large and rarely changed.
+    "~ ^/(o|images|api/dump)/" = {
+      extraConfig = ''
+        add_header Cache-Control "public, max-age=86400, s-maxage=2592000" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy same-origin always;
+        # /o/ may hold saved third-party pages: no scripts, forms or
+        # same-origin access, as on the private site.
+        add_header Content-Security-Policy "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline' data:; font-src data:; media-src 'self'" always;${extra}
+      '';
+    };
+    "~ /\\.".return = "404";
+  };
+  siteServerConfig = ''
+    limit_req zone=perip burst=100 nodelay;
+    limit_conn perconn 16;
+  '';
+in {
+  # Publishing also needs doc1's homelab.services.familyArchive.tainshSite;
+  # the steps are in docs/wiki/services/family-public-site.md.
+  options.homelab.familyPublic.tainsh.enable =
+    lib.mkEnableOption "tainsh.ablz.au on the familypub guest (its nginx server and tunnel ingress)";
+
+  config = {
+    sops.secrets."family-public/tunnel" = lib.mkIf tunnelEnabled {
+      sopsFile = config.homelab.secrets.sopsFile "family-public-tunnel.json";
+      format = "binary";
+      # qemu runs as the microvm user and reads the file at start.
+      owner = "microvm";
+      mode = "0400";
+    };
+
+    systemd.network = {
+      enable = true;
+      netdevs."br-familypub".netdevConfig = {
+        Name = "br-familypub";
+        Kind = "bridge";
+      };
+      networks = {
+        "40-br-familypub" = {
+          matchConfig.Name = "br-familypub";
+          networkConfig.ConfigureWithoutCarrier = true;
+          linkConfig.RequiredForOnline = false;
+        };
+        "41-familypub-uplink" = {
+          matchConfig.MACAddress = uplinkMac;
+          networkConfig.Bridge = "br-familypub";
+          linkConfig.RequiredForOnline = false;
+        };
+        "42-familypub-tap" = {
+          matchConfig.Name = "vm-familypub";
+          networkConfig.Bridge = "br-familypub";
+          linkConfig.RequiredForOnline = false;
+        };
+      };
+    };
+    networking.networkmanager.unmanaged = [
+      "mac:${uplinkMac}"
+      "interface-name:br-familypub"
+      "interface-name:vm-familypub"
+    ];
+
+    # Host-side ceilings on the whole qemu process, on top of the guest's own
+    # 2 vCPUs / 1.5 GiB. A compromised guest (a miner, a busy loop) then gets at
+    # most one of doc2's 12 cores, always yields to doc2's services, and can't
+    # grow qemu past 2 GiB. A static site mostly served from Cloudflare's cache
+    # needs a fraction of this.
+    systemd.services."microvm@familypub".serviceConfig = {
+      CPUQuota = "100%";
+      CPUWeight = 20;
+      IOWeight = 20;
+      MemoryMax = "2G";
+      TasksMax = 256;
+    };
+
+    # No shared host paths, so microvm.nix's own lifecycle is enough (contrast
+    # slskd's virtiofs owner unit).
+    microvm.vms.familypub = {
+      autostart = true;
+      restartIfChanged = true;
+      config = {
+        imports = [inputs.microvm.nixosModules.microvm];
+
+        networking = {
+          hostName = "familypub";
+          useDHCP = false;
+          # sshd is the only listener on the DMZ address; nginx and cloudflared
+          # talk over loopback. pfSense admits 22 from doc1 alone.
+          firewall = {
+            enable = true;
+            allowedTCPPorts = [22];
+          };
+          # pfSense runs no ntpd; its FAMILY_DMZ rules pass UDP 123 to these only.
+          timeServers = ["162.159.200.1" "162.159.200.123"];
+        };
+        system.stateVersion = "26.05";
+
+        microvm = {
+          hypervisor = "qemu";
+          vcpu = 2;
+          mem = 1536;
+          vsock.cid = 22;
+          # No host store share: the guest boots its own closure only, so it
+          # cannot read the rest of doc2's /nix/store.
+          storeOnDisk = true;
+          volumes = [
             {
-              addr = "127.0.0.1";
-              port = 8080;
+              # /var/lib/microvms/familypub/site.img on doc2's root disk; sparse.
+              image = "site.img";
+              mountPoint = siteRoot;
+              size = 20480;
+              fsType = "ext4";
+              autoCreate = true;
             }
           ];
-          root = "${liveDir}/current";
-          extraConfig = ''
-            limit_req zone=perip burst=100 nodelay;
-            limit_conn perconn 16;
-          '';
-          # Headers are set per location: a nested add_header drops the
-          # parent's. Cloudflare holds pages a day at the edge (s-maxage) and
-          # publishing purges it; browsers revalidate after five minutes.
-          locations = {
-            "/" = {
-              tryFiles = "$uri $uri/index.html =404";
-              extraConfig = ''
-                add_header Cache-Control "public, max-age=300, s-maxage=86400" always;
-                add_header X-Content-Type-Options nosniff always;
-                add_header Referrer-Policy same-origin always;
-              '';
-            };
-            # Downscaled images and dumps: large and rarely changed.
-            "~ ^/(o|images|api/dump)/" = {
-              extraConfig = ''
-                add_header Cache-Control "public, max-age=86400, s-maxage=2592000" always;
-                add_header X-Content-Type-Options nosniff always;
-                add_header Referrer-Policy same-origin always;
-                # /o/ may hold saved third-party pages: no scripts, forms or
-                # same-origin access, as on the private site.
-                add_header Content-Security-Policy "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline' data:; font-src data:; media-src 'self'" always;
-              '';
-            };
-            "~ /\\.".return = "404";
+          credentialFiles = lib.mkIf tunnelEnabled {
+            family-tunnel = config.sops.secrets."family-public/tunnel".path;
+          };
+          interfaces = [
+            {
+              type = "tap";
+              id = "vm-familypub";
+              mac = "02:00:00:00:22:02";
+            }
+          ];
+        };
+
+        fileSystems.${siteRoot}.options = ["nodev" "nosuid" "noexec"];
+
+        systemd.network = {
+          enable = true;
+          networks."10-eth" = {
+            matchConfig.Type = "ether";
+            address = ["${guestAddress}/24"];
+            routes = [{Gateway = dmzGateway;}];
+            networkConfig.DNS = dmzGateway;
           };
         };
-      };
-      systemd.services.nginx.unitConfig.RequiresMountsFor = [siteRoot];
 
-      # The isolation, checked from inside: at boot and daily, try what the
-      # guest must never reach and what it needs. Any breach fails the unit
-      # and logs "ISOLATION BREACH" to the console (doc2 journal, Loki).
-      systemd.services.familypub-isolation-probe = {
-        description = "Check FAMILY_DMZ containment from inside the guest";
-        wantedBy = ["multi-user.target"];
-        after = ["network-online.target"];
-        wants = ["network-online.target"];
-        path = with pkgs; [bash coreutils dig];
-        serviceConfig = {
-          Type = "oneshot";
-          DynamicUser = true;
-          StandardOutput = "journal+console";
+        systemd.tmpfiles.rules =
+          [
+            "d ${liveDir} 0755 publish publish -"
+            "d ${liveDir}/staging 0755 publish publish -"
+            "d ${liveDir}/releases 0755 publish publish -"
+            "d ${siteRoot}/ssh 0700 root root -"
+          ]
+          ++ lib.optionals tainsh.enable [
+            "d ${tainshDir} 0755 publish publish -"
+            "d ${tainshDir}/staging 0755 publish publish -"
+            "d ${tainshDir}/releases 0755 publish publish -"
+          ];
+
+        users.groups.publish = {};
+        users.users.publish = {
+          isSystemUser = true;
+          group = "publish";
+          home = liveDir;
+          shell = pkgs.bashInteractive;
+          openssh.authorizedKeys.keys = [
+            ''restrict,command="${lib.getExe publishCommand}" ${publishKey}''
+          ];
         };
-        script = ''
-          bad=0
-          tcp() { timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null; }
-          # Must fail: pfSense, doc1, doc2 (both), tower (NFS), prom, the
-          # other DMZ guests, pfSense's tailnet address, the open internet.
-          for t in 192.168.1.1:443 192.168.1.29:22 192.168.1.35:443 192.168.1.36:443 \
-                   192.168.1.2:2049 192.168.1.12:8006 192.168.21.2:5030 \
-                   192.168.20.2:8080 192.168.30.2:32400 100.123.61.111:443 \
-                   1.1.1.1:443 8.8.8.8:53; do
-            if tcp "''${t%:*}" "''${t#*:}"; then
-              echo "ISOLATION BREACH: reached $t"; bad=1
-            else
-              echo "blocked: $t"
+
+        services.openssh = {
+          enable = true;
+          openFirewall = false;
+          listenAddresses = [{addr = guestAddress;}];
+          # On the volume: the root disk is rebuilt every boot, and doc1 pins
+          # this key.
+          hostKeys = [
+            {
+              path = "${siteRoot}/ssh/ssh_host_ed25519_key";
+              type = "ed25519";
+            }
+          ];
+          settings = {
+            AllowUsers = ["publish"];
+            PasswordAuthentication = false;
+            KbdInteractiveAuthentication = false;
+            PermitRootLogin = "no";
+            AllowTcpForwarding = false;
+            AllowAgentForwarding = false;
+            X11Forwarding = false;
+          };
+        };
+        systemd.services.sshd.unitConfig.RequiresMountsFor = [siteRoot];
+        # No console login: qemu's serial port is only a log stream to doc2.
+        systemd.services."serial-getty@ttyS0".enable = false;
+        systemd.services."autovt@".enable = false;
+
+        # rsync must be on the publish user's PATH for the server side.
+        environment.systemPackages = [pkgs.rsync pkgs.iproute2];
+
+        # The guest has no management plane: forward the journal to the serial
+        # console, which doc2's microvm@familypub journal (and Loki) keeps.
+        services.journald.settings.Journal = {
+          ForwardToConsole = true;
+          MaxLevelConsole = "info";
+        };
+
+        services.nginx = {
+          enable = true;
+          recommendedGzipSettings = true;
+          recommendedOptimisation = true;
+          # Requests come only from cloudflared on loopback, so the visitor is
+          # Cloudflare's CF-Connecting-IP header; rate-limit per visitor, not
+          # per tunnel. 429 is what agents expect, never a challenge page.
+          appendHttpConfig = ''
+            map $http_cf_connecting_ip $visitor {
+              "" $remote_addr;
+              default $http_cf_connecting_ip;
+            }
+            limit_req_zone $visitor zone=perip:10m rate=20r/s;
+            limit_conn_zone $visitor zone=perconn:10m;
+            limit_req_status 429;
+            limit_conn_status 429;
+            access_log off;
+            error_log stderr warn;
+          '';
+          virtualHosts.${fqdn} = {
+            default = true;
+            listen = [
+              {
+                addr = "127.0.0.1";
+                port = 8080;
+              }
+            ];
+            root = "${liveDir}/current";
+            extraConfig = siteServerConfig;
+            # Cloudflare holds pages a day at the edge (s-maxage) and
+            # publishing purges it; browsers revalidate after five minutes.
+            locations = siteLocations "";
+          };
+          # tainsh.ablz.au on its own port, so cloudflared's ingress picks the
+          # site by port and never by Host header. Same limits and headers,
+          # plus noindex: the site is for the family, not for search engines.
+          virtualHosts.${tainshFqdn} = lib.mkIf tainsh.enable {
+            listen = [
+              {
+                addr = "127.0.0.1";
+                port = tainshPort;
+              }
+            ];
+            root = "${tainshDir}/current";
+            extraConfig = siteServerConfig;
+            locations = siteLocations "\nadd_header X-Robots-Tag \"noindex\" always;";
+          };
+        };
+        systemd.services.nginx.unitConfig.RequiresMountsFor = [siteRoot];
+
+        # The isolation, checked from inside: at boot and daily, try what the
+        # guest must never reach and what it needs. Any breach fails the unit
+        # and logs "ISOLATION BREACH" to the console (doc2 journal, Loki).
+        systemd.services.familypub-isolation-probe = {
+          description = "Check FAMILY_DMZ containment from inside the guest";
+          wantedBy = ["multi-user.target"];
+          after = ["network-online.target"];
+          wants = ["network-online.target"];
+          path = with pkgs; [bash coreutils dig];
+          serviceConfig = {
+            Type = "oneshot";
+            DynamicUser = true;
+            StandardOutput = "journal+console";
+          };
+          script = ''
+            bad=0
+            tcp() { timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null; }
+            # Must fail: pfSense, doc1, doc2 (both), tower (NFS), prom, the
+            # other DMZ guests, pfSense's tailnet address, the open internet.
+            for t in 192.168.1.1:443 192.168.1.29:22 192.168.1.35:443 192.168.1.36:443 \
+                     192.168.1.2:2049 192.168.1.12:8006 192.168.21.2:5030 \
+                     192.168.20.2:8080 192.168.30.2:32400 100.123.61.111:443 \
+                     1.1.1.1:443 8.8.8.8:53; do
+              if tcp "''${t%:*}" "''${t#*:}"; then
+                echo "ISOLATION BREACH: reached $t"; bad=1
+              else
+                echo "blocked: $t"
+              fi
+            done
+            git=$(dig +short git.ablz.au A | tail -n1)
+            if [ -n "$git" ] && tcp "$git" 443; then
+              echo "ISOLATION BREACH: reached git.ablz.au ($git):443"; bad=1
             fi
-          done
-          git=$(dig +short git.ablz.au A | tail -n1)
-          if [ -n "$git" ] && tcp "$git" 443; then
-            echo "ISOLATION BREACH: reached git.ablz.au ($git):443"; bad=1
-          fi
-          # Must work: DNS, the tunnel edge.
-          edge=$(dig +short region1.v2.argotunnel.com A | head -n1)
-          srv=$(dig +short SRV _v2-origintunneld._tcp.argotunnel.com | head -n1)
-          echo "dns: region1=$edge srv=$srv"
-          if [ -n "$edge" ] && tcp "$edge" 7844; then
-            echo "allowed: tunnel edge $edge:7844"
-          else
-            echo "PROBE: tunnel edge unreachable"; bad=1
-          fi
-          [ "$bad" = 0 ] && echo "ISOLATION OK"
-          exit "$bad"
-        '';
-      };
-      systemd.timers.familypub-isolation-probe = {
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = "daily";
-          RandomizedDelaySec = "1h";
+            # Must work: DNS, the tunnel edge.
+            edge=$(dig +short region1.v2.argotunnel.com A | head -n1)
+            srv=$(dig +short SRV _v2-origintunneld._tcp.argotunnel.com | head -n1)
+            echo "dns: region1=$edge srv=$srv"
+            if [ -n "$edge" ] && tcp "$edge" 7844; then
+              echo "allowed: tunnel edge $edge:7844"
+            else
+              echo "PROBE: tunnel edge unreachable"; bad=1
+            fi
+            [ "$bad" = 0 ] && echo "ISOLATION OK"
+            exit "$bad"
+          '';
         };
-      };
+        systemd.timers.familypub-isolation-probe = {
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = "daily";
+            RandomizedDelaySec = "1h";
+          };
+        };
 
-      services.cloudflared = lib.mkIf tunnelEnabled {
-        enable = true;
-        tunnels.${tunnelId} = {
-          credentialsFile = "/run/credentials/@system/family-tunnel";
-          edgeIPVersion = "4";
-          ingress.${fqdn} = "http://127.0.0.1:8080";
-          default = "http_status:404";
+        services.cloudflared = lib.mkIf tunnelEnabled {
+          enable = true;
+          tunnels.${tunnelId} = {
+            credentialsFile = "/run/credentials/@system/family-tunnel";
+            edgeIPVersion = "4";
+            ingress =
+              {${fqdn} = "http://127.0.0.1:8080";}
+              # Routed only once the proxied CNAME tainsh.ablz.au ->
+              # <tunnelId>.cfargotunnel.com exists in the ablz.au zone.
+              // lib.optionalAttrs tainsh.enable {${tainshFqdn} = "http://127.0.0.1:${toString tainshPort}";};
+            default = "http_status:404";
+          };
         };
       };
     };
