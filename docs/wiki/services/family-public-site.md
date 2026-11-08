@@ -259,8 +259,12 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
 ## `tainsh.ablz.au`: a second site, live since 2026-11-08
 
 - **Built:** 2026-11-08. **Status:** **live** since 2026-11-08 at the user's request,
-  open to anyone (no Cloudflare Access), `noindex` on every response. LAN preview
-  `https://tainsh-preview.ablz.au` stays on.
+  open to anyone (no Cloudflare Access), `noindex` on every response. No LAN preview:
+  `tainsh-preview.ablz.au` was removed the same day at the user's request.
+- **Kept current:** every `bin/fh build` on doc1 (main checkout, master) exports the
+  family into `/var/lib/family-archive/tainsh-site` and runs
+  `family-public-publish --site tainsh`, right after the main public site. Nothing
+  else to run.
 - **What:** Rosie Tainsh's family (the user's stepmother) from the same private
   catalogue, exported on its own: `fh export … --family rosemary-tainsh-1962`.
 - **Why separate:** her family must never appear on family.barrett-lennard.com, so the
@@ -273,28 +277,31 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   the user supplied and then revoked. No cache rule: on ablz.au Cloudflare caches only
   static file extensions for this host, and every publish purges the host.
 
-### What exists now
+### How it is built
 
-- **Preview** (doc1, `homelab.services.familyArchive.tainshPreview.enable = true`):
-  `https://tainsh-preview.ablz.au`, LAN only (localProxy, ACME, LAN DNS like
-  `public-preview.ablz.au`), serving `/var/lib/family-archive/tainsh-site` (abl030-writable;
-  fh swaps its contents in place). Headers as the public preview, with `noindex`. Nothing
-  from the NAS is bound in. Kuma monitor "Family tainsh preview".
+- **Staging tree** (doc1, `homelab.services.familyArchive.tainshSite.siteDir`,
+  default `/var/lib/family-archive/tainsh-site`, abl030-writable): fh swaps its export in
+  here; it is not served on the LAN. Nothing from the NAS is in it.
 - **Publisher:** `family-public-publish --site tainsh [status | DIR]`. With no `--site`
-  (or `--site family`) the command behaves exactly as before. While
+  (or `--site family`) the command behaves as for the main site. If
   `homelab.services.familyArchive.tainshSite.enable` is false, `--site tainsh` prints
-  `tainsh.ablz.au is not enabled (homelab.services.familyArchive.tainshSite.enable = false); nothing published`
-  and exits **3**, before any rsync or SSH. fh reads exit 3 as "switched off, preview only".
+  `tainsh.ablz.au is not enabled (…); nothing published` and exits **3**, before any
+  rsync or SSH; fh reads exit 3 as "switched off".
 - **Guest** (`hosts/doc2/family-public-microvm.nix`, option
-  `homelab.familyPublic.tainsh.enable`, default false): with it off, the familypub guest
-  builds to the identical derivation as before (checked 2026-11-08), so doc2 was not
-  redeployed.
+  `homelab.familyPublic.tainsh.enable`, on in `hosts/doc2/configuration.nix`).
+- **Monitor:** Kuma "Family tainsh site" polls `https://tainsh.ablz.au/api/index.json`.
 
-### When enabled
+### First publish (2026-11-08)
+
+- Leak check clean; 775 files, 5.7 MB; release `20261108T070826Z`; purge ok.
+- From outside: `/` 200 with `x-robots-tag: noindex` for plain curl and a GPTBot user
+  agent; family.barrett-lennard.com still 200 after the guest restart.
+
+### Mechanics
 
 - **doc1 publisher:** the same flow as the main site: `cp -al` snapshot → `fh export
   --check <snapshot> --family rosemary-tainsh-1962` → rsync → `tainsh activate` → purge.
-  The default DIR is the tainsh preview dir. It shares the main site's lock, so only one
+  The default DIR is `tainshSite.siteDir`. It shares the main site's lock, so only one
   publish runs at a time.
 - **Upload path:** the same SSH key and pfSense pinhole. rsync runs with
   `--rsync-path="tainsh rsync"`, and the verbs are `tainsh activate` and `tainsh status`.

@@ -274,9 +274,8 @@
           reports.enable = true;
         };
         # tainsh.ablz.au (Rosie Tainsh's family): live since 2026-11-08, open
-        # (no Cloudflare Access), noindex. Its own site, never on
-        # family.barrett-lennard.com; docs/wiki/services/family-public-site.md.
-        tainshPreview.enable = true;
+        # (no Cloudflare Access), noindex, no LAN preview. Its own site, never
+        # on family.barrett-lennard.com; docs/wiki/services/family-public-site.md.
         tainshSite.enable = true;
       };
       riversleaMap.enable = true;

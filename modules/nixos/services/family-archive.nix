@@ -23,16 +23,16 @@
   # forced command allows only an rsync into staging, `activate` and
   # `status`. See docs/wiki/services/family-public-site.md.
   pub = cfg.publicSite;
-  servedTainsh = "/run/family-archive-tainsh";
   # tainsh.ablz.au: a second, separate public site for one family (Rosie
-  # Tainsh's), kept off family.barrett-lennard.com and published only once
-  # she agrees. `--site tainsh` selects it; while tainshSite.enable is false
-  # it refuses with exit 3, which fh reads as "switched off, preview only".
+  # Tainsh's), kept off family.barrett-lennard.com. `--site tainsh` selects
+  # it; while tainshSite.enable is false it refuses with exit 3, which fh
+  # reads as "switched off". It has no LAN preview: siteDir is only the
+  # tree fh exports into and the publisher snapshots.
   tpub = cfg.tainshSite;
   tainshSelect =
     if tpub.enable
     then ''
-      default_site=${cfg.tainshPreview.siteDir}
+      default_site=${tpub.siteDir}
       remote_prefix="tainsh "
       check_args=(--family ${tpub.family})
       rsync_extra=(--rsync-path="tainsh rsync")
@@ -281,36 +281,18 @@ in {
     };
 
     # tainsh.ablz.au: Rosie Tainsh's family on a site of its own, never on
-    # family.barrett-lennard.com. The preview is on; publishing stays off
-    # until she agrees. See docs/wiki/services/family-public-site.md.
-    tainshPreview = {
-      enable = lib.mkEnableOption "LAN preview of the tainsh.ablz.au site";
+    # family.barrett-lennard.com. Also needs the guest side on doc2
+    # (homelab.familyPublic.tainsh.enable), the purge token in sops and the
+    # Cloudflare DNS route: docs/wiki/services/family-public-site.md. While
+    # off, `family-public-publish --site tainsh` refuses with exit 3.
+    tainshSite = {
+      enable = lib.mkEnableOption "publishing tainsh.ablz.au with `family-public-publish --site tainsh`";
 
       siteDir = lib.mkOption {
         type = lib.types.str;
         default = "/var/lib/family-archive/tainsh-site";
-        description = "The tainsh export fh serves into (abl030-writable, regenerable).";
+        description = "The tainsh export fh writes into and the publisher snapshots (abl030-writable, regenerable, not served on the LAN).";
       };
-
-      fqdn = lib.mkOption {
-        type = lib.types.str;
-        default = "tainsh-preview.ablz.au";
-        description = "LAN HTTPS hostname served by homelab.localProxy.";
-      };
-
-      port = lib.mkOption {
-        type = lib.types.port;
-        default = 8856;
-        description = "Loopback HTTP port of the tainsh preview's static nginx server.";
-      };
-    };
-
-    # Switching on also needs the guest side on doc2
-    # (homelab.familyPublic.tainsh.enable), the purge token in sops and the
-    # Cloudflare DNS route: the wiki page has the steps. While off,
-    # `family-public-publish --site tainsh` refuses with exit 3.
-    tainshSite = {
-      enable = lib.mkEnableOption "publishing tainsh.ablz.au with `family-public-publish --site tainsh`";
 
       fqdn = lib.mkOption {
         type = lib.types.str;
@@ -339,8 +321,8 @@ in {
         message = "familyArchive.publicSite publishes the public preview; enable publicPreview";
       }
       {
-        assertion = tpub.enable -> (pub.enable && cfg.tainshPreview.enable);
-        message = "familyArchive.tainshSite publishes the tainsh preview through family-public-publish; enable publicSite and tainshPreview";
+        assertion = tpub.enable -> pub.enable;
+        message = "familyArchive.tainshSite publishes through family-public-publish; enable publicSite";
       }
     ];
 
@@ -385,7 +367,7 @@ in {
         "d ${cfg.siteDir} 0755 abl030 users - -"
       ]
       ++ lib.optional cfg.publicPreview.enable "d ${cfg.publicPreview.siteDir} 0755 abl030 users - -"
-      ++ lib.optional cfg.tainshPreview.enable "d ${cfg.tainshPreview.siteDir} 0755 abl030 users - -";
+      ++ lib.optional tpub.enable "d ${tpub.siteDir} 0755 abl030 users - -";
 
     # Read-only directory binds; "-" keeps nginx starting if the NAS is down
     # (the Kuma monitor on an original then fails instead).
@@ -396,8 +378,7 @@ in {
         "-${cfg.tilesDir}:${servedTiles}"
         "-${cfg.basemapDir}:${servedBasemap}"
       ]
-      ++ lib.optional cfg.publicPreview.enable "-${cfg.publicPreview.siteDir}:${servedPublic}"
-      ++ lib.optional cfg.tainshPreview.enable "-${cfg.tainshPreview.siteDir}:${servedTainsh}";
+      ++ lib.optional cfg.publicPreview.enable "-${cfg.publicPreview.siteDir}:${servedPublic}";
 
     # The public preview: only the cleared site, nothing from the NAS. The
     # same headers the public host will send, so the preview behaves like it.
@@ -409,26 +390,6 @@ in {
         }
       ];
       root = servedPublic;
-      locations."/" = {
-        tryFiles = "$uri $uri/index.html =404";
-        extraConfig = ''
-          add_header Cache-Control "no-cache" always;
-          add_header X-Content-Type-Options nosniff always;
-          add_header Referrer-Policy same-origin always;
-          add_header X-Robots-Tag "noindex" always;
-        '';
-      };
-    };
-    # The tainsh.ablz.au preview, built the same way: its own export, nothing
-    # from the NAS, LAN only.
-    services.nginx.virtualHosts."family-tainsh-preview" = lib.mkIf cfg.tainshPreview.enable {
-      listen = [
-        {
-          addr = "127.0.0.1";
-          inherit (cfg.tainshPreview) port;
-        }
-      ];
-      root = servedTainsh;
       locations."/" = {
         tryFiles = "$uri $uri/index.html =404";
         extraConfig = ''
@@ -526,10 +487,6 @@ in {
       ++ lib.optional cfg.publicPreview.enable {
         host = cfg.publicPreview.fqdn;
         inherit (cfg.publicPreview) port;
-      }
-      ++ lib.optional cfg.tainshPreview.enable {
-        host = cfg.tainshPreview.fqdn;
-        inherit (cfg.tainshPreview) port;
       };
 
     homelab.monitoring = {
@@ -552,10 +509,6 @@ in {
         ++ lib.optional pub.enable {
           name = "Family public site";
           url = "https://family.barrett-lennard.com/api/index.json";
-        }
-        ++ lib.optional cfg.tainshPreview.enable {
-          name = "Family tainsh preview";
-          url = "https://${cfg.tainshPreview.fqdn}/";
         }
         # Behind Cloudflare Access, this would need an Access service token.
         ++ lib.optional tpub.enable {
