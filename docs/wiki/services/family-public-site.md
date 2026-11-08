@@ -256,16 +256,22 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   Gmail discarding forwarded copies of the account's own sent mail. Don't test with it.
 - The Gmail filters and the footer line are tracked in family-history#163.
 
-## `tainsh.ablz.au`: a second site, built but switched off
+## `tainsh.ablz.au`: a second site, live since 2026-11-08
 
-- **Built:** 2026-11-08. **Status:** LAN preview **on**; public side **off**
-  (no DNS record, no ingress, no guest nginx server, publisher refuses).
+- **Built:** 2026-11-08. **Status:** **live** since 2026-11-08 at the user's request,
+  open to anyone (no Cloudflare Access), `noindex` on every response. LAN preview
+  `https://tainsh-preview.ablz.au` stays on.
 - **What:** Rosie Tainsh's family (the user's stepmother) from the same private
   catalogue, exported on its own: `fh export … --family rosemary-tainsh-1962`.
 - **Why separate:** her family must never appear on family.barrett-lennard.com, so the
-  user's mum doesn't come across it while browsing. It may be published only once Rosie
-  agrees, on its own hostname. Possibly behind Cloudflare Access (an email allowlist);
-  that is Rosie's call later.
+  user's mum doesn't come across it while browsing. Cloudflare Access (an email
+  allowlist) can still be added later; see the steps below.
+- **Cloudflare objects (created 2026-11-08 by API):** proxied CNAME `tainsh` →
+  `55ab03aa-….cfargotunnel.com` in ablz.au (record `4aa7184f…`); token
+  `tainsh-publish-purge` (id `2d1e41c1…`), Cache Purge on ablz.au only, no expiry,
+  `secrets/hosts/proxmox-vm/tainsh-cf-purge`. Minted with a short-lived account token
+  the user supplied and then revoked. No cache rule: on ablz.au Cloudflare caches only
+  static file extensions for this host, and every publish purges the host.
 
 ### What exists now
 
@@ -306,7 +312,7 @@ sender → Cloudflare Email Routing (MX route1-3.mx.cloudflare.net)
   (`6e11ebc2413104f2220565ccb9c0417e`). A separate purge-only token is needed, because
   `familypub-publish-purge` is scoped to barrett-lennard.com.
 
-### Switching it on (only after Rosie agrees)
+### Switching it on (done 2026-11-08; kept for reference)
 
 1. **Cloudflare (by API, as for the main site; mint a short-lived setup token):**
    - DNS in the **ablz.au** zone: a proxied CNAME `tainsh` →

@@ -273,11 +273,11 @@
           hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ94hE47yW3YipoSFR/+8hfG3f8hUiHCQGopGz1pfGs/";
           reports.enable = true;
         };
-        # tainsh.ablz.au (Rosie Tainsh's family): LAN preview only. Publishing
-        # waits for her agreement; switching it on is in
-        # docs/wiki/services/family-public-site.md.
+        # tainsh.ablz.au (Rosie Tainsh's family): live since 2026-11-08, open
+        # (no Cloudflare Access), noindex. Its own site, never on
+        # family.barrett-lennard.com; docs/wiki/services/family-public-site.md.
         tainshPreview.enable = true;
-        tainshSite.enable = false;
+        tainshSite.enable = true;
       };
       riversleaMap.enable = true;
       mrnews.enable = true;

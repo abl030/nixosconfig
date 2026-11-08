@@ -93,6 +93,10 @@
     # Nothing to set here; the default IS the doc2 model.
     tailscale.enable = true;
 
+    # tainsh.ablz.au (Rosie Tainsh's family) on the familypub guest: its own
+    # nginx server and tunnel ingress. Live from 2026-11-08 at the user's word.
+    familyPublic.tainsh.enable = true;
+
     # LGTM observability stack — migrated from igpu per #208.
     # Also receive syslog (pfSense, tower) on 1514/udp+tcp.
     loki = {
