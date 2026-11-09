@@ -257,7 +257,7 @@
   # (never the capture kernel), so the alert path is fully up.
   notifyScript = pkgs.writeShellApplication {
     name = "crash-capture-notify";
-    runtimeInputs = with pkgs; [coreutils gnugrep gnused findutils];
+    runtimeInputs = with pkgs; [coreutils gnugrep gnused];
     # negative-alert.nix interpolates the Gotify URL at build time, so its
     # `[ -z "<literal>" ]` guard is constant by construction.
     excludeShellChecks = ["SC2157"];
@@ -270,8 +270,8 @@
       host=${lib.escapeShellArg config.networking.hostName}
 
       first_fault() {
-        grep -m1 -aE 'Kernel panic|BUG:|Oops|general protection|watchdog: (BUG|Watchdog detected)|NMI received|deadlocked on memory' "$1" 2>/dev/null \
-          | sed -E 's/^(<[0-9]+>)?\[ *[0-9.]+\] //' | cut -c1-200
+        grep -h -m1 -aE 'Kernel panic|BUG:|Oops|general protection|watchdog: (BUG|Watchdog detected)|NMI received|deadlocked on memory' "$@" 2>/dev/null \
+          | sed -E 's/^(<[0-9]+>)?\[ *[0-9.]+\] //' | head -n1 | cut -c1-200
       }
 
       seed=0
@@ -310,7 +310,10 @@
 
       message=""
       for stamp in "''${kdump_keys[@]}"; do
-        fault=$(first_fault "$dir/dmesg-$stamp.txt")
+        # A captured crash need not contain one of our summary markers; an empty
+        # first-fault field must not fail this notifier under writeShellApplication's
+        # implicit `set -e`.
+        fault=$(first_fault "$dir/dmesg-$stamp.txt" || true)
         if [ -e "$dir/vmcore-$stamp.gz" ]; then
           core="complete, $(du -h "$dir/vmcore-$stamp.gz" | cut -f1)"
         elif [ -e "$dir/vmcore-$stamp.gz.partial" ]; then
@@ -325,9 +328,10 @@
       if [ "''${#kdump_keys[@]}" -eq 0 ]; then
         # pstore without a kdump set means the capture path failed: this is
         # exactly the 2026-10-24 failure mode, and the only record is here.
+        # systemd-pstore groups one crash into numbered records. The panic can
+        # live under 002 (or later), so never assume the first record directory.
         for id in "''${pstore_keys[@]}"; do
-          fault=$(first_fault "$pstore/$id/001/dmesg.txt")
-          [ -n "$fault" ] || fault=$(find "$pstore/$id" -type f -exec grep -h -m1 -aE 'Kernel panic|BUG:|Oops' {} + 2>/dev/null | head -n1 | cut -c1-200)
+          fault=$(first_fault "$pstore/$id"/*/dmesg.txt || true)
           message+="EFI pstore record $pstore/$id only: kdump did NOT save a dump. First fault: ''${fault:-unknown}. "
         done
       elif [ "''${#pstore_keys[@]}" -gt 0 ]; then
