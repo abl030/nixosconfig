@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
-	go.mau.fi/whatsmeow v0.0.0-20261107160454-79dc2a8c33df
+	go.mau.fi/whatsmeow v0.0.0-20261109152745-f1b798561919
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.62.0
 )
@@ -19,20 +19,20 @@ require (
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/petermattis/goid v0.0.0-20261108111446-7b06cb8d5a54 // indirect
+	github.com/petermattis/goid v0.0.0-20261109124353-7cfa343ad0ab // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.64 // indirect
 	go.mau.fi/libsignal v0.2.3 // indirect
 	go.mau.fi/util v0.11.0 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/exp v0.0.0-20261106192419-47ce03d25ef0 // indirect
+	golang.org/x/exp v0.0.0-20261109185158-a52e3aef5920 // indirect
 	golang.org/x/net v0.62.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/term v0.47.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
-	modernc.org/libc v1.80.1 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/term v0.48.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
+	modernc.org/libc v1.80.2 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
