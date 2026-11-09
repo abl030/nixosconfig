@@ -269,9 +269,26 @@
       state=/var/lib/crash-capture/notified
       host=${lib.escapeShellArg config.networking.hostName}
 
+      # First fault line across one or more crash logs. The specific fault
+      # (BUG:, GPF, watchdog...) wins over the generic Oops:/panic lines that
+      # follow it. EFI pstore splits a log into "Oops#N PartM" chunks whose
+      # headers also match "Oops", so drop them. Missing files and no-match are
+      # normal (records may sit under 002/, not 001/) and must not trip errexit
+      # + pipefail: on 2026-11-10 that aborted the run before it paged.
       first_fault() {
-        grep -m1 -aE 'Kernel panic|BUG:|Oops|general protection|watchdog: (BUG|Watchdog detected)|NMI received|deadlocked on memory' "$1" 2>/dev/null \
-          | sed -E 's/^(<[0-9]+>)?\[ *[0-9.]+\] //' | cut -c1-200
+        local re line
+        for re in \
+          'BUG:|general protection|watchdog: (BUG|Watchdog detected)|NMI received|deadlocked on memory' \
+          'Oops: |Kernel panic'; do
+          line=$( { grep -h -aE "$re" "$@" 2>/dev/null || true; } \
+            | { grep -avE '^(Oops|Panic)#[0-9]+ Part[0-9]+$' || true; } \
+            | sed -E 's/^(<[0-9]+>)?\[ *[0-9.]+\] //' | head -n1 | cut -c1-200 || true)
+          if [ -n "$line" ]; then
+            printf '%s\n' "$line"
+            return 0
+          fi
+        done
+        return 0
       }
 
       seed=0
@@ -323,17 +340,25 @@
         message+="kdump $stamp UTC. First fault: ''${fault:-not found in dmesg}. vmcore: $core. Artifacts: $dir/*-$stamp.* (crash(8) against vmlinux-$stamp.gz). "
       done
       if [ "''${#kdump_keys[@]}" -eq 0 ]; then
-        # pstore without a kdump set means the capture path failed: this is
-        # exactly the 2026-10-24 failure mode, and the only record is here.
+        # pstore without a kdump set means the capture path failed (the
+        # 2026-10-24 and 2026-11-09 failure mode). One crash leaves several
+        # records (oops + panic, each split into parts): report them as one.
+        pstore_logs=()
         for id in "''${pstore_keys[@]}"; do
-          fault=$(first_fault "$pstore/$id/001/dmesg.txt")
-          [ -n "$fault" ] || fault=$(find "$pstore/$id" -type f -exec grep -h -m1 -aE 'Kernel panic|BUG:|Oops' {} + 2>/dev/null | head -n1 | cut -c1-200)
-          message+="EFI pstore record $pstore/$id only: kdump did NOT save a dump. First fault: ''${fault:-unknown}. "
+          for log in "$pstore/$id"/*/dmesg.txt; do
+            [ -e "$log" ] && pstore_logs+=("$log")
+          done
         done
+        fault=""
+        [ "''${#pstore_logs[@]}" -eq 0 ] || fault=$(first_fault "''${pstore_logs[@]}")
+        message+="kdump did NOT save a dump; EFI pstore only (''${#pstore_keys[@]} record(s): $pstore/{''${pstore_keys[*]}}). First fault: ''${fault:-unknown}. "
       elif [ "''${#pstore_keys[@]}" -gt 0 ]; then
         message+="EFI pstore also kept the log under $pstore. "
       fi
-      message+="The host rebooted itself. See docs/wiki/infrastructure/fleet-crash-capture.md."
+      ${lib.optionalString (cfg.notifyHint != "") ''
+        message+=${lib.escapeShellArg "${cfg.notifyHint} "}
+      ''}
+      message+="Uptime now $(cut -d' ' -f1 /proc/uptime | cut -d. -f1)s. See docs/wiki/infrastructure/fleet-crash-capture.md."
 
       title="Kernel crash captured on $host"
       # Hermes runs on doc1, which may be the host that just rebooted: give the
@@ -438,6 +463,13 @@ in {
         default = 15;
         description = "Hard deadline for vmcore compression before partial output is retained and the host reboots.";
       };
+    };
+
+    notifyHint = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "Serial console: root@prom:/var/log/doc1-serial.log.";
+      description = "Extra pointer appended to the crash-captured page, e.g. where an off-box console log lives.";
     };
   };
 

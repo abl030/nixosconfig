@@ -167,6 +167,7 @@
         # kernel, initrd and allocation-profiling overhead.
         reservedMemory = "768M";
       };
+      notifyHint = "Serial console: root@prom:/var/log/doc1-serial.log. Host-side memory dumps (doc2's doc1Recovery): root@prom:/var/lib/doc1-crash/.";
     };
 
     mounts = {
@@ -308,6 +309,13 @@
         # watchdog needs qm status/screendump/reset; no new credential surface.
         sshKeyFile = config.sops.secrets."prom-rpool-backup/key".path;
       };
+      # Installs the prom-side wrapper that doc2's doc1Recovery watcher drives.
+      # doc2's key may run only that wrapper (status|dump|nmi|reset, VM 104).
+      doc1RescueProm = {
+        enable = true;
+        sshKeyFile = config.sops.secrets."prom-rpool-backup/key".path;
+        watcherPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMNr740OHsYXa5Hu1efuGBkbIvHN5r5l1aKLSup8ui+5";
+      };
     };
   };
 
@@ -338,13 +346,14 @@
     # Crash text that does not depend on the dying guest (2026-10-24: netconsole
     # and pstore both missed the main-kernel panic). ttyS0 is a QEMU file
     # chardev on prom (/var/log/doc1-serial.log, VM 104 `args:`); tty0 stays
-    # last so it remains /dev/console. crash_kexec_post_notifiers runs
-    # kmsg_dump before kexec, so EFI pstore gets the main kernel's log too.
+    # last so it remains /dev/console. crash_kexec_post_notifiers was dropped
+    # 2026-11-10: on the 2026-11-09 panic it ran an EFI pstore write from a
+    # double-fault context before kexec, and the guest hung there for 9h with
+    # no capture kernel. Serial already carries the full main-kernel text.
     # See docs/wiki/infrastructure/fleet-crash-capture.md.
     kernelParams = [
       "console=ttyS0,115200"
       "console=tty0"
-      "crash_kexec_post_notifiers"
     ];
     # Merges with the module's list: the capture kernel prints to serial too.
     crashDump.kernelParams = ["console=ttyS0,115200"];

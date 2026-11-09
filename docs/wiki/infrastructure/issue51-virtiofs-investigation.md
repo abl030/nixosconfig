@@ -150,9 +150,11 @@ to a reader** — use netconsole.
   storage as the fallback. The slskd nested-share decision remains related but
   is no longer the issue's primary scope. See
   [virtiofs-database-state-exit.md](virtiofs-database-state-exit.md).
-- doc1 panic: cause unknown, but the load hypothesis is falsified. Capture is armed and proven, so a
-  recurrence produces the backtrace this campaign
-  could not manufacture.
+- doc1 panic: cause unknown, but the load hypothesis is falsified. Lead as of 2026-11-10: in all
+  four doc1 crashes an idle vCPU vectored a #PF through a corrupted IDT gate (`asm_exc_page_fault`
+  low bits, wrong offset bits 16–31). That points at KVM/host state, not at a guest driver. See
+  [fleet-crash-capture.md](fleet-crash-capture.md#2026-11-09-doc1-pstore-and-serial-caught-it-kdump-hung-9h-outage).
+  A host-side memory dump from doc2's doc1Recovery watcher is now the way to confirm it.
 - doc2 wedge: needs `sysrq-t` from a live recurrence.
 - `deep-probe-kopia-mum-*` fails when its 250 s curl timeout collides with the 5–6 hour verify window;
   13 failures since 2026-07-21. Raise the timeout or gate the probe against the verify.

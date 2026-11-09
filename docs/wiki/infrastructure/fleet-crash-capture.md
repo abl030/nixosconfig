@@ -1,7 +1,7 @@
 # Fleet crash capture (netconsole standard, kdump opt-in)
 
-**Date researched:** 2026-07-25; revised 2026-08-03 after the second doc2 panic; revised 2026-10-25 after the doc1 capture-kernel OOM
-**Status:** netconsole fleet-wide; doc1 and doc2 kdump-enabled; doc2 uses a dedicated source-filtered prom receiver
+**Date researched:** 2026-07-25; revised 2026-08-03 after the second doc2 panic; revised 2026-10-25 after the doc1 capture-kernel OOM; revised 2026-11-10 after the doc1 kdump hang
+**Status:** netconsole fleet-wide; doc1 and doc2 kdump-enabled; doc2 uses a dedicated source-filtered prom receiver; doc1 is watched from doc2 with host-side memory dumps on prom
 **Module:** `modules/nixos/services/crash-capture.nix` (`homelab.crashCapture.*`)
 **Issue:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51)
 **Related:** [doc2-kernel-panic-2026-07-22.md](doc2-kernel-panic-2026-07-22.md),
@@ -261,18 +261,107 @@ plus about 370 MB of vmlinux and modules. Worst case is about 20 GB on doc1 or d
 transient 8 GB reserve during a save. pstore (under 1 MB) and doc2-recovery incidents (newest 20,
 about 6 MB) are negligible.
 
-### Runbook: guest hung but not panicked
+### Runbook: guest hung (panicked or not)
 
-Kdump hosts set `kernel.unknown_nmi_panic=1`. Before you stop a hung kdump guest, force it into kdump
-from prom:
+**First, take a host-side memory dump.** It needs nothing from the guest kernel, so it works even
+when kdump has already failed. That was the case on 2026-11-09: the guest sat frozen for 9h with
+its memory intact. doc2's `doc1Recovery` watcher does this for doc1 automatically (see below). By
+hand, from prom:
+
+```sh
+mkdir -p /var/lib/doc1-crash/manual && cd /var/lib/doc1-crash/manual
+printf 'info registers -a\nquit\n' | qm monitor 104 > info-registers.txt
+printf 'dump-guest-memory -d -z -R /var/lib/doc1-crash/manual/vmcore.kdump\nquit\n' | qm monitor 104
+printf 'info dump\nquit\n' | qm monitor 104      # repeat until "Status: completed"
+```
+
+`-z -R` writes a raw kdump-compressed core that `crash(8)` reads directly with the archived
+`vmlinux`. Pass `--kaslr=<Kernel Offset>` from the serial log. Check free space first: doc1 has
+44 GiB of RAM.
+
+Then, on kdump hosts (`kernel.unknown_nmi_panic=1`), try forcing kdump:
 
 ```sh
 ssh root@prom 'qm monitor 104 <<< nmi'     # 104 = doc1, 114 = doc2
 # wait up to ~20 min: capture kernel saves dmesg + vmcore to /var/crash, then reboots itself
 ```
 
-Only fall back to `qm stop` if the guest is still dead after that window. A `qm stop` issued first
-throws the evidence away, as happened on 2026-10-24.
+Fall back to `qm stop` only if the guest is still dead after that window. A `qm stop` issued first
+throws the evidence away. That happened on 2026-10-24, and again on 2026-11-09.
+
+## 2026-11-09 doc1: pstore and serial caught it, kdump hung (9h outage)
+
+**What was captured.** doc1 oopsed at 22:05:29 AWST after 7.8 days of uptime. The main kernel's
+full text reached EFI pstore (four records, one of them under `002/`) and the prom serial log. The
+pager missed both, because of a notifier bug (below). Archived on doc1 in
+`~/.cache/doc1-crash-archive/20261109-main-kernel/` with the pstore records, the serial log and
+`System.map`.
+
+**The fault.** This is the issue-51 signature again. `swapper/27` (idle) jumped to
+`0xffffffffb2c01280`, and printing that oops overflowed the stack into a #DF. The low bits are
+`asm_exc_page_fault` (`ffffffff81001280` in System.map). The high bits are wrong:
+
+| Crash | Kernel Offset | Correct #PF entry | RIP taken |
+|---|---|---|---|
+| 2026-07-24 | 0x29e00000 | `…aae01280` | `…baa01280` |
+| 2026-08-28, 09-09 | (n/a) | (n/a) | `…81001280` (unrelocated) |
+| 2026-11-09 | 0x29c00000 | `…aac01280` | `…b2c01280` |
+
+So every doc1 crash is an idle vCPU taking a page fault and vectoring through a #PF IDT gate whose
+offset bits 16–31 are wrong. The IDT is read-only in the guest. This points at the hypervisor
+(KVM/kvm_amd on prom delivering the exception with stale state) or at host-side memory corruption,
+not at a guest driver. Unproven: a memory image showing the IDT contents would settle it.
+
+**Why kdump never ran.** After `Kernel panic - not syncing: Fatal exception in interrupt`, the next
+serial output is the firmware booting, 9h later, after a manual `qm stop`/`qm start`. The capture
+kernel printed nothing; in the 2026-10-25 test it printed its whole boot. `crash_kexec_post_notifiers`
+had made panic run its notifiers and an EFI pstore write before kexec. On the first oops that write
+ran from the #DF context, and the serial log shows a `kernel_fpu_begin` WARN inside
+`efi_pstore_write`. The guest then hung before kexec or `panic=30`. **Fix (2026-11-10):**
+`crash_kexec_post_notifiers` dropped on doc1, since serial now carries the main-kernel text anyway.
+EFI pstore still records oopses by default.
+
+**Why nothing paged.** `crash-capture-notify` exited 2 on boot. `first_fault` read only
+`<id>/001/dmesg.txt`, and grep's error on the `002/` record aborted the script under errexit +
+pipefail. It also picked `Oops#1 PartN` headers as "first fault". **Fixed:** it now reads every
+record subdirectory, tolerates no-match, skips the part headers, prefers `BUG:`-class lines and
+reports all new records as one crash. Each host can append a pointer through `crashCapture.notifyHint`.
+
+**Alerting gap.** Kuma sent about 50 pages for doc1's services, but nothing said "doc1 is down". The
+only host-level signal was a priority-5 Loki-silence warning, 36 minutes in. Covered by the watcher
+below.
+
+## doc1 hang recovery (doc2 watcher, 2026-11-10)
+
+`modules/nixos/services/doc1-recovery.nix` is the mirror of `doc2Recovery`. doc1 cannot watch
+itself.
+
+- **doc2 (`homelab.services.doc1Recovery`)**, every minute: probes doc1 TCP/22 and asks prom for
+  status.
+  - At 5 dead minutes it sends one priority-10 Gotify page, "doc1 (VM 104) is DOWN". It pages Gotify
+    directly, because Hermes runs on doc1.
+  - At 25 dead minutes, only if VM 104 is running with QGA dead: `dump` → wait → `nmi` → wait 20 min
+    → `reset`, then a second page.
+  - One reset per outage. A "doc1 recovered" page goes out when it answers again.
+  - Dry-run with `DOC1_RECOVERY_DRY_RUN=1`. Logs carry the prefix `DOC1-RECOVERY`.
+- **prom (`/usr/local/libexec/doc1-rescue`)**: installed by doc1's `doc1-rescue-prom-sync.service`
+  (`homelab.services.doc1RescueProm`).
+  - doc2's key, `doc1-rescue@doc2` in sops `secrets/hosts/doc2/doc1-rescue-key`, sits in the pmxcfs
+    `authorized_keys` as `command="…doc1-rescue",from="192.168.1.35,192.168.1.36",restrict`. It runs
+    nothing else. The sync rewrites that file in place: it is a pmxcfs symlink, so never `mv` over it.
+    Unrelated lines are verified unchanged, and the sync restores
+    `/root/authorized_keys.bak-doc1-rescue` if the write mismatches.
+  - It accepts `status|dump|nmi|reset` for VM 104 only. Every action re-checks on prom that VM 104
+    has been running 30+ minutes, QGA is silent and TCP/22 is dead *from prom*, so a compromised
+    doc2 cannot act on a healthy doc1.
+  - Limits: one dump and one NMI per outage, cleared once doc1 answers again. Resets have a
+    30-minute cooldown.
+  - Dumps go to `root@prom:/var/lib/doc1-crash/<stamp>/`: registers, `info cpus`, a serial tail and
+    `vmcore.kdump`. It keeps 2 dumps, refuses below 80 GiB free, and runs as the transient
+    `doc1-rescue-dump` unit. doc2 can start a dump but never read one, because doc1's RAM holds
+    every secret it has. Logs are under `journalctl -t doc1-rescue` on prom.
+- Worst case for an undetected hang: about 25 minutes plus the dump (minutes) plus 20 minutes of NMI
+  grace before the reset. Last night it was 9h. If prom itself hangs, nothing helps.
 
 ### End-to-end test
 

@@ -95,6 +95,7 @@
     ./prom-rpool-backup.nix
     ./containers-backup.nix
     ./doc2-recovery.nix
+    ./doc1-recovery.nix
     ./crash-capture.nix
     ./kill-trace.nix
   ];

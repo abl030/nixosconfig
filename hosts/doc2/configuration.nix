@@ -243,6 +243,12 @@
 
     # Services
     services = {
+      # Mirror of doc1's doc2Recovery: doc1 cannot watch itself, and its
+      # 2026-11-09 panic hung VM 104 for 9h. Pages "doc1 DOWN" at 5 min; at 25
+      # min asks prom (forced-command key, VM 104 only) to dump guest memory,
+      # NMI, then reset. See modules/nixos/services/doc1-recovery.nix.
+      doc1Recovery.enable = true;
+
       # LGTM observability stack (migrated from igpu per #208).
       # Data on virtiofs so the VM is disposable.
       loki = {
