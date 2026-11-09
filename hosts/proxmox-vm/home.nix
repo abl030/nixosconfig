@@ -2,6 +2,7 @@
   imports = [
     ../../home/home.nix
     ../../home/utils/common.nix
+    ./agent-disk-cleanup.nix
   ];
 
   home.packages = [
