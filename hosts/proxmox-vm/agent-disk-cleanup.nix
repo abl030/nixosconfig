@@ -2,7 +2,7 @@
 # in three days (Hermes RCA 2026-11-09); nearly all of it was ~/.claude/jobs
 # scratch (75G), Codex/Claude transcripts (~41G) and rebuildable caches.
 # Retention agreed in the 2026-11-10 triage: job dirs idle 14 days, transcripts
-# 90 days, uv/fh caches pruned. A job whose session is still running is skipped
+# 90 days, uv cache pruned (fh cache kept). A job whose session is still running is skipped
 # even when its files are old.
 {pkgs, ...}: let
   cleanup = pkgs.writeShellApplication {
@@ -35,7 +35,9 @@
       done
 
       uv cache prune >/dev/null 2>&1 || true
-      rm -rf -- "$HOME/.cache/fh"
+      # ~/.cache/fh is kept: ~4 GB of derived images and pages that fh prunes
+      # itself; wiping it made the next family-history build re-shrink every
+      # photo (12+ min, 10 Nov 2026).
 
       after=$(df --output=avail -BG "$HOME" | tail -n1 | tr -dc 0-9)
       echo "agent-disk-cleanup: removed $jobs_removed idle job dirs; free ''${before}G -> ''${after}G"
