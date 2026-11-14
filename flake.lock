@@ -40,11 +40,11 @@
     "cellar-manager": {
       "flake": false,
       "locked": {
-        "lastModified": 1793049373,
-        "narHash": "sha256-hRAM4NDAwrb0o0ktuL5Hdon7nis0PXyet9pRgavehJo=",
+        "lastModified": 1794532607,
+        "narHash": "sha256-Y6vmgRNyeS0pWThc3mWsuyyRm7ug1tSR2lDM34K3J0k=",
         "owner": "abl030",
         "repo": "cellar-manager",
-        "rev": "797db52554ab7baceadf0517c2d1615fca414dde",
+        "rev": "d18ae78b38c3088e7a5e208aa831504636ef0df2",
         "type": "github"
       },
       "original": {
@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794490102,
-        "narHash": "sha256-fyRhwGFPzXuFtNEv0KDdRIqcKOvlIXJhCpSyekunHYU=",
+        "lastModified": 1794520688,
+        "narHash": "sha256-/WhpmtvfrVhEKrJiOX6O+KLJURTaoS6tdUEdS0brO3o=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "4dee8de9770e59165509e6c1ac29f2234c2f35d2",
+        "rev": "b3ffec448f474eb5aa9f0feecb548c18b601410c",
         "type": "github"
       },
       "original": {
@@ -243,11 +243,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1791914995,
-        "narHash": "sha256-Zf/xfQEAasnwnmEfHqW/4hjDE/s44yn2hD4RuVIZRjA=",
+        "lastModified": 1794427683,
+        "narHash": "sha256-o7ey9gEilsxaifqJWnBDlYSKbNWYQYtKwDyXeZU2kaU=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "b7a79d3fea1e214f6d668d521cecec0c01e26544",
+        "rev": "cd489559845d81f673a12885576016c65cbe9363",
         "type": "github"
       },
       "original": {
@@ -328,11 +328,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1794408859,
-        "narHash": "sha256-cjKc3Yr14JPqAxafnSMiaFYar/SoMBsjMi06jEk6lP0=",
+        "lastModified": 1794672282,
+        "narHash": "sha256-w9iQEXdbIVHDVMIIydNKnox73MRo9k8no3TWKtGx6X8=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "e2a0b3292bf4f62ba86d267cd1ae830005cd1005",
+        "rev": "50b33d15134349a620008b9f21be74ee6423c564",
         "type": "github"
       },
       "original": {
@@ -424,11 +424,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1793281488,
-        "narHash": "sha256-ErGIqtoWEX9KKC8NFtJDx2pGGG02Cr6LGxrvzLd2sqA=",
+        "lastModified": 1794529892,
+        "narHash": "sha256-m5iXk3ILiCuRpCgqYWNiGVFmu8YLh2FNxxaZj/Auc10=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "b7bd556974fa8a171b5b639200e81d52244dfde4",
+        "rev": "194a254693f49af939a2b53d04982bd4b276fdb3",
         "type": "github"
       },
       "original": {
@@ -499,11 +499,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794400081,
-        "narHash": "sha256-BuQB4OrIPcXCDVvmLBrzk1eH9Aq/oKYe/fnNJFqrRn4=",
+        "lastModified": 1794597451,
+        "narHash": "sha256-bUkc9dMpCFiJuuf5Efr7pnCDs5q18aA8zJah+MYZl9w=",
         "owner": "NixOS",
         "repo": "nixos-hardware",
-        "rev": "37ba750aba1c1e78c4d2e0c28e1e4fb84c73ef35",
+        "rev": "eb3c90bd715f7a9a28719bb014f53d309ccb2fc8",
         "type": "github"
       },
       "original": {
@@ -903,11 +903,11 @@
     },
     "systems_3": {
       "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "lastModified": 1791244623,
+        "narHash": "sha256-uuanbkFk8a313Zfrxdcz8Us/yQtaxNnKJtX8v0ZPpd8=",
         "owner": "nix-systems",
         "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "rev": "d36eeed142f88b5a636f2e3856a53c61654cf29b",
         "type": "github"
       },
       "original": {
@@ -979,11 +979,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1794352180,
-        "narHash": "sha256-6II8aV9DQSfw7WoI3SJT9PZH+jYN68Qi3K3/CS8gv0s=",
+        "lastModified": 1794611366,
+        "narHash": "sha256-SI+SmrjgFg+KzqVxj+tBsFELts9Qks8uAu7dC64YHfc=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "a0158ff90d997a87b8677e2a4aad4ca2ddbdaa7c",
+        "rev": "46283aa316b14c36be4eef057c17512fa39b7e28",
         "type": "github"
       },
       "original": {
