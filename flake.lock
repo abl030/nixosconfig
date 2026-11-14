@@ -639,11 +639,11 @@
         "nvchad-starter": "nvchad-starter"
       },
       "locked": {
-        "lastModified": 1793543635,
-        "narHash": "sha256-yjDz5vWoymPD/ZZhLlrInN8jm/X7ebgbFhYkmjSTR84=",
+        "lastModified": 1794666961,
+        "narHash": "sha256-WiBE1SzgZxOD4mQs9QPGY7rs0E4jZidbjYG7GVaWwxE=",
         "owner": "nix-community",
         "repo": "nix4nvchad",
-        "rev": "94b2d0d1cd82111f48b017a6f8b7bc8160cb9910",
+        "rev": "a44de4029d18d0c41b59124cf0189e1718d71b20",
         "type": "github"
       },
       "original": {
