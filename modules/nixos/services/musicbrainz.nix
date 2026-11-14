@@ -50,7 +50,10 @@
     version = "0.1.0";
     src = inputs.lrclib-src;
     cargoLock.lockFile = "${inputs.lrclib-src}/Cargo.lock";
-    buildInputs = [pkgs.sqlite];
+    buildInputs = [
+      pkgs.sqlite
+      pkgs.zstd
+    ];
     nativeBuildInputs = [pkgs.pkg-config];
   };
 
