@@ -611,10 +611,69 @@ valid_hold_name() {
     [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9_+-]*$ ]]
 }
 
+# Package holds (served by the overlay). Input holds carry kind "input".
 held_names() {
     if [ -f "$HELD_FILE" ]; then
-        jq -r 'keys[]' "$HELD_FILE"
+        jq -r 'to_entries[] | select(.value.kind != "input") | .key' "$HELD_FILE"
     fi
+}
+
+# Input holds: flake inputs whose nixpkgs is pinned to the last rev they built
+# on, instead of following ours. The pinned rev is the entry's "rev".
+held_inputs() {
+    if [ -f "$HELD_FILE" ]; then
+        jq -r 'to_entries[] | select(.value.kind == "input") | .key' "$HELD_FILE"
+    fi
+}
+
+# Root inputs whose own nixpkgs follows ours; only these can take an input hold.
+nixpkgs_following_inputs() {
+    # shellcheck disable=SC2016  # jq program, not shell
+    jq -r '.root as $r | .nodes as $n | $n[$r].inputs | to_entries[]
+        | select(.value | type == "string")
+        | select($n[.value].inputs.nixpkgs == ["nixpkgs"]) | .key' flake.lock
+}
+
+# flake.nix line giving an input's nixpkgs: following ours, or pinned to $1.
+follows_line() {
+    printf '      inputs.nixpkgs.follows = "nixpkgs";'
+}
+pinned_line() {
+    printf '      inputs.nixpkgs.url = "github:NixOS/nixpkgs/%s";' "$1"
+}
+
+# Replace line $2 with line $3 inside input $1's top-level block in flake.nix.
+# Exactly one line must match, so any other layout is refused, not mangled.
+replace_input_line() {
+    local inp="$1" from="$2" to="$3" n
+    n="$(awk -v i="$inp" -v f="$from" '
+        $0 == "    " i " = {" { inb = 1; next }
+        inb && $0 == "    };" { inb = 0 }
+        inb && $0 == f { n++ }
+        END { print n + 0 }' flake.nix)"
+    [ "$n" = 1 ] || return 1
+    awk -v i="$inp" -v f="$from" -v t="$to" '
+        $0 == "    " i " = {" { inb = 1 }
+        inb && $0 == "    };" { inb = 0 }
+        inb && $0 == f { $0 = t }
+        { print }' flake.nix >flake.nix.tmp && mv flake.nix.tmp flake.nix
+}
+
+# With no package hold active, pin nixpkgs-held to the last nixpkgs that built.
+# With package holds active, keep their pin: moving it could break them.
+pin_held_nixpkgs() {
+    local base_lock="$1" glog="$2" rev
+    if [ -n "$(held_names)" ]; then
+        return 0
+    fi
+    rev="$(locked_input_ref "$base_lock" nixpkgs)" || return 1
+    rev="${rev##*/}"
+    sed -i -E "s|^(    $HELD_INPUT\\.url = \"github:NixOS/nixpkgs/)[0-9a-f]{40}(\";)\$|\\1$rev\\2|" flake.nix
+    if ! grep -q "^    $HELD_INPUT.url = \"github:NixOS/nixpkgs/$rev\";\$" flake.nix; then
+        log "🧊 auto-hold: could not re-pin $HELD_INPUT in flake.nix."
+        return 1
+    fi
+    nix flake lock >>"$glog" 2>&1
 }
 
 drv_name() {
@@ -704,6 +763,78 @@ release_holds() {
             log "🧊 hold $name: still fails on $ref; keeping."
         fi
     done
+    # Input holds: release when the input's default package builds on the
+    # candidate nixpkgs, by making its nixpkgs follow ours again.
+    local iref pin released=0
+    for name in $(held_inputs); do
+        valid_hold_name "$name" || continue
+        iref="$(locked_input_ref flake.lock "$name")" || continue
+        pin="$(jq -r --arg n "$name" '.[$n].rev // ""' "$HELD_FILE")"
+        [[ "$pin" =~ ^[0-9a-f]{40}$ ]] || continue
+        log "🧊 input hold $name: test-building on $ref..."
+        if NIXPKGS_ALLOW_UNFREE=1 nix build --no-link --impure --override-input nixpkgs "$ref" "$iref" >>"$WORK_DIR/holds.log" 2>&1 \
+            && replace_input_line "$name" "$(pinned_line "$pin")" "$(follows_line)"; then
+            jq --arg n "$name" 'del(.[$n])' "$HELD_FILE" >"$HELD_FILE.tmp" && mv "$HELD_FILE.tmp" "$HELD_FILE"
+            released=1
+            log "🔓 input hold $name: builds again; releasing."
+            printf '[%s] released input hold %s (builds on %s)\n' "$TAG" "$name" "$ref" >>"$glog"
+        else
+            log "🧊 input hold $name: still fails on $ref; keeping."
+        fi
+    done
+    if [ "$released" = 1 ]; then
+        nix flake lock >>"$glog" 2>&1
+    fi
+}
+
+# After a failed core build, hold any flake input whose own package failed
+# (a failed drv named <input> or <input>-<version>) and whose nixpkgs follows
+# ours: pin its nixpkgs to the rev it last built on, so it stays exactly as it
+# was while the fleet moves on. The overlay cannot swap an input's packages,
+# so package holds never cover these, and the shared nixpkgs-held pin may be
+# older than the input supports (2026-11-14: hermes-agent's patchelf patch
+# fails on 0.15.2, which both the new nixpkgs and the 09-28 held pin ship).
+# A held input no longer follows ours, so it is never picked twice.
+# Returns 0 only when at least one input was held, so the caller rebuilds.
+auto_hold_inputs() {
+    local glog="$1" base_lock="$2" ref base_rev inp drv dname
+    local failed=() picks=() reasons=()
+    ref="$(locked_input_ref flake.lock nixpkgs)" || return 1
+    base_rev="$(locked_input_ref "$base_lock" nixpkgs)" || return 1
+    base_rev="${base_rev##*/}"
+    [[ "$base_rev" =~ ^[0-9a-f]{40}$ ]] || return 1
+    mapfile -t failed < <(build_failures "$glog" root; build_failures "$glog" dependent)
+    [ "${#failed[@]}" -gt 0 ] || return 1
+    for inp in $(nixpkgs_following_inputs); do
+        valid_hold_name "$inp" || continue
+        for drv in "${failed[@]}"; do
+            dname="$(drv_name "$drv")"
+            if [[ "$dname" == "$inp" || "$dname" == "$inp"-[0-9]* ]]; then
+                picks+=("$inp")
+                reasons+=("auto: input $inp ($dname) failed to build on nixpkgs ${ref##*/}")
+                break
+            fi
+        done
+    done
+    [ "${#picks[@]}" -gt 0 ] || return 1
+    if [ "${#picks[@]}" -gt "$HOLD_MAX_AUTO" ]; then
+        log "🧊 input hold refused: ${#picks[@]} inputs failed; only 1-$HOLD_MAX_AUTO can be held."
+        return 1
+    fi
+
+    [ -f "$HELD_FILE" ] || printf '{}\n' >"$HELD_FILE"
+    local i
+    for i in "${!picks[@]}"; do
+        if ! replace_input_line "${picks[$i]}" "$(follows_line)" "$(pinned_line "$base_rev")"; then
+            log "🧊 input hold refused: could not pin ${picks[$i]}'s nixpkgs in flake.nix."
+            return 1
+        fi
+        jq --arg n "${picks[$i]}" --arg since "$DATE" --arg reason "${reasons[$i]}" --arg rev "$base_rev" \
+            '. + {($n): {kind: "input", rev: $rev, since: $since, added_by: "rolling-flake-update", reason: $reason, tracking: ""}}' \
+            "$HELD_FILE" >"$HELD_FILE.tmp" && mv "$HELD_FILE.tmp" "$HELD_FILE"
+        log "🧊 input hold: pinning ${picks[$i]}'s nixpkgs at $base_rev."
+    done
+    nix flake lock >>"$glog" 2>&1
 }
 
 # Whether derivation $2 is in the build closure of derivation $1.
@@ -727,7 +858,7 @@ drv_is_top_level() {
 # so the caller retries the build once.
 auto_hold_failures() {
     local glog="$1" base_lock="$2"
-    local ref held_ref drv dname pname dep dep_pname other rev top
+    local ref held_ref drv dname pname dep dep_pname other top
     local roots=() dependents=() picks=() reasons=() climb=() pkg_deps=() above=() tops=()
     ref="$(locked_input_ref flake.lock nixpkgs)" || return 1
     mapfile -t roots < <(build_failures "$glog" root)
@@ -846,18 +977,7 @@ auto_hold_failures() {
         return 1
     done
 
-    # With no hold active, pin nixpkgs-held to the last nixpkgs that built.
-    # With holds active, keep their pin: moving it could break them.
-    if [ -z "$(held_names)" ]; then
-        rev="$(locked_input_ref "$base_lock" nixpkgs)" || return 1
-        rev="${rev##*/}"
-        sed -i -E "s|^(    $HELD_INPUT\\.url = \"github:NixOS/nixpkgs/)[0-9a-f]{40}(\";)\$|\\1$rev\\2|" flake.nix
-        if ! grep -q "^    $HELD_INPUT.url = \"github:NixOS/nixpkgs/$rev\";\$" flake.nix; then
-            log "🧊 auto-hold: could not re-pin $HELD_INPUT in flake.nix."
-            return 1
-        fi
-        nix flake lock >>"$glog" 2>&1 || return 1
-    fi
+    pin_held_nixpkgs "$base_lock" "$glog" || return 1
     held_ref="$(locked_input_ref flake.lock "$HELD_INPUT")" || return 1
 
     [ -f "$HELD_FILE" ] || printf '{}\n' >"$HELD_FILE"
@@ -875,8 +995,8 @@ auto_hold_failures() {
     return 0
 }
 
-# Build a group's candidate tree. Core gets one retry after auto-holding the
-# leaf packages that broke on the new nixpkgs.
+# Build a group's candidate tree. Core retries after auto-holding the flake
+# inputs, then the leaf packages, that broke on the new nixpkgs.
 build_group() {
     local name="$1" glog="$2" base_lock="${3:-}"
     if ./scripts/populate_cache.sh >>"$glog" 2>&1; then
@@ -885,7 +1005,20 @@ build_group() {
     if [ "$name" != core ] || [ -z "$base_lock" ]; then
         return 1
     fi
-    auto_hold_failures "$glog" "$base_lock" || return 1
+    # Input holds first: their failures (a broken patch on a nixpkgs tool, say)
+    # would otherwise make the package-hold guards refuse. Package holds then
+    # look only at what still fails with the inputs held.
+    local hold_log="$glog"
+    if auto_hold_inputs "$glog" "$base_lock"; then
+        log "🔁 [$name] rebuilding with input hold(s)..."
+        hold_log="$WORK_DIR/${name}.input-hold.build.log"
+        if ./scripts/populate_cache.sh >"$hold_log" 2>&1; then
+            cat "$hold_log" >>"$glog"
+            return 0
+        fi
+        cat "$hold_log" >>"$glog"
+    fi
+    auto_hold_failures "$hold_log" "$base_lock" || return 1
     log "🔁 [$name] rebuilding with new package hold(s)..."
     ./scripts/populate_cache.sh >>"$glog" 2>&1
 }

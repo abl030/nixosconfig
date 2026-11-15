@@ -354,11 +354,14 @@
   # taken from the last-good nixpkgs-held until it builds again, so one broken
   # leaf cannot keep the whole fleet on stale nixpkgs. The rolling updater adds
   # and releases entries in held-packages.json itself; held nixpkgs is imported
-  # lazily, so an empty hold list costs nothing.
+  # lazily, so an empty hold list costs nothing. Entries of kind "input" are
+  # flake-input holds, applied in flake.nix's follows, not here.
   # See docs/wiki/infrastructure/rolling-flake-update.md ("Package holds").
   (
     _final: prev: let
-      held = builtins.fromJSON (builtins.readFile ./held-packages.json);
+      held =
+        prev.lib.filterAttrs (_: h: (h.kind or "package") != "input")
+        (builtins.fromJSON (builtins.readFile ./held-packages.json));
       heldPkgs = import inputs.nixpkgs-held {
         inherit (prev.stdenv.hostPlatform) system;
         inherit (prev) config;

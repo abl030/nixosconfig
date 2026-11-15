@@ -213,6 +213,35 @@ and it held back everything else.
     pre-update nixpkgs, the last one that built.
   - Then the build is retried once. Green means core lands with the hold;
     red means the usual revert.
+- **Input holds (2026-11-15):** a flake input whose own nixpkgs follows ours
+  can break when nixpkgs moves, and neither the overlay nor `nixpkgs-held`
+  can fix that. Why: nixpkgs `2074cc67` shipped patchelf 0.15.2 (down from
+  0.19.2), and hermes-agent's `nix/pm-packages.nix` patches patchelf with a
+  fix that only applies to 0.19 (NousResearch/hermes-agent#154275, fix PR
+  #152542). Package auto-hold refused (the root was a modified patchelf), so
+  `core` reverted every night and the fleet stayed on 2026-11-06 nixpkgs. The
+  shared held pin (2026-09-28, kept for zotero) also ships 0.15.2, so
+  pointing Hermes at `nixpkgs-held` would not have helped either.
+  - After a failed core build, before package auto-hold, the script looks for
+    a failed derivation named `<input>` or `<input>-<digit>…` (for example
+    `hermes-agent-0.0.0`), where `<input>` is a root input locked with
+    `inputs.nixpkgs` following root `nixpkgs`.
+  - It rewrites that input's `inputs.nixpkgs.follows = "nixpkgs";` line in
+    `flake.nix` to `inputs.nixpkgs.url = "github:NixOS/nixpkgs/<pre-update
+    rev>";`, so the input builds exactly as it last did. It refuses if the
+    block doesn't have that one-line form. The entry goes in
+    `held-packages.json` with `kind: "input"` and the pinned `rev`; the
+    overlay ignores `kind: "input"` entries.
+  - It rebuilds. If anything still fails, package auto-hold then runs on the
+    rebuild's log only, so input failures don't trip its guards.
+  - **Release:** whenever nixpkgs moves, the input's default package is
+    test-built with `--override-input nixpkgs <candidate>`. If it builds, the
+    line goes back to `follows = "nixpkgs"` inside that transaction.
+  - Caveat: our overlay's Hermes override uses `final.callPackage`, so some of
+    Hermes's build still comes from current nixpkgs (verified 2026-11-15: the
+    patched patchelf is 0.19.2 from the pin, and plain 0.15.2 copies come from
+    ours). A hold therefore can't fix every possible input failure; the
+    rebuild decides.
 - **Visibility:**
   - Each run's summary lists every hold with its age.
   - A night that adds or releases a hold sends a priority-5 Gotify, even if
@@ -228,7 +257,8 @@ would have shipped. The difference is that the other ~100k packages now move.
 - **Hold by hand:** add an entry to the JSON. If no hold is active, first point
   `nixpkgs-held.url` at the currently deployed nixpkgs revision and run
   `nix flake lock`.
-- **Release by hand:** delete the entry.
+- **Release by hand:** delete the entry. For an input hold, also restore the
+  input's `inputs.nixpkgs.follows = "nixpkgs";` line and run `nix flake lock`.
 - **Tests:** `nix/checks/test_rolling_holds.py` replays the real functions
   against a mocked `nix` and runs in `checks.mongodb80UpdaterCheck`.
 

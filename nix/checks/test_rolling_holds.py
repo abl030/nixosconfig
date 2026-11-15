@@ -4,7 +4,8 @@
 The hold functions are taken from the real script source. `nix` is a shell
 function that answers from fixture files, so no build, network or store access
 happens. Covers release, auto-hold (including every refusal guard and the climb from a
-non-top-level library to the top-level package above it), the
+non-top-level library to the top-level package above it), input holds (a
+flake input whose nixpkgs follows ours, pinned to the rev it last built on), the
 nixpkgs-held re-pin, and the nightly hold summary.
 """
 import json
@@ -19,14 +20,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_flake_update.sh"))
 FUNCTIONS = (
-    "locked_input_ref", "valid_hold_name", "held_names", "drv_name", "drv_pname",
+    "locked_input_ref", "valid_hold_name", "held_names", "held_inputs", "nixpkgs_following_inputs",
+    "follows_line", "pinned_line", "replace_input_line", "pin_held_nixpkgs", "drv_name", "drv_pname",
     "drv_is_fixed_output", "fod_failure_is_deterministic", "build_failures", "drv_depends_on", "drv_is_top_level",
-    "release_holds", "auto_hold_failures",
+    "release_holds", "auto_hold_inputs", "auto_hold_failures",
     "hold_summary",
 )
 BASE_REV = "a" * 40
 CAND_REV = "b" * 40
 OLD_HELD_REV = "c" * 40
+HERMES_REF = f"github:nousresearch/hermes-agent/{'d' * 40}"
 CAND = f"github:NixOS/nixpkgs/{CAND_REV}"
 
 
@@ -34,8 +37,22 @@ def lock(nixpkgs, held):
     def node(rev):
         return {"locked": {"type": "github", "owner": "NixOS", "repo": "nixpkgs", "rev": rev}}
     return json.dumps({"root": "root", "version": 7, "nodes": {
-        "root": {"inputs": {"nixpkgs": "nixpkgs", "nixpkgs-held": "nixpkgs-held"}},
-        "nixpkgs": node(nixpkgs), "nixpkgs-held": node(held)}})
+        "root": {"inputs": {"nixpkgs": "nixpkgs", "nixpkgs-held": "nixpkgs-held",
+                            "hermes-agent": "hermes-agent", "lrclib-src": "lrclib-src"}},
+        "nixpkgs": node(nixpkgs), "nixpkgs-held": node(held),
+        # An input whose nixpkgs follows ours (holdable) and a plain source input.
+        "hermes-agent": {"inputs": {"nixpkgs": ["nixpkgs"]}, "locked": {
+            "type": "github", "owner": "nousresearch", "repo": "hermes-agent", "rev": "d" * 40}},
+        "lrclib-src": {"locked": {"type": "github", "owner": "tranxuanthang", "repo": "lrclib", "rev": "e" * 40}}}})
+
+
+def flake_nix(held_rev, hermes_follows):
+    # A github: value means hermes-agent is input-held (its nixpkgs pinned).
+    kind = "url" if hermes_follows.startswith("github:") else "follows"
+    return (f'  inputs = {{\n    nixpkgs-held.url = "github:NixOS/nixpkgs/{held_rev}";\n'
+            '    hermes-agent = {\n      url = "github:nousresearch/hermes-agent";\n'
+            f'      inputs.nixpkgs.{kind} = "{hermes_follows}";\n    }};\n'
+            '    lrclib-src = {\n      url = "github:tranxuanthang/lrclib";\n      flake = false;\n    };\n  };\n')
 
 
 def failure(drv, reason):
@@ -71,6 +88,8 @@ nix() {
       printf '%s' "$v" ;;
     "build --no-link")
       local attr="${4##*#}"
+      # Input release: build --no-link --impure --override-input nixpkgs <ref> <input ref>
+      [ "$4" = "--override-input" ] && attr="input:$7"
       grep -Fxq -- "$attr" buildable ;;
     "flake lock")
       local rev
@@ -116,7 +135,7 @@ def store(drv):
 
 
 def run_case(root, bash, functions, *, held, body, log_text="", drvs=None, evals=None,
-             buildable=(), held_rev=OLD_HELD_REV, closures=None, realise=None):
+             buildable=(), held_rev=OLD_HELD_REV, closures=None, realise=None, hermes_follows="nixpkgs"):
     for name in ("calls", "messages"):
         (root / name).write_text("")
     shutil.rmtree(root / "drvs", ignore_errors=True)
@@ -140,7 +159,7 @@ def run_case(root, bash, functions, *, held, body, log_text="", drvs=None, evals
     (root / "work/held.start.json").write_text(json.dumps(held))
     (root / "flake.lock").write_text(lock(CAND_REV, held_rev))
     (root / "base.lock").write_text(lock(BASE_REV, held_rev))
-    (root / "flake.nix").write_text(f'  inputs = {{\n    nixpkgs-held.url = "github:NixOS/nixpkgs/{held_rev}";\n  }};\n')
+    (root / "flake.nix").write_text(flake_nix(held_rev, hermes_follows))
     script = root / "replay.sh"
     script.write_text(PRELUDE + "\n".join(functions) + "\n" + body
                       + '\nprintf "%s\\n" "${SUMMARY_LINES[@]:-}" > summary\necho "$HOLD_NOTIFY" > notify\n')
@@ -303,6 +322,56 @@ def main():
             assert rc() == "1", (label, out["messages"])
             assert why in out["messages"], (label, out["messages"])
             assert out["held"] == {} and out["lock_held"] == OLD_HELD_REV, (label, out)
+
+        # Input hold (2026-11-14): nixpkgs broke an override inside hermes-agent,
+        # an input whose nixpkgs follows ours. Pin its nixpkgs to the base rev;
+        # the shared nixpkgs-held pin and package holds are left alone.
+        pinned = f'      inputs.nixpkgs.url = "github:NixOS/nixpkgs/{BASE_REV}";'
+        follows = '      inputs.nixpkgs.follows = "nixpkgs";'
+        inputs_body = 'rc=0; auto_hold_inputs build.log base.lock || rc=$?; echo "$rc" > rc\n'
+        hermes_log = failure("patchelf-0.15.2", ROOT_FAIL) + failure("pnpm-12.15.0", DEP_FAIL) \
+            + failure("hermes-agent-inputs.json", DEP_FAIL) + failure("hermes-agent-0.0.0", DEP_FAIL) \
+            + failure("lrclib-0.1.0", ROOT_FAIL) + failure("system-path", DEP_FAIL)
+        for start in ({}, {"zotero": zotero}):
+            out = run_case(root, bash, functions, held=start, body=inputs_body, log_text=hermes_log)
+            assert rc() == "0", out["messages"]
+            assert out["held"]["hermes-agent"]["kind"] == "input", out
+            assert out["held"]["hermes-agent"]["rev"] == BASE_REV, out
+            assert "hermes-agent-0.0.0" in out["held"]["hermes-agent"]["reason"], out
+            assert pinned in out["flake"] and follows not in out["flake"], out["flake"]
+            assert out["lock_held"] == OLD_HELD_REV and OLD_HELD_REV in out["flake"], out
+            assert set(out["held"]) == {"hermes-agent", *start}, out
+        # Only <input> or <input>-<version> names count; an input that does not
+        # follow our nixpkgs (lrclib-src) is never held; nothing to hold -> 1.
+        for log_text in (failure("hermes-agent-inputs.json", DEP_FAIL), failure("lrclib-src-1", ROOT_FAIL),
+                         failure("home-manager-path", DEP_FAIL), ""):
+            out = run_case(root, bash, functions, held={}, body=inputs_body, log_text=log_text)
+            assert rc() == "1" and out["held"] == {} and follows in out["flake"], (log_text, out)
+        # A block whose layout is not the one-line follows form is refused untouched.
+        out = run_case(root, bash, functions, held={}, body=inputs_body, log_text=hermes_log,
+                       hermes_follows="nixpkgs-other")
+        assert rc() == "1" and "could not pin hermes-agent" in out["messages"] and out["held"] == {}, out
+        # An input hold does not count as a package hold: a later package hold
+        # still re-pins nixpkgs-held to the base rev.
+        hermes_held = {"kind": "input", "rev": BASE_REV, "since": "2026-11-14", "added_by": "rolling-flake-update",
+                       "reason": "r", "tracking": ""}
+        out = run_case(root, bash, functions, held={"hermes-agent": hermes_held}, body=auto,
+                       log_text=leaf_log, drvs=leaf_drvs, evals=leaf_evals)
+        assert rc() == "0" and set(out["held"]) == {"hermes-agent", "zotero"}, out
+        assert out["lock_held"] == BASE_REV, out
+        # Release: builds on the candidate -> follows ours again; else kept.
+        out = run_case(root, bash, functions, held={"hermes-agent": hermes_held}, body="release_holds build.log\n",
+                       buildable=[f"input:{HERMES_REF}"], hermes_follows=f"github:NixOS/nixpkgs/{BASE_REV}")
+        assert out["held"] == {}, out
+        assert follows in out["flake"] and pinned not in out["flake"], out["flake"]
+        out = run_case(root, bash, functions, held={"hermes-agent": hermes_held}, body="release_holds build.log\n",
+                       hermes_follows=f"github:NixOS/nixpkgs/{BASE_REV}")
+        assert out["held"] == {"hermes-agent": hermes_held} and pinned in out["flake"], out
+        assert "still fails" in out["messages"], out["messages"]
+        out = run_case(root, bash, functions, held={},
+                       body='printf "{}\\n" > work/held.start.json\n'
+                            'printf \'{"hermes-agent": {"kind": "input"}}\\n\' > nix/held-packages.json\nhold_summary\n')
+        assert any(line.startswith("🧊 hold added — hermes-agent") for line in out["summary"]), out
 
         # Already held and still failing: refuse (the hold did not fix it).
         out = run_case(root, bash, functions, held={"zotero": zotero}, body=auto, log_text=leaf_log,
