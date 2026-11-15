@@ -634,12 +634,16 @@ nixpkgs_following_inputs() {
         | select($n[.value].inputs.nixpkgs == ["nixpkgs"]) | .key' flake.lock
 }
 
-# flake.nix line giving an input's nixpkgs: following ours, or pinned to $1.
+# flake.nix line giving an input's nixpkgs: following ours, or (input $1)
+# pinned to rev $2. The pinned line carries its own NIXPKGS-OWN-OK marker, or
+# nixpkgs-follows-audit fails the very build the hold exists to unblock
+# (2026-11-15: hermes-agent's hold failed the audit, so core reverted anyway).
+# Marker and pin share one line, so release swaps it back and leaves nothing.
 follows_line() {
     printf '      inputs.nixpkgs.follows = "nixpkgs";'
 }
 pinned_line() {
-    printf '      inputs.nixpkgs.url = "github:NixOS/nixpkgs/%s";' "$1"
+    printf '      inputs.nixpkgs.url = "github:NixOS/nixpkgs/%s"; # NIXPKGS-OWN-OK: %s — auto input hold by rolling-flake-update; released once it builds on our nixpkgs' "$2" "$1"
 }
 
 # Replace line $2 with line $3 inside input $1's top-level block in flake.nix.
@@ -773,7 +777,7 @@ release_holds() {
         [[ "$pin" =~ ^[0-9a-f]{40}$ ]] || continue
         log "🧊 input hold $name: test-building on $ref..."
         if NIXPKGS_ALLOW_UNFREE=1 nix build --no-link --impure --override-input nixpkgs "$ref" "$iref" >>"$WORK_DIR/holds.log" 2>&1 \
-            && replace_input_line "$name" "$(pinned_line "$pin")" "$(follows_line)"; then
+            && replace_input_line "$name" "$(pinned_line "$name" "$pin")" "$(follows_line)"; then
             jq --arg n "$name" 'del(.[$n])' "$HELD_FILE" >"$HELD_FILE.tmp" && mv "$HELD_FILE.tmp" "$HELD_FILE"
             released=1
             log "🔓 input hold $name: builds again; releasing."
@@ -825,7 +829,7 @@ auto_hold_inputs() {
     [ -f "$HELD_FILE" ] || printf '{}\n' >"$HELD_FILE"
     local i
     for i in "${!picks[@]}"; do
-        if ! replace_input_line "${picks[$i]}" "$(follows_line)" "$(pinned_line "$base_rev")"; then
+        if ! replace_input_line "${picks[$i]}" "$(follows_line)" "$(pinned_line "${picks[$i]}" "$base_rev")"; then
             log "🧊 input hold refused: could not pin ${picks[$i]}'s nixpkgs in flake.nix."
             return 1
         fi

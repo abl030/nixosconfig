@@ -127,6 +127,7 @@
         ${pkgs.python3}/bin/python3 ${./test_rolling_combined_pass.py}
       # Package holds: release, auto-hold guards, nixpkgs-held re-pin, summary.
       ROLLING_UPDATE_SOURCE=${../../scripts/rolling_flake_update.sh} \
+      NIXPKGS_FOLLOWS_AUDIT=${./nixpkgs-follows-audit.py} \
         ${pkgs.python3}/bin/python3 ${./test_rolling_holds.py}
       touch "$out"
     '';

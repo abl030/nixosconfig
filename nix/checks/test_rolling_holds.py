@@ -13,12 +13,14 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get("ROLLING_UPDATE_SOURCE", ROOT / "scripts/rolling_flake_update.sh"))
+AUDIT = Path(os.environ.get("NIXPKGS_FOLLOWS_AUDIT", ROOT / "nix/checks/nixpkgs-follows-audit.py"))
 FUNCTIONS = (
     "locked_input_ref", "valid_hold_name", "held_names", "held_inputs", "nixpkgs_following_inputs",
     "follows_line", "pinned_line", "replace_input_line", "pin_held_nixpkgs", "drv_name", "drv_pname",
@@ -46,12 +48,20 @@ def lock(nixpkgs, held):
         "lrclib-src": {"locked": {"type": "github", "owner": "tranxuanthang", "repo": "lrclib", "rev": "e" * 40}}}})
 
 
+def pinned_line(inp, rev):
+    return (f'      inputs.nixpkgs.url = "github:NixOS/nixpkgs/{rev}"; # NIXPKGS-OWN-OK: {inp} — auto input hold'
+            ' by rolling-flake-update; released once it builds on our nixpkgs')
+
+
 def flake_nix(held_rev, hermes_follows):
     # A github: value means hermes-agent is input-held (its nixpkgs pinned).
-    kind = "url" if hermes_follows.startswith("github:") else "follows"
+    if hermes_follows.startswith("github:"):
+        hermes_line = pinned_line("hermes-agent", hermes_follows.rsplit("/", 1)[1])
+    else:
+        hermes_line = f'      inputs.nixpkgs.follows = "{hermes_follows}";'
     return (f'  inputs = {{\n    nixpkgs-held.url = "github:NixOS/nixpkgs/{held_rev}";\n'
             '    hermes-agent = {\n      url = "github:nousresearch/hermes-agent";\n'
-            f'      inputs.nixpkgs.{kind} = "{hermes_follows}";\n    }};\n'
+            f'{hermes_line}\n    }};\n'
             '    lrclib-src = {\n      url = "github:tranxuanthang/lrclib";\n      flake = false;\n    };\n  };\n')
 
 
@@ -326,7 +336,7 @@ def main():
         # Input hold (2026-11-14): nixpkgs broke an override inside hermes-agent,
         # an input whose nixpkgs follows ours. Pin its nixpkgs to the base rev;
         # the shared nixpkgs-held pin and package holds are left alone.
-        pinned = f'      inputs.nixpkgs.url = "github:NixOS/nixpkgs/{BASE_REV}";'
+        pinned = pinned_line("hermes-agent", BASE_REV)
         follows = '      inputs.nixpkgs.follows = "nixpkgs";'
         inputs_body = 'rc=0; auto_hold_inputs build.log base.lock || rc=$?; echo "$rc" > rc\n'
         hermes_log = failure("patchelf-0.15.2", ROOT_FAIL) + failure("pnpm-12.15.0", DEP_FAIL) \
@@ -341,6 +351,19 @@ def main():
             assert pinned in out["flake"] and follows not in out["flake"], out["flake"]
             assert out["lock_held"] == OLD_HELD_REV and OLD_HELD_REV in out["flake"], out
             assert set(out["held"]) == {"hermes-agent", *start}, out
+        # The held flake.nix must pass the real nixpkgs-follows audit once the
+        # lock gives hermes-agent its own nixpkgs (2026-11-15: the unmarked pin
+        # failed the audit and core reverted anyway). Without the marker it fails.
+        held_lock = json.loads(lock(CAND_REV, OLD_HELD_REV))
+        held_lock["nodes"]["hermes-agent"]["inputs"]["nixpkgs"] = "nixpkgs_2"
+        held_lock["nodes"]["nixpkgs_2"] = {"locked": {"type": "github", "owner": "NixOS", "repo": "nixpkgs",
+                                                      "rev": BASE_REV}}
+        (root / "audit.lock").write_text(json.dumps(held_lock))
+        for text, want in ((out["flake"], 0), (out["flake"].split(" # NIXPKGS-OWN-OK")[0] + ";\n", 1)):
+            (root / "audit.nix").write_text(text)
+            audit = subprocess.run([sys.executable, str(AUDIT), str(root / "audit.lock"), str(root / "audit.nix")],
+                                   text=True, capture_output=True, timeout=20)
+            assert audit.returncode == want, (want, text, audit.stdout, audit.stderr)
         # Only <input> or <input>-<version> names count; an input that does not
         # follow our nixpkgs (lrclib-src) is never held; nothing to hold -> 1.
         for log_text in (failure("hermes-agent-inputs.json", DEP_FAIL), failure("lrclib-src-1", ROOT_FAIL),
