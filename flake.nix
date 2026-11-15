@@ -196,7 +196,7 @@
     # only; no Hermes gateway service or Telegram integration is enabled here.
     hermes-agent = {
       url = "github:nousresearch/hermes-agent";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.url = "github:NixOS/nixpkgs/4fe25e12eb9f4c744966dd3de5a05246cf098601"; # NIXPKGS-OWN-OK: hermes-agent — auto input hold by rolling-flake-update; released once it builds on our nixpkgs
       inputs.flake-parts.follows = "flake-parts";
     };
 
