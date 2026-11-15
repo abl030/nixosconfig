@@ -7,7 +7,7 @@ set -Eeuo pipefail
 # release discovery, archive verification, or hash prefetch fails.
 
 PACKAGE_FILE="${MONGODB80_PACKAGE_FILE:-nix/pkgs/mongodb80.nix}"
-RELEASES_URL="https://www.mongodb.com/try/download/community-edition/releases"
+RELEASES_URL="https://downloads.mongodb.org/current.json"
 SERIES="8.0"
 ARCHIVE_PREFIX="mongodb-linux-x86_64-ubuntu2404"
 
@@ -27,32 +27,44 @@ case "$current_version" in
   *) fail "package is outside the protected $SERIES series: $current_version" ;;
 esac
 
-release_page="$(mktemp)"
+release_feed="$(mktemp)"
 checksum_file="$(mktemp)"
 prefetch_json="$(mktemp)"
 tar_listing="$(mktemp)"
 updated_package="$(mktemp "${PACKAGE_FILE}.XXXXXX")"
 cleanup() {
-  rm -f "$release_page" "$checksum_file" "$prefetch_json" "$tar_listing" "$updated_package"
+  rm -f "$release_feed" "$checksum_file" "$prefetch_json" "$tar_listing" "$updated_package"
 }
 trap cleanup EXIT
 
-# The official download page is the release authority. Its h3 entries are the
-# published stable versions; pre-release/Upcoming entries are not h3 release
-# entries on this page. Do not discover a version from an arbitrary mirror or
-# from a major/minor-unbounded "latest" endpoint.
+# MongoDB's official current-release feed is the release authority. Select only
+# stable Community builds for the exact platform this package consumes. Do not
+# discover a version from an arbitrary mirror or from a major/minor-unbounded
+# "latest" endpoint.
 curl --fail --silent --show-error --location --retry 3 --max-time 30 \
-  "$RELEASES_URL" --output "$release_page" \
-  || fail "could not read the official Community release page"
+  "$RELEASES_URL" --output "$release_feed" \
+  || fail "could not read the official Community release feed"
 
-latest_version="$(
-grep -oE '<h3[^>]*>8\.0\.[0-9]+</h3>' "$release_page" \
-  | sed -E 's#<h3[^>]*>##; s#</h3>##' \
+latest_record="$(
+jq -er --arg series "$SERIES" '
+  .versions[]
+  | select(.version | startswith($series + "."))
+  | select(.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+  | select(.release_candidate == false and .production_release == true)
+  | .version as $version
+  | .downloads[]
+  | select(.edition == "targeted" and .target == "ubuntu2404" and .arch == "x86_64")
+  | [$version, .archive.url]
+  | @tsv
+' "$release_feed" \
   | sort -Vu \
   | sed -n '$p' \
   || true
 )"
-[ -n "$latest_version" ] || fail "the official release page contained no published $SERIES release"
+[ -n "$latest_record" ] || fail "the official release feed contained no stable $SERIES Community build for Ubuntu 24.04 x64"
+IFS=$'\t' read -r latest_version archive_url extra <<< "$latest_record"
+[ -n "$latest_version" ] && [ -n "$archive_url" ] && [ -z "${extra:-}" ] \
+  || fail "the official release feed returned a malformed $SERIES Community record"
 
 case "$latest_version" in
   "$SERIES".*) ;;
@@ -67,7 +79,9 @@ fi
 oldest="$(printf '%s\n' "$current_version" "$latest_version" | sort -V | sed -n '1p')"
 [ "$oldest" = "$current_version" ] || fail "refusing a downgrade from $current_version to $latest_version"
 
-archive_url="https://fastdl.mongodb.org/linux/${ARCHIVE_PREFIX}-${latest_version}.tgz"
+expected_archive_url="https://fastdl.mongodb.org/linux/${ARCHIVE_PREFIX}-${latest_version}.tgz"
+[ "$archive_url" = "$expected_archive_url" ] \
+  || fail "official $latest_version Community archive URL does not match the protected Ubuntu 24.04 x64 package"
 archive_name="${ARCHIVE_PREFIX}-${latest_version}.tgz"
 
 # MongoDB publishes a checksum beside every archive. Fetch that exact official
