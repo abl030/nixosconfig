@@ -122,6 +122,13 @@ fleet work is tracked in Forgejo issue #232.
   stale. Save uncommitted changes as patches and unmerged refs as a `git bundle`
   under `~/.cache/`, then remove them. Skip only what a running process is using.
   Close superseded bot PRs with a comment naming the commit that replaced them.
+- Uncommitted changes under `hermes/` in the main checkout are Hermes
+  self-edits: it loads `hermes/skills` via `external_dirs` and
+  `~/.hermes/config.yaml` symlinks into `hermes/config/default/`. Whenever you
+  finish work or clean up, read the diff (no secret values, no weakened safety
+  rail), build `checks.x86_64-linux.aiPortabilityCheck` (it pins alert-rca's
+  checkout-safety commands), then commit and push it yourself without asking.
+  Stop and report only if the review trips.
 - For a real data or service migration, perform the migration in-session unless
   the user explicitly asks for staging. Use preflight checks, backups,
   verification, and a rollback command rather than permanent deferral machinery.

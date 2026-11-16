@@ -1,6 +1,8 @@
 ./docker/immich/.env
 .env*
 changed.txt
+# Stray MCP usage logs written relative to the checkout
+/logs/
 
 # OpenTofu/Terraform state (managed by terranix)
 vms/tofu/.state/

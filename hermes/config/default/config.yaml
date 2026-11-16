@@ -17,7 +17,7 @@ display:
       interim_assistant_messages: true
 tts:
   use_gateway: false
-_config_version: 48
+_config_version: 53
 session_reset:
   mode: none
 image_gen:

@@ -37,8 +37,8 @@
 
       FETCH = "git fetch origin"
       WORKTREE = 'git worktree add -b "$branch" "$worktree" origin/master'
-      CAPTURE = 'git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --git-path primary-status-baseline)"'
-      COMPARE = 'git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -'
+      CAPTURE = 'git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --path-format=absolute --git-path primary-status-baseline)"'
+      COMPARE = 'git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --path-format=absolute --git-path primary-status-baseline)" -'
       COMMIT_PREFIX = "git commit "
       READBACK = '"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method GET --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"'
 

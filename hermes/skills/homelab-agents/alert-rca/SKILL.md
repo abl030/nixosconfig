@@ -1,7 +1,7 @@
 ---
 name: alert-rca
-description: "Read-only root cause analysis for homelab alerts. Investigate, diagnose, and optionally open a signed PR to fix config issues in nixosconfig."
-version: 1.0.0
+description: "Use when homelab alerts need RCA. Diagnose read-only."
+version: 1.0.5
 metadata:
   hermes:
     tags: [homelab, alerting, rca, nixosconfig, pr]
@@ -9,9 +9,12 @@ metadata:
 
 # Alert RCA Skill
 
-Triggered by an alert forwarded from the alert-bridge (doc2). The alert
-payload contains enriched context: alert name, severity, Loki log lines,
-and/or journalctl output from the failing service.
+## When to Use
+
+Use for a single alert or alert batch forwarded from the alert bridge. The
+payload contains enriched context such as alert identity, severity, Loki lines,
+and journal output. This workflow is unattended: investigate with available
+evidence, never ask questions, and always deliver the verified RCA to Gotify.
 
 ## Goal
 
@@ -35,9 +38,25 @@ contains unrelated failures. Key fields:
 - `monitor.name`, `monitor.url`, `heartbeat.msg` — for Kuma alerts
 
 Extract the hostnames, service names, and repeated error signatures from the
-message. For a batch, look for the common root first: shared host, shared
-network path, shared storage, shared upstream, recent deploy, or one root alert
-followed by many dependent symptom alerts.
+message. Search recent Hermes sessions for the exact monitor name and distinctive
+error before broad investigation when `session_search` is available. For a
+recently diagnosed repeat, use the prior RCA as a hypothesis, then run only the
+minimum current probes needed to prove whether the same condition persists; do
+not redo broad discovery or invent a new fix merely because another alert fired.
+Report how long the condition has persisted and preserve the prior operator
+disposition or manual action unless current evidence materially changes it. Carry
+forward the disposition, not stale measurements or consumer attribution: remeasure
+the previously dominant consumer and its top-level siblings, because cleanup can
+shrink one tree while another grows enough to keep the same alert firing.
+
+Before querying a host, resolve which machine actually serves the monitor URL
+from DNS, generated proxy configuration, or nixosconfig; the alert-bridge running
+on doc2 does not imply that doc2 hosts the failing service. For a batch, look for
+the common root first: shared host, shared network path, shared storage, shared
+upstream, recent deploy, or one root alert followed by many dependent symptom
+alerts. If the evidence instead shows independent failures, keep a separate root
+cause and classification for each alert; do not force the batch into one
+classification merely because the alerts arrived together.
 
 ### 2. Query Loki for more context
 
@@ -56,19 +75,39 @@ Useful LogQL patterns:
 - `{hostname="doc2"} |= "error"` — error logs for a host
 - `{unit="podman-foo.service"}` — specific systemd unit
 - `{host="prom"} |= "oom"` — OOM messages on a Proxmox host
+- `{hostname=~".+"} |= "421"` — fleet-wide text search
 
-### 3. SSH to affected hosts (read-only)
+Always include a non-empty stream matcher in a Loki selector; bare `{}` is
+invalid and can return a non-JSON error body that obscures the actual query
+failure.
 
-SSH is available to all fleet hosts from doc1. Use READ-ONLY commands only:
-- `journalctl -u <unit> --since "30 min ago" -n 50`
-- `systemctl status <unit>`
-- `systemctl list-units --failed`
+### 3. Query affected hosts read-only
+
+SSH is available to ordinary fleet hosts from doc1. Resolve the unit's **actual deployed name and service-manager scope** from nixosconfig before probing it: alert descriptions and old runbooks can retain a generic or retired unit name after a module rename. Use `systemctl --user` / `journalctl --user` for Home Manager or user units, and plain `systemctl` / `journalctl` for system units. If the expected unit is absent, list narrowly matched system/user services and processes before concluding that the shipper or service is not installed. Do not interpret an absent or inactive same-named unit in the wrong scope as runtime failure. Use READ-ONLY commands only:
+- `journalctl -u <unit> --since "30 min ago" -n 50` (add `--user` for a user unit)
+- `systemctl status <unit>` (add `--user` for a user unit)
+- `systemctl list-units --failed` (add `--user` for user units)
 - `docker logs <container> --tail 50` (on doc2 via SSH)
 - `zpool status` (on doc2 for ZFS issues)
 - `df -h`, `free -h`, `uptime`
 
+**pfSense is the exception:** load the `pfsense` skill before its first probe and
+use its MCP tools exclusively. Never SSH, SCP, or run a shell command against the
+firewall; a failed login can trigger sshguard and cut off the API and GUI from
+doc1. Do not batch a speculative pfSense SSH probe alongside skill loading,
+because parallel execution can reach the firewall before the safety rule is read.
+
 NEVER run: systemctl restart, nixos-rebuild, docker restart, rm, write to
-config files, or anything that changes system state. This is READ-ONLY.
+config files, or anything that changes system state. This is READ-ONLY. Do not
+use `systemd-run` to emulate a unit during investigation: even a short probe
+creates transient unit state, and the invoked program may update ledgers or send
+alerts. Reproduce parsing and sandbox behavior with scratch fixtures instead.
+
+For service-specific failure recipes (systemd sandbox/namespace failures,
+timer-driven oneshots, boot-time crash notifiers, kernel panics with missing
+kdump, Alloy startup/config failures, Cratedigger live-world integrity failures,
+HTTP 404/421, Tailscale share peers, and missing Kuma heartbeats), load
+[`references/service-failure-recipes.md`](references/service-failure-recipes.md).
 
 ### 4. Check nixosconfig for the relevant config
 
@@ -81,9 +120,16 @@ commits, and check whether a config change caused the alert:
 - `git log --oneline -20 -- <relevant file>`
 - `git diff HEAD~5 -- <relevant file>` (recent changes)
 
-### 5. Determine root cause
+### 5. Diagnose rolling flake-update build failures
 
-Classify the alert:
+For rolling update alerts, load
+[`references/rolling-update-failures.md`](references/rolling-update-failures.md)
+and follow its ownership tests and operational labels before classifying the
+incident or proposing a PR.
+
+### 6. Determine root cause
+
+For other alerts, classify the alert:
 - **Config issue** — a nixosconfig change caused this (wrong port, missing
   option, broken module). Fixable via PR.
 - **Transient** — network blip, OOM from temporary load, disk space. Often
@@ -106,9 +152,15 @@ operator-disposition preflight:
    "do not pin", or "do not recreate" is authoritative while the running service
    remains healthy and the upstream failure is unchanged. Report the existing
    disposition and do **not** create another PR.
-4. Reconsider only when materially new evidence exists: upstream changed, the
-   runtime (not merely an atomic upgrade attempt) is unhealthy, or the operator
-   explicitly requests the previously rejected mitigation.
+4. If an exact open PR already fixes the live root cause, read it back and verify
+   its state, head/base, current head SHA, and mergeability. Do not create another
+   branch or PR; report the existing fix as awaiting merge/deployment. Repeated
+   alerts before deployment are the same incident unless new evidence changes
+   the diagnosis.
+5. Reconsider a closed disposition only when materially new evidence exists:
+   upstream changed, the runtime (not merely an atomic upgrade attempt) is
+   unhealthy, or the operator explicitly requests the previously rejected
+   mitigation.
 
 This prevents unattended retries from reopening the same workaround every time a
 nightly update encounters an unchanged upstream failure.
@@ -129,21 +181,33 @@ rmdir "$worktree"
 branch=fix/<short-description>
 git worktree add -b "$branch" "$worktree" origin/master
 cd "$worktree"
-git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --git-path primary-status-baseline)"
+git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --path-format=absolute --git-path primary-status-baseline)"
 ```
 
 Use `git -C "$worktree" ...` or remain inside `$worktree` for every edit,
 verification, commit, and push. Fetch **before** creating the worktree, then capture
 the primary status only **after** entering it: fetching can legitimately change the
-branch's `[behind N]` annotation, while `git rev-parse --git-path` stores the
-baseline in this worktree's administrative Git directory. That path survives
-separate tool calls without relying on a temporary variable or shell function.
+branch's `[behind N]` annotation, while `git rev-parse --path-format=absolute --git-path`
+stores the baseline in this worktree's administrative Git directory. Always request
+the absolute path: a relative Git path can resolve against the wrong checkout during
+final cleanup. The absolute path survives separate tool calls without relying on a
+temporary variable or shell function.
 
 Execute the exact `status | cmp` command below immediately before committing and
-again after the Forgejo PR readback. If either command returns non-zero, stop,
-preserve the worktree, report the checkout-safety failure in Gotify, and do not
-repair, reset, or clean the primary checkout. Remove the administrative baseline
-only after the final comparison passes.
+again after the Forgejo PR readback. If either command returns non-zero, do not
+commit or repair, reset, or clean the primary checkout. Compare the saved and
+current status read-only to classify the mismatch:
+
+- If tracked/untracked content changed, or the cause is unclear, stop, preserve
+  the worktree, and report the checkout-safety failure in Gotify.
+- If the only difference is the branch tracking annotation because
+  `origin/master` advanced concurrently, inspect the newly visible commits and
+  Forgejo PRs before reporting failure. If the exact fix has already landed,
+  preserve the uncommitted RCA worktree, verify the landed commit's signature and
+  runtime deployment, and report the existing fix without creating a duplicate
+  PR. If the advance is unrelated, stop and report the safety failure as above.
+
+Remove the administrative baseline only after the final comparison passes.
 
 ### 2. Make the fix
 
@@ -152,9 +216,15 @@ root cause. Do not refactor or touch unrelated code.
 
 ### 3. Verify the change
 
-- Check NixOS syntax: `nix-instantiate --parse <file>` (basic parse check)
+- Check NixOS syntax: `nix-instantiate --parse <file>` (basic parse check).
+- For changes to systemd directives, build and inspect the generated unit, then
+  run `systemd-analyze verify` on it. Do not trust the Nix value or parse check
+  alone: Nix-to-unit rendering and systemd tokenization can change its meaning.
+  If verification reports unrelated missing dependencies because the unit is
+  checked outside its target host, require both no parser warning for the changed
+  directive and a successful host dry-build; never ignore a targeted warning.
 - If possible, build the affected host's config in dry-run:
-  `nixos-rebuild dry-build --flake .#<hostname>` (read-only, no switch)
+  `nixos-rebuild dry-build --flake .#<hostname>` (read-only, no switch).
 
 ### 4. Commit and sign
 
@@ -162,8 +232,9 @@ doc1 signs automatically (gpg.format=ssh, commit.gpgsign=true). Run the
 checkout comparison as its own executable command immediately before commit, then
 verify the signature:
 ```bash
-git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -
 git add <file>
+# Run this as its own command after staging, immediately before git commit.
+git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --path-format=absolute --git-path primary-status-baseline)" -
 git commit -m "fix: <short description of the fix>"
 git log -1 --format=%G?  # must print 'G'
 ```
@@ -188,53 +259,123 @@ FORGEJO_TOKEN_FILE=/run/secrets/forgejo/hermes-token
 
 ### 6. Open a PR via Forgejo API
 
+Build the payload in a mode-0600 scratch file, then pass it through stdin. Never
+embed a Markdown PR body inside a double-quoted shell argument: backticks and
+`$(...)` in the body are shell substitutions that can execute commands and
+silently corrupt the stored PR.
+
 ```bash
-python3 -c "
-import json
-print(json.dumps({
-    'title': 'fix: <short description>',
-    'head': 'fix/<short-description>',
-    'base': 'master',
-    'body': '## Root Cause\n\n<explanation>\n\n## Alert\n\n<link to original alert>\n\n## Fix\n\n<what was changed and why>\n\nAuto-generated by alert-rca skill.',
-}))
-" | "$FORGEJO_AUTH" rest \
+payload=$(mktemp "$TMPDIR/forgejo-pr.XXXXXX")
+trap 'rm -f "$payload"' EXIT
+chmod 600 "$payload"
+python3 - "$payload" <<'PY'
+import json, pathlib, sys
+payload = {
+    "title": "fix: <short description>",
+    "head": "fix/<short-description>",
+    "base": "master",
+    "body": """## Root Cause
+
+<explanation>
+
+## Alert
+
+<link to original alert>
+
+## Fix
+
+<what was changed and why>
+
+Auto-generated by alert-rca skill.""",
+}
+pathlib.Path(sys.argv[1]).write_text(json.dumps(payload))
+PY
+"$FORGEJO_AUTH" rest \
   --token-file "$FORGEJO_TOKEN_FILE" --method POST --body-stdin \
-  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls"
+  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls" \
+  <"$payload"
 ```
 
 Extract `<number>` and `html_url` from the response, then read the PR back and
-execute the second checkout comparison in the RCA worktree as separate commands:
+execute the second checkout comparison in the RCA worktree as separate commands.
+Compute the expected head with `expected_head=$(git rev-parse HEAD)` and compare
+the API's full `head.sha` to that value; never type or expand a SHA from abbreviated
+commit output. If the POST returned a PR but a later parse or assertion failed,
+search PRs for the exact head branch and read that PR back before retrying the
+POST, because retrying blindly can create a duplicate:
 
 ```bash
 "$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method GET \
   --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"
-git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -
-rm "$(git rev-parse --git-path primary-status-baseline)"
+git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --path-format=absolute --git-path primary-status-baseline)" -
+rm "$(git rev-parse --path-format=absolute --git-path primary-status-baseline)"
 ```
 
 Only after the readback confirms the expected open PR, branch, base, and head SHA
 and the comparison succeeds does `html_url` go in the Gotify message. Remove only
-the dedicated RCA worktree with
-`git -C /home/abl030/nixosconfig worktree remove "$worktree"`. Keep the remote
-branch for the PR. If any step fails, preserve the worktree for manual inspection;
-never compensate by resetting or cleaning the primary checkout.
+the dedicated RCA worktree from a surviving directory so the shell is not left in
+a deleted current working directory:
+```bash
+cd /home/abl030/nixosconfig
+git worktree remove "$worktree"
+```
+Keep the remote branch for the PR. If any step fails, preserve the worktree for
+manual inspection; never compensate by resetting or cleaning the primary checkout.
 
 ## Gotify Delivery
 
 After investigation (with or without a PR), push the RCA summary to Gotify.
 The Gotify token is at /run/secrets/gotify/token (format: GOTIFY_TOKEN=xxx).
 
+Capture the returned message ID, then read that exact message back before
+claiming delivery. Keep the response in the Hermes scratch directory and never
+print the token:
+
 ```bash
-TOKEN=$(grep GOTIFY_TOKEN /run/secrets/gotify/token | cut -d= -f2)
-curl -s -X POST "http://192.168.1.35:8050/message?token=$TOKEN" \
-  -d "title=RCA: <alertname>" \
-  -d "message=<summary>" \
-  -d "priority=5"
+set -euo pipefail
+response=$(mktemp "$TMPDIR/gotify-response.XXXXXX")
+readback=$(mktemp "$TMPDIR/gotify-readback.XXXXXX")
+# Do not install an EXIT cleanup trap: preserve both files if POST/readback
+# verification fails so the same message ID can be repaired without reposting.
+chmod 600 "$response" "$readback"
+TOKEN=$(grep '^GOTIFY_TOKEN=' /run/secrets/gotify/token | cut -d= -f2-)
+code=$(curl --fail-with-body -sS -o "$response" -w '%{http_code}' -X POST \
+  "http://192.168.1.35:8050/message?token=$TOKEN" \
+  --data-urlencode "title=RCA: <alertname>" \
+  --data-urlencode "message=<summary>" \
+  --data-urlencode "priority=5")
+id=$(python3 - "$response" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["id"])
+PY
+)
+test "$code" = 200
+ssh -o BatchMode=yes doc2 "sudo /run/current-system/sw/bin/gotify-triage msg $id" >"$readback"
+# Parse and compare id/title/message as described below, then and only then:
+rm -f "$response" "$readback"
 ```
+
+Treat a successful POST without matching readback as incomplete external-state
+verification. Confirm the readback title and message match the intended RCA. Keep
+the POST response and returned ID until comparison succeeds; if readback parsing
+fails after a successful POST, fix the parser and read the same ID again rather
+than reposting and creating a duplicate.
+
+`gotify-triage msg` emits aligned human-readable text, not JSON: capture it to a
+mode-0600 scratch file and compare the `id:`, `title:`, and `message:` fields.
+Parse only those three known top-level labels and allow leading alignment spaces
+before each label (for example, `  title:`); anchoring labels at column zero will
+miss valid readback fields. After `message:`, collect every remaining continuation
+line and remove its entire alignment prefix (for example,
+`re.sub(r'^\\s+', '', line)`), not a fixed number of spaces, because the CLI's
+column width varies. Do not use a generic `word:` boundary for the message,
+because legitimate body lines such as `Root cause:`, `Classification:`, and
+`Action:` would be mistaken for new fields. Do not JSON-decode this CLI output.
+Remove the response and readback files only after comparison passes.
 
 ### Message format
 
-If a PR was opened:
+If a PR was opened or an exact existing PR remains the applicable fix:
 ```
 RCA: <alertname>
 
@@ -245,18 +386,29 @@ Fix: <one-liner description>
 PR: <html_url>
 ```
 
-If no fix needed:
+If no fix is needed, or an actionable fix landed and deployed concurrently:
 ```
 RCA: <alertname>
 
 Root cause: <one-liner>
-Classification: transient/external/hardware
-Action: <what was happening, why it self-healed or what manual step is needed>
-No PR needed.
+Classification: transient/external/hardware/upstream/actionable
+Action: <what self-healed, what manual step is needed, or the verified landed fix>
+No PR needed. [For actionable incidents, state that the fix is already deployed.]
 ```
 
-Keep it phone-readable. Max ~500 chars. The alert-bridge already sent the
-raw alert; this is the analysis that replaces "what do I do about this?"
+For a mixed batch, send one compact Gotify message with one line per independent
+alert, preserving each classification. Include a PR link only for the alert it
+fixes and state that the other alert needs no additional fix; do not flatten a
+config issue plus a recovered transient into a single misleading classification.
+
+Keep it phone-readable and enforce the limit before any POST setup: save the
+intended body to a scratch file and require
+`test "$(wc -c < "$summary")" -le 500` before reading the token or invoking
+`curl`. If the check fails, shorten and retest that same intended body; do not
+enter an ambiguous delivery path with an oversized draft and empty response
+files. Count bytes rather than eyeballing characters because Unicode punctuation
+is multi-byte. The alert-bridge already sent the raw alert; this is the analysis
+that replaces "what do I do about this?"
 
 ## Token Budget
 
