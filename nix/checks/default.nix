@@ -45,6 +45,7 @@ in
   // import ./repository.nix {inherit pkgs;}
   // import ./gnome-shell-libgvc.nix {inherit pkgs;}
   // import ./rolling-runtime.nix {inherit self lib pkgs;}
+  // import ./insecure-exemptions.nix {inherit self lib pkgs hosts inputs;}
   // (
     if !fullCheck
     then {}

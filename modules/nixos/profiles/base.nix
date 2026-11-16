@@ -4,6 +4,7 @@
   pkgs,
   config,
   hostConfig,
+  hostname,
   ...
 }: let
   privateFlakeAuth = hostConfig.privateFlakeAuth or true;
@@ -41,6 +42,11 @@ in {
   # 2. NIX SETTINGS
   # ---------------------------------------------------------
   nixpkgs.config.allowUnfree = true;
+  # Insecure permits come only from nix/insecure-exemptions.json, scoped per
+  # host, and fail checks once no longer needed. Never add one inline.
+  # See docs/wiki/infrastructure/self-expiring-workarounds.md.
+  nixpkgs.config.permittedInsecurePackages =
+    (import ../../../nix/lib/insecure-exemptions.nix {inherit lib;}).forHost hostname;
 
   nix = {
     settings =

@@ -253,6 +253,35 @@ check_mongodb80_eol() {
       }' >/dev/null
 }
 
+# Insecure-package permits (nix/insecure-exemptions.json) announce their own
+# expiry: once the dependent package evaluates without its permit, warn and
+# notify every night until the entry is deleted. Deliberately non-blocking
+# (populate_cache.sh skips the matching hard check): a dead permit is unused,
+# so it is cleanup, never a reason to hold back nixpkgs.
+# See docs/wiki/infrastructure/self-expiring-workarounds.md.
+check_insecure_exemptions() {
+    local stale name needed
+    [ -f nix/insecure-exemptions.json ] || return 0
+    if ! stale="$(nix eval --impure --json --expr '
+      let
+        flake = builtins.getFlake (toString ./.);
+        inherit (flake.inputs.nixpkgs) lib;
+      in (import ./nix/lib/insecure-exemptions.nix {inherit lib;}).stale {
+        inherit (flake.inputs) nixpkgs;
+        system = "x86_64-linux";
+        overlays = import ./nix/overlay.nix {inherit (flake) inputs;};
+      }' 2>>"$WORK_DIR/exemptions.log")"; then
+        SUMMARY_LINES+=("⚠️ insecure exemptions — staleness check did not evaluate; see $WORK_DIR/exemptions.log")
+        HOLD_NOTIFY=1
+        return 0
+    fi
+    for name in $(jq -r '.[]' <<<"$stale"); do
+        needed="$(jq -r --arg n "$name" '.[$n].neededBy' nix/insecure-exemptions.json)"
+        SUMMARY_LINES+=("⚠️ stale insecure exemption — $name: $needed no longer needs it; delete it from nix/insecure-exemptions.json")
+        HOLD_NOTIFY=1
+    done
+}
+
 write_heartbeat() {
     local previous_epoch=0
     local now_epoch heartbeat_epoch timestamp tmp status failed_count summary_count
@@ -1247,7 +1276,7 @@ send_summary_notification() {
     body="$(triaged_summary_lines)"
     title="rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}"
     if [ "$nfail" -eq 0 ]; then
-        title="rolling flake update: package holds changed on ${RFU_HOSTNAME}"
+        title="rolling flake update: package holds or exemptions need attention on ${RFU_HOSTNAME}"
         priority=5
     fi
 
@@ -1510,9 +1539,11 @@ if [ -n "${RFU_PUSH_DEPLOY_HOST_MAP:-}" ] && [ -x ./scripts/push_deploy.sh ]; th
 fi
 
 hold_summary || true
+check_insecure_exemptions || true
 
 # Bundled notification only if something failed, or a package hold changed or
-# went stale (that one is informational: no RCA, everything landed).
+# went stale, or an insecure exemption went stale (informational: no RCA,
+# everything landed).
 if [ "$ANY_FAIL" -eq 1 ]; then
     send_rca_notification || send_summary_notification
 elif [ "$HOLD_NOTIFY" -eq 1 ]; then

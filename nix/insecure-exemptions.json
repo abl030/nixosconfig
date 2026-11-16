@@ -1,0 +1,9 @@
+{
+  "firefox-esr-140-bin-unwrapped-140.17.0esr": {
+    "neededBy": "zotero",
+    "hosts": ["epimetheus", "framework"],
+    "since": "2026-11-17",
+    "reason": "Every Zotero 10.0.x release runs on Firefox ESR 140 (EOL 2026-10-13); Zotero, not nixpkgs, pins the Gecko runtime. The held 10.0.4 build was no safer.",
+    "tracking": "https://github.com/zotero/zotero/commit/25fa4a01de (main is on ESR 153.6; awaiting a release cut from it)"
+  }
+}

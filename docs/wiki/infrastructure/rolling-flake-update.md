@@ -154,6 +154,15 @@ fixes included, even though Zotero only ships to epi and framework through Home
 Manager. Reverting the group did nothing for Zotero, which stayed old anyway,
 and it held back everything else.
 
+**2026-11-17 update:** the zotero hold was released by hand after 34 days.
+Nightly test-builds kept failing for a different reason: nixpkgs' zotero 10.0.9
+now runs on the end-of-life Firefox ESR 140 binary, which nixpkgs marks insecure.
+It moved to an insecure exemption in `nix/insecure-exemptions.json`, scoped to epi
+and framework, which expires on its own (see
+[self-expiring-workarounds.md](self-expiring-workarounds.md)). The rolling run
+also reports stale exemptions, so the notification title is now "package holds or
+exemptions need attention".
+
 **How it works:**
 
 - **`nix/held-packages.json`** lists the packages on hold: name, `since`,

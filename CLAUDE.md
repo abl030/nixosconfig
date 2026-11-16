@@ -261,6 +261,10 @@ architecture and incident notes live under `docs/wiki/infrastructure/`.
 - For Nix/configuration changes, validation is primarily `nix flake check`. The
   known upstream `proxmox.qemuConf.diskSize` rename warning is safe to ignore.
 - Before changing nginx or Cloudflare behavior, verify upstream with `--resolve`.
+- Every temporary workaround (hold, pin, insecure permit, upstream-bug
+  override) needs a machine check that fires once it is no longer needed. Reuse
+  the mechanisms in `docs/wiki/infrastructure/self-expiring-workarounds.md`;
+  insecure permits go only in `nix/insecure-exemptions.json`.
 - Standard Kuma health conventions are documented in
   `modules/nixos/services/uptime-kuma.nix` and service modules.
 

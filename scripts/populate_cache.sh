@@ -54,7 +54,9 @@ SELECT='outputs: let
   s = "'"$SYSTEM"'";
   pick = name: if builtins.hasAttr name outputs && builtins.hasAttr s outputs.${name} then outputs.${name}.${s} else {};
 in {
-  checks = pick "checks";
+  # insecureExemptionsFresh is skipped: a stale permit is cleanup, not danger,
+  # and rolling_flake_update.sh warns on it instead of blocking nixpkgs.
+  checks = builtins.removeAttrs (pick "checks") ["insecureExemptionsFresh"];
   packages = pick "packages";
   devShells = pick "devShells";
   system = builtins.mapAttrs (_: c: c.config.system.build.toplevel) (outputs.nixosConfigurations or {});

@@ -1,10 +1,4 @@
 {
-  "zotero": {
-    "since": "2026-10-14",
-    "added_by": "rolling-flake-update",
-    "reason": "auto: zotero-10.0.4 failed to build on nixpkgs 8edc0c72e3a38faf5434e40d1f19431125fe4b30",
-    "tracking": ""
-  },
   "hermes-agent": {
     "kind": "input",
     "rev": "4fe25e12eb9f4c744966dd3de5a05246cf098601",

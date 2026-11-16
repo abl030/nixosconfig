@@ -284,7 +284,13 @@
         pkgs = import nixpkgs {
           inherit system;
           inherit overlays;
-          config.allowUnfree = true; # Ensure unfree is allowed for Spotify
+          config = {
+            allowUnfree = true; # Ensure unfree is allowed for Spotify
+            # Standalone homeConfigurations share this one set, so it carries
+            # every registry permit; NixOS hosts get only their own (base.nix).
+            permittedInsecurePackages =
+              (import ./nix/lib/insecure-exemptions.nix {inherit lib;}).names;
+          };
         };
 
         hosts = import ./hosts.nix;
