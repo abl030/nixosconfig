@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
-	go.mau.fi/whatsmeow v0.0.0-20261113220833-ecc39170bc14
+	go.mau.fi/whatsmeow v0.0.0-20261116124925-2ecca2c913b9
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.62.0
 )
@@ -24,7 +24,7 @@ require (
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.64 // indirect
 	go.mau.fi/libsignal v0.2.3 // indirect
-	go.mau.fi/util v0.11.0 // indirect
+	go.mau.fi/util v0.11.1 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20261113113407-e3970619a1a4 // indirect
 	golang.org/x/net v0.62.0 // indirect
