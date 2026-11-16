@@ -100,3 +100,15 @@ prometheus.remote_write "mimir" {
     host = "tower",
   }
 }
+
+// Scrape cAdvisor (per-container CPU/RAM) — localhost-bound container, added 2026-06-29
+// for per-container history in Grafana (the visibility gap from the 06-29 OOM).
+prometheus.scrape "cadvisor" {
+  targets = [{
+    __address__ = "127.0.0.1:8098",
+    instance    = "tower",
+  }]
+  forward_to      = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "30s"
+  job_name        = "cadvisor"
+}

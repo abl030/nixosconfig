@@ -9,7 +9,7 @@
 Unified Nix cache server:
 - ACME via Cloudflare DNS-01 (via homelab.nginx core)
 - Pull-through mirror of cache.nixos.org (nginx + proxy_store)
-- Local binary cache via nix-serve (loopback) fronted by nginx
+- Local binary cache via harmonia (loopback) fronted by nginx
 - Simple time-based pruning for the mirror only
 
 Surface area is intentionally small and flat.
@@ -188,13 +188,13 @@ in {
     localHost = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "Public hostname for the nix-serve front (e.g. nixcache.example.org). Omit to disable.";
+      description = "Public hostname for the local binary cache (harmonia) front (e.g. nixcache.example.org). Omit to disable.";
     };
 
     nixServeSecretKeyFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
-      description = "Path to nix-serve signing secret key (required if localHost is set).";
+      description = "Path to the binary-cache signing secret key (required if localHost is set). Served by harmonia; the option name predates it.";
     };
 
     # NEW: loopback mapping for same-host requests (only affects this machine).
@@ -312,7 +312,7 @@ in {
             "${cfg.localHost}" = {
               useACMEHost = cfg.localHost;
               forceSSL = true;
-              # Idiomatic proxy for nix-serve on loopback
+              # Proxy to harmonia on loopback
               locations."/" = {proxyPass = "http://127.0.0.1:5000";};
             };
           })
@@ -320,14 +320,34 @@ in {
       };
     })
 
-    # nix-serve runs on loopback only; nginx is the public face.
+    # harmonia runs on loopback only; nginx is the public face. It replaced
+    # nix-serve on 2026-11-17: nixpkgs' nix-serve silently lost its Nix perl
+    # bindings with Nix 2.35 (`nix.libs.nix-perl-bindings or null`), and every
+    # worker died on `Can't locate Nix/Config.pm` unnoticed for hours.
+    # harmonia uses the Nix C API, runs as a socket-activated DynamicUser, and
+    # reads the root-only signing key via LoadCredential. Same key, port and
+    # vhost, so clients are unchanged.
+    # See docs/wiki/infrastructure/nix-binary-cache.md.
     (lib.mkIf haveLocal {
-      services.nix-serve = {
+      services.harmonia.cache = {
         enable = true;
-        bindAddress = "127.0.0.1";
-        port = 5000;
-        secretKeyFile = cfg.nixServeSecretKeyFile;
+        signKeyPaths = [cfg.nixServeSecretKeyFile];
+        settings = {
+          bind = "127.0.0.1:5000";
+          # nix-serve advertised Priority 30; clients override it per-URL in
+          # client_profile.nix anyway.
+          priority = 30;
+        };
       };
+
+      # A dead cache backend hangs nginx requests rather than erroring, so a
+      # plain HTTP probe (timeout) catches it.
+      homelab.monitoring.monitors = [
+        {
+          name = "Nix binary cache";
+          url = "https://${cfg.localHost}/nix-cache-info";
+        }
+      ];
     })
 
     # Mirror-specific FS prep and nginx write permissions (only when mirror enabled).

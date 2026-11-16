@@ -462,6 +462,22 @@ Every alloy instance in the fleet must carry these settings. Today:
 
 If you change one, change all four. Drift here means silent log loss the next time doc2 reboots.
 
+**2026-11-17: the WAL needs `--stability.level=experimental` on alloy 1.21 and later.**
+Without the flag, alloy refuses to load the `loki.write` `wal` block. The NixOS
+module already passed it. The Ansible `CUSTOM_ARGS` and the tower compose
+`command:` didn't.
+
+- apt upgraded prom from 1.18 to 1.21.2 on 2026-10-26. The old process kept running
+  until the 2026-11-16 power-cut reboot. alloy then hit its start limit, and prom
+  shipped no logs for about 10 hours.
+- tower was still on `alloy:latest` 1.12.2 and would have failed the same way on
+  its next pull.
+- The flag is now in all four sources. prom was hot-fixed in
+  `/etc/default/alloy`, and tower was recreated on 1.22.0.
+- tower's live `config.alloy` had a cAdvisor scrape (added 2026-06-29) that was
+  never committed. It was synced into `docker/unraid-alloy/config.alloy` the
+  same day.
+
 ## Alloy holds stale TCP connections across vhost migrations — silent log loss
 
 **Researched:** 2026-05-24. **Status:** **ROOT CAUSE FOUND & durably fixed 2026-06-19 — it was a DNS search-suffix, NOT HTTP/2 coalescing.** The real fix is a **rooted FQDN (trailing dot)** in every alloy push URL — prom, tower, *and* the NixOS fleet. See [the 2026-06-19 entry](#2026-06-19--root-cause-the-trailing-dot-not-http2-coalescing). Everything below from the 2026-05-24 "Why" through the 2026-06-18 `enable_http2 = false` "durable fix" **misdiagnosed the mechanism** (coalescing / stale-connection-across-migration) and is retained only as a record of the dead ends: the `enable_http2` knob was deployed on prom and **prom still went dark the next night**, which is precisely what disproved the coalescing theory. **Occurrences:** 2026-05-24, 2026-06-09 (ungraceful reboot), 2026-06-18 + 2026-06-19 (doc2's nightly reboot).

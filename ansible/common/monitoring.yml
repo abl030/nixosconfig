@@ -98,13 +98,18 @@
         mode: "0644"
       notify: Restart Alloy
 
+    # --stability.level=experimental: alloy >= 1.21 refuses to load the
+    # loki.write WAL block without it. apt upgraded prom 1.18 -> 1.21.2 on
+    # 2026-10-26 and the running process hid the break until the 2026-11-16
+    # power-cut reboot left alloy failed (prom dark ~10h). Mirrors the NixOS
+    # alloy flags in modules/nixos/services/loki.nix.
     - name: Configure Alloy environment defaults
       ansible.builtin.copy:
         dest: /etc/default/alloy
         content: |
           ## Managed by Ansible
           CONFIG_FILE="/etc/alloy/config.alloy"
-          CUSTOM_ARGS="--server.http.listen-addr=127.0.0.1:12345 --disable-reporting"
+          CUSTOM_ARGS="--stability.level=experimental --server.http.listen-addr=127.0.0.1:12345 --disable-reporting"
         mode: "0644"
       notify: Restart Alloy
 
