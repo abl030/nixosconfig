@@ -34,6 +34,11 @@ IFS=$'\x1f' read -r sid model_id model_name cost fh fh_reset sd sd_reset ctx_use
 [[ $ctx_size =~ ^[0-9]+$ ]] || ctx_size=""
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}/claude-usage"
+# A second login (CLAUDE_CONFIG_DIR, homelab.claudeWorkAccount) has its own
+# limits, so it keeps its own ledger and calibration under a subdir.
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+  state="$state/$(basename "$CLAUDE_CONFIG_DIR")"
+fi
 
 # --- status line ------------------------------------------------------------
 # 5h/wk are account-wide. "chat" is this session's API-equivalent cost and its

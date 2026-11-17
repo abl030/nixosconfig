@@ -16,6 +16,18 @@ import subprocess
 import time
 
 HOME = os.path.expanduser("~")
+
+
+def claude_dirs():
+    """~/.claude plus any second login's config dir (~/.claude-*, homelab.claudeWorkAccount)."""
+    dirs = [os.path.join(HOME, ".claude")]
+    for name in sorted(os.listdir(HOME)):
+        d = os.path.join(HOME, name)
+        if name.startswith(".claude-") and os.path.isdir(d) and not os.path.islink(d):
+            dirs.append(d)
+    return dirs
+
+
 LEDGER = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "ai-usage")
 
 
@@ -219,7 +231,7 @@ def main():
     rows = {"claude": 0, "codex": 0}
 
     # Claude transcripts: archive usage ahead of Claude's own cleanup. Never touch */memory/.
-    for root in (os.path.join(HOME, ".claude/projects"), os.path.join(HOME, ".claude/jobs")):
+    for root in [os.path.join(c, sub) for c in claude_dirs() for sub in ("projects", "jobs")]:
         for dp, _, fs in os.walk(root):
             if "/memory" in dp:
                 continue
@@ -229,8 +241,9 @@ def main():
                     rows["claude"] += led.archive("claude", p, claude_rows(p))
 
     # Claude background jobs: whole job dirs, judged by their newest file.
-    jobs = os.path.join(HOME, ".claude/jobs")
-    if os.path.isdir(jobs):
+    for jobs in [os.path.join(c, "jobs") for c in claude_dirs()]:
+        if not os.path.isdir(jobs):
+            continue
         for name in os.listdir(jobs):
             d = os.path.join(jobs, name)
             if os.path.isdir(d) and not os.path.islink(d) and newest_mtime(d) < cutoff:
@@ -246,7 +259,8 @@ def main():
                     remove(p, a.dry_run, stats)
         prune_empty_dirs(root, a.dry_run)
 
-    hist = trim_history(os.path.join(HOME, ".claude/history.jsonl"), "timestamp", 1000, cutoff, a.dry_run)
+    hist = sum(trim_history(os.path.join(c, "history.jsonl"), "timestamp", 1000, cutoff, a.dry_run)
+               for c in claude_dirs())
     hist += trim_history(os.path.join(HOME, ".codex/history.jsonl"), "ts", 1, cutoff, a.dry_run)
 
     hlogs = os.path.join(HOME, ".hermes/logs")

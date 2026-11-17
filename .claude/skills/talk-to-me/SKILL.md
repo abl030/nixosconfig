@@ -9,7 +9,7 @@ Registers this session's transcript with the `claude-voice` service on doc1 so a
 
 ## What this does
 
-1. Computes the project's transcript directory: `~/.claude/projects/<encoded-cwd>/` where `<encoded-cwd>` is the absolute current working directory with every `/` replaced by `-`.
+1. Computes the project's transcript directory: `${CLAUDE_CONFIG_DIR:-~/.claude}/projects/<encoded-cwd>/` (the active login's config dir) where `<encoded-cwd>` is the absolute current working directory with every `/` replaced by `-`.
 2. POSTs that path to `https://voice.ablz.au/register` — a tailnet-only endpoint on doc1.
 3. After registration, the service tails the latest `.jsonl` in that directory and emits every assistant text block as an SSE event. The user's phone (subscribed to `/stream`) speaks each event aloud.
 
@@ -51,7 +51,7 @@ REMOTE
 ```
 
 ```bash
-project="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
+project="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(pwd | sed 's|/|-|g')"
 curl -fsS -X POST https://voice.ablz.au/register \
   -H 'Content-Type: application/json' \
   -d "{\"project\":\"$project\"}"

@@ -23,11 +23,12 @@
   # `claude-agents`: launch the Agent View (`claude agents` manages background
   # sessions) with the clean shell as the snapshot source. Equivalent to
   # `SHELL=claude-clean-bash claude --verbose agents --dangerously-skip-permissions`.
-  # Any extra args pass through.
+  # Any extra args pass through. Resolves `claude` from PATH so the
+  # homelab.claudeWorkAccount router (if enabled) picks the account by cwd.
   claude-agents = pkgs.writeShellScriptBin "claude-agents" ''
     export SHELL=${claude-clean-bash}/bin/claude-clean-bash
-    exec ${config.programs.claude-code.package}/bin/claude \
-      --verbose agents --dangerously-skip-permissions "$@"
+    if command -v claude >/dev/null 2>&1; then c=claude; else c=${config.programs.claude-code.package}/bin/claude; fi
+    exec "$c" --verbose agents --dangerously-skip-permissions "$@"
   '';
 
   # Status line that also keeps a numeric-only subscription-limit ledger, so

@@ -14,11 +14,11 @@
       # Job ids referenced by a live process (env CLAUDE_JOB_DIR or cwd).
       live=$( {
         grep -sazh '^CLAUDE_JOB_DIR=' /proc/[0-9]*/environ | tr '\0' '\n' | sed 's#.*/jobs/##; s#/.*##'
-        for c in /proc/[0-9]*/cwd; do readlink "$c" 2>/dev/null; done | grep -o '/\.claude/jobs/[^/]*' | sed 's#.*/##'
+        for c in /proc/[0-9]*/cwd; do readlink "$c" 2>/dev/null; done | grep -o '/\.claude[^/]*/jobs/[^/]*' | sed 's#.*/##'
       } | sort -u || true)
 
       jobs_removed=0
-      for d in "$HOME"/.claude/jobs/*/; do
+      for d in "$HOME"/.claude/jobs/*/ "$HOME"/.claude-*/jobs/*/; do
         [ -d "$d" ] || continue
         id=$(basename "$d")
         if grep -qxF "$id" <<<"$live"; then continue; fi
@@ -28,7 +28,7 @@
         jobs_removed=$((jobs_removed + 1))
       done
 
-      for t in "$HOME/.claude/projects" "$HOME/.codex/sessions"; do
+      for t in "$HOME"/.claude/projects "$HOME"/.claude-*/projects "$HOME/.codex/sessions"; do
         [ -d "$t" ] || continue
         find "$t" -type f -mtime +90 -delete 2>/dev/null || true
         find "$t" -mindepth 1 -type d -empty -delete 2>/dev/null || true

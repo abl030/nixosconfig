@@ -75,4 +75,23 @@
   # plus warn-only staged-file lint at commit time (decoupled from deploys).
   # See modules/home-manager/services/git-hooks.nix.
   homelab.gitHooks.enable = true;
+
+  # Cullen Wines work runs on the Cullen Claude subscription: `claude` started in
+  # these repos uses ~/.claude-cullen (log in once with `claude-cullen`, /login);
+  # everything else stays on the personal login. brain's claude -p calls run
+  # from ~/cullen-assistant, so they follow too.
+  # See docs/wiki/claude-code/two-accounts.md.
+  homelab.claudeWorkAccount = {
+    enable = true;
+    name = "cullen";
+    directories = [
+      "cullen-assistant"
+      "cullen-carbon"
+      "cullen-cellar-ledger"
+      "cullen-ezy"
+      "cullen-reports"
+      "cellar-manager"
+      "ezy-api"
+    ];
+  };
 }

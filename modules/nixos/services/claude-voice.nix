@@ -281,7 +281,7 @@ in {
       type = lib.types.str;
       description = ''
         User the service runs as. Must be able to read
-        ~/.claude/projects/ for that user — the JSONL transcripts we
+        ~/.claude/projects/ (and any ~/.claude-*/projects) — the JSONL transcripts we
         tail live there.
       '';
     };

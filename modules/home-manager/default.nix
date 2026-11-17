@@ -16,5 +16,6 @@
     ./services/git-hooks.nix
     ./services/pdf.nix
     ./services/ai-retention.nix
+    ./services/claude-work-account.nix
   ];
 }
