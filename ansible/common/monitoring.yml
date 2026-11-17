@@ -58,6 +58,24 @@
       delay: 2
 
     # ── Grafana Alloy ──────────────────────────────────────
+    # This playbook edits two alloy conffiles (/etc/default/alloy and
+    # /etc/alloy/config.alloy), so every alloy upgrade that changes the
+    # packaged defaults stops dpkg at an interactive "keep or replace?"
+    # prompt. On 2026-10-26 a manual `apt upgrade` on prom sat at that prompt
+    # until the terminal died, leaving ~150 packages unconfigured for three
+    # weeks. confdef+confold answers the prompt with dpkg's own default (keep
+    # the local file) so it can never block. See docs/wiki/services/lgtm-stack.md.
+    - name: Keep locally managed conffiles without prompting
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/90-keep-local-conffiles
+        content: |
+          // Managed by Ansible (ansible/common/monitoring.yml)
+          Dpkg::Options {
+            "--force-confdef";
+            "--force-confold";
+          };
+        mode: "0644"
+
     - name: Install required packages for Grafana repo
       ansible.builtin.apt:
         name:

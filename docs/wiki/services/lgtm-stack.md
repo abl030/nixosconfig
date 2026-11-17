@@ -477,6 +477,16 @@ module already passed it. The Ansible `CUSTOM_ARGS` and the tower compose
 - tower's live `config.alloy` had a cAdvisor scrape (added 2026-06-29) that was
   never committed. It was synced into `docker/unraid-alloy/config.alloy` the
   same day.
+- **Why prom's dpkg was half-configured, 2026-10-26 to 2026-11-17.** A manual
+  `apt upgrade` (05:26 AWST, root SSH from doc1) stopped at dpkg's conffile
+  prompt for the Ansible-edited `/etc/default/alloy`. The terminal went down
+  with a framework reboot at 06:05, apt got SIGHUP, and about 150 packages
+  (PVE, ZFS, kernels) stayed unconfigured. On 2026-11-17 a root snapshot
+  `rpool/ROOT/pve-1@pre-dpkg-recover-20261117` was taken and the upgrade was
+  finished in a detached `systemd-run` unit. `monitoring.yml` now installs
+  `/etc/apt/apt.conf.d/90-keep-local-conffiles` (confdef+confold), so conffile
+  prompts take the default and never block. Run long apt jobs on prom inside
+  tmux or `systemd-run`, never in a bare SSH session.
 
 ## Alloy holds stale TCP connections across vhost migrations — silent log loss
 
