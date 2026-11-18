@@ -17,13 +17,15 @@
   # the running gateway was started from.
   gatewayExecStart = "${pkgs.hermes-agent}/bin/hermes gateway run";
   gatewayExecStopPost = "-${pkgs.hermes-agent.hermesVenv}/bin/python -m gateway.cgroup_cleanup";
-  gatewayEnvironment = [
-    # MCP wrappers need the same Nix system/user executables as the CLI.
-    "PATH=/run/wrappers/bin:/etc/profiles/per-user/${user}/bin:/run/current-system/sw/bin"
-    "VIRTUAL_ENV=${pkgs.hermes-agent.hermesVenv}"
-    "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins"
-    "PYTHONPATH=${pkgs.hermes-agent.hermesStateStoreModules}/${pkgs.python312.sitePackages}"
-  ];
+  gatewayEnvironment =
+    [
+      # MCP wrappers need the same Nix system/user executables as the CLI.
+      "PATH=/run/wrappers/bin:/etc/profiles/per-user/${user}/bin:/run/current-system/sw/bin"
+      "VIRTUAL_ENV=${pkgs.hermes-agent.hermesVenv}"
+      "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins"
+    ]
+    ++ lib.optional (pkgs.hermes-agent ? hermesStateStoreModules)
+    "PYTHONPATH=${pkgs.hermes-agent.hermesStateStoreModules}/${pkgs.python312.sitePackages}";
   gatewayEnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
   fingerprint = builtins.hashString "sha256" (builtins.toJSON {
     execStart = gatewayExecStart;
