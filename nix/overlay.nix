@@ -86,12 +86,14 @@
   # integrations included. This is only a package; the gateway service remains
   # disabled unless a host explicitly enables it.
   #
-  # Upstream's pyproject.toml module list currently omits these two imported
-  # state-store modules, so the built wheel cannot open state.db. Keep this
-  # narrow supplement until upstream ships both modules in its Python package.
+  # Older Hermes revisions omitted these two imported state-store modules from
+  # the sealed package. Keep the supplement only while the legacy holder module
+  # still exists; the storage-interface migration removes it deliberately.
   (
     final: _prev: let
-      stateStoreModules = final.python312Packages.buildPythonPackage {
+      needsLegacyStateStoreSupplement =
+        builtins.pathExists "${inputs.hermes-agent}/hermes_state_holders.py";
+      legacyStateStoreModules = final.python312Packages.buildPythonPackage {
         pname = "hermes-agent-state-store-modules";
         version = "${inputs.hermes-agent.lastModifiedDate or "unstable"}";
         format = "other";
@@ -115,7 +117,7 @@
     in {
       hermes-agent =
         (inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
-          extraPythonPackages = [stateStoreModules];
+          extraPythonPackages = final.lib.optional needsLegacyStateStoreSupplement legacyStateStoreModules;
           # Older upstream scope probes assume /bin/true, absent on NixOS.
           # Keep the current lock working while accepting upstream's /bin/sh fix.
           # Remove this override once the rolling lock includes that fix.
@@ -141,7 +143,9 @@
         (old: {
           passthru =
             (old.passthru or {})
-            // {hermesStateStoreModules = stateStoreModules;};
+            // final.lib.optionalAttrs needsLegacyStateStoreSupplement {
+              hermesStateStoreModules = legacyStateStoreModules;
+            };
         });
     }
   )

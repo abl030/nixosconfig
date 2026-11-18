@@ -90,7 +90,6 @@
     ntfyRuntimeCheck = pkgs.writeText "check-hermes-ntfy-runtime.py" ''
       from gateway.platform_registry import platform_registry
       import hermes_state
-      import hermes_state_holders
       import hermes_state_registry
       from hermes_cli.config import load_config
       from hermes_cli.plugins import discover_plugins, get_plugin_manager
@@ -151,8 +150,7 @@
       mkdir -p "$HERMES_HOME"
       cp ${../../.}/hermes/config/default/config.yaml "$HERMES_HOME/config.yaml"
       ${pkgs.hermes-agent}/bin/hermes sessions list --limit 1
-      PYTHONPATH=${pkgs.hermes-agent.hermesStateStoreModules}/${pkgs.python312.sitePackages} \
-        "$hermes_python" ${ntfyRuntimeCheck}
+      "$hermes_python" ${ntfyRuntimeCheck}
       touch $out
     '';
 in {
