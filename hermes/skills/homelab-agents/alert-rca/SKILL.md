@@ -105,8 +105,9 @@ alerts. Reproduce parsing and sandbox behavior with scratch fixtures instead.
 
 For service-specific failure recipes (systemd sandbox/namespace failures,
 timer-driven oneshots, boot-time crash notifiers, kernel panics with missing
-kdump, Alloy startup/config failures, Cratedigger live-world integrity failures,
-HTTP 404/421, Tailscale share peers, and missing Kuma heartbeats), load
+kdump, Alloy startup/config failures, Cratedigger upstream-tip canaries and
+live-world integrity failures, HTTP 404/421, Tailscale share peers, and missing
+Kuma heartbeats), load
 [`references/service-failure-recipes.md`](references/service-failure-recipes.md).
 
 ### 4. Check nixosconfig for the relevant config
