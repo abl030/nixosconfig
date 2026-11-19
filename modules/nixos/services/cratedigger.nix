@@ -700,25 +700,27 @@ in {
           == [processingDir slskdDownloadDir];
         message = "web, importer, and preview must retain only their reviewed writable Music subtrees";
       }
+      # Cratedigger #1456: Beets replaces its state atomically through a
+      # sibling temp file, so units bind the dedicated state directory.
       {
         assertion =
           lib.all
           (unit:
             !(mountListContains
-              beetsRuntime.expectedStateFile
+              (dirOf beetsRuntime.expectedStateFile)
               (config.systemd.services.${unit}.serviceConfig.BindPaths or []))
             && mountListContains
-            beetsRuntime.expectedStateFile
+            (dirOf beetsRuntime.expectedStateFile)
             (config.systemd.services.${unit}.serviceConfig.BindReadOnlyPaths or []))
           ["cratedigger" "cratedigger-web" "cratedigger-import-preview-worker"];
-        message = "main, web, and preview must receive the Beets state file read-only and never writable";
+        message = "main, web, and preview must receive the Beets state directory read-only and never writable";
       }
       {
         assertion =
           mountListContains
-          beetsRuntime.expectedStateFile
+          (dirOf beetsRuntime.expectedStateFile)
           (config.systemd.services.cratedigger-importer.serviceConfig.BindPaths or []);
-        message = "the importer alone must receive the writable Beets state-file bind";
+        message = "the importer alone must receive the writable Beets state-directory bind";
       }
       {
         assertion =

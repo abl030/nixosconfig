@@ -18,7 +18,11 @@
   dataRoot = "/mnt/virtio/ali-cratedigger";
   library = "/mnt/data/Media/Yoto/Music";
   beetsLibrary = "${dataRoot}/beets-db/beets-library.db";
-  beetsStateFile = "/var/lib/beets-ali/state.pickle";
+  # Cratedigger #1456: alone in a directory the importer group can write,
+  # because Beets replaces the state atomically through a sibling file.
+  beetsStateDir = "/var/lib/beets-ali/state";
+  beetsStateFile = "${beetsStateDir}/state.pickle";
+  legacyBeetsStateFile = "/var/lib/beets-ali/state.pickle";
   beetsSecretDir = "/run/beets";
   beetsSecretInclude = "${beetsSecretDir}/secrets.yaml";
   slskdDownloadDir = "/mnt/virtio/music/slskd";
@@ -246,6 +250,7 @@ in {
           # anonymous identity for the same reason as the host tmpfiles rules.
           "d ${library} 2775 99 100 -"
           "d /var/lib/beets-ali 0750 root cratedigger-ops -"
+          "d ${beetsStateDir} 0770 root cratedigger-ops -"
           "d /run/beets-ali 0750 root cratedigger-ops -"
         ];
 
@@ -270,6 +275,10 @@ in {
               ExecStart = pkgs.writeShellScript "ali-beets-runtime-ready" ''
                 set -euo pipefail
                 install -d -m 0750 -o root -g cratedigger-ops /var/lib/beets-ali /run/beets-ali
+                install -d -m 0770 -o root -g cratedigger-ops ${beetsStateDir}
+                if test ! -e ${beetsStateFile} && test -e ${legacyBeetsStateFile}; then
+                  mv ${legacyBeetsStateFile} ${beetsStateFile}
+                fi
                 ${beetsPython}/bin/python ${initializeBeetsState}
                 chown root:cratedigger-ops ${beetsStateFile}
                 chmod 0660 ${beetsStateFile}

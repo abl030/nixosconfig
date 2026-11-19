@@ -159,7 +159,9 @@ module:
 - an immutable Nix-store `BEETSDIR`;
 - `/mnt/virtio/cratedigger/beets-db/beets-library.db`;
 - `/mnt/virtio/Music/Beets`;
-- the host-local `/var/lib/beets/state.pickle`; and
+- the host-local `/var/lib/beets/state/state.pickle`, alone in a
+  `0770 root:cratedigger-ops` directory so the importer can replace it
+  atomically (cratedigger #1456); and
 - the fixed-schema `/run/beets/secrets.yaml` include.
 
 The plain `beet` command uses that same package and `BEETSDIR`; Home Manager no

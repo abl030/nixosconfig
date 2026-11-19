@@ -14,7 +14,14 @@
 
   library = "/mnt/virtio/cratedigger/beets-db/beets-library.db";
   directory = "/mnt/virtio/Music/Beets";
-  stateFile = "/var/lib/beets/state.pickle";
+  # Cratedigger #1456: Beets saves its state atomically (beetbox/beets#7057),
+  # writing <statefile>.tmp beside it and renaming it over, so the state
+  # lives alone in a directory the importer group can write. Cratedigger
+  # binds that directory read-write into its importer, read-only elsewhere.
+  stateDir = "/var/lib/beets/state";
+  stateFile = "${stateDir}/state.pickle";
+  # Pre-#1456 location; moved once so incremental-import history survives.
+  legacyStateFile = "/var/lib/beets/state.pickle";
   secretInclude = "/run/beets/secrets.yaml";
   rawToken = config.sops.secrets."beets/discogs-user-token".path;
 
@@ -204,9 +211,15 @@
   runtimeReady = cratediggerPkgs.writeShellScript "beets-runtime-ready" ''
     set -euo pipefail
     ${pkgs.coreutils}/bin/install -d -o root -g cratedigger-ops -m 0750 /var/lib/beets /run/beets
+    ${pkgs.coreutils}/bin/install -d -o root -g cratedigger-ops -m 0770 ${stateDir}
     test -r ${rawToken}
     ${beetsPython}/bin/python ${renderSecret} ${rawToken} ${secretInclude}
+    if test ! -e ${stateFile} && test -e ${legacyStateFile}; then
+      ${pkgs.coreutils}/bin/mv ${legacyStateFile} ${stateFile}
+    fi
     ${beetsPython}/bin/python ${initializeState} ${stateFile}
+    # Every importer save leaves a new leaf owned by the importer; hand it
+    # back to the deployment on each readiness run.
     ${pkgs.coreutils}/bin/chown root:cratedigger-ops ${stateFile}
     ${pkgs.coreutils}/bin/chmod 0660 ${stateFile}
     test -r ${library}
@@ -311,7 +324,10 @@ in {
     environment.systemPackages = [beet];
 
     systemd.tmpfiles.rules =
-      ["d /var/lib/beets 0750 root cratedigger-ops -"]
+      [
+        "d /var/lib/beets 0750 root cratedigger-ops -"
+        "d ${stateDir} 0770 root cratedigger-ops -"
+      ]
       ++ lib.optionals cfg.manageSharedStorage [
         "d ${builtins.dirOf library} 2775 963 100 -"
         "d ${directory} 2775 963 100 -"
