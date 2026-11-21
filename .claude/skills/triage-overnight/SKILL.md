@@ -1,7 +1,7 @@
 ---
 name: triage-overnight
 description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki, audit recent Gotify pings on doc2, AND review any auto-generated RCA fix PRs on Forgejo, then summarise with a merge recommendation per PR. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # Triage Overnight Failures
@@ -277,27 +277,20 @@ in the triage chat walk-through. Operator decision, 2026-10-15.
 
 4. **Launch a background fix session** for each issue you just **filed** (not
    for a comment on an existing issue: that one already has, or had, its own
-   session or PR). Start it inside the cratedigger checkout so it loads that
-   repo's own `CLAUDE.md`, settings and PR flow:
+   session). Start it inside the cratedigger checkout so it loads that repo's
+   own `CLAUDE.md`, settings and workflow, and keep the brief short: point it
+   at the issue and let it solve and land it as that repo sees fit. Don't
+   prescribe the fix, constraints or process: the repo documents all of that,
+   and the session reads it.
 
    ```bash
-   (cd /home/abl030/cratedigger && claude --bg "Fix GitHub issue abl030/cratedigger#<N> \
-     (gh issue view <N> -R abl030/cratedigger). Follow this repo's CLAUDE.md and \
-     its normal PR flow. <one-paragraph summary of the verified cause and the \
-     constraints, e.g. no type: ignore / cast / explicit Any>. Run the full check \
-     gate and open a PR that closes #<N>. Don't merge it.")
+   (cd /home/abl030/cratedigger && claude --bg "Solve GitHub issue abl030/cratedigger#<N> and merge the fix.")
    ```
 
    `claude --bg` prints the session id; it shows up in `claude agents`, and
    `claude logs <id>` / `claude attach <id>` / `claude stop <id>` drive it.
-   Don't wait for it: the session opens a PR, and merging stays with the user.
-   Operator decision, 2026-11-22 (first run: cratedigger#1458).
-
-The session writes the code; you only file the issue and launch it. Code
-still lands through cratedigger's own PR flow.
-
-Example: cratedigger#1418, the Beets tip canary red since 2026-10-10 because
-tip needs `python3-discogs-client>=2.10` and the tip set had 2.9.
+   Don't wait for it. Operator decisions, 2026-11-22: launch one per new
+   issue; the session owns it end to end, merge included.
 
 ## Step 2: Summarise to the user
 
