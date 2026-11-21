@@ -219,7 +219,7 @@ in {
 
     systemd.services.syncoid-pfsense = {
       description = "Pull pfSense ZFS pool via syncoid";
-      documentation = ["https://github.com/abl030/nixosconfig/blob/master/docs/wiki/infrastructure/pfsense-backup.md"];
+      documentation = ["file:///run/fleet-notes/docs/wiki/infrastructure/pfsense-backup.md"];
       after = ["network-online.target" "zfs-import.target"];
       wants = ["network-online.target"];
       requires = ["zfs-import.target"];

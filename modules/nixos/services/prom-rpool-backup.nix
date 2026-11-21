@@ -315,7 +315,7 @@ in {
 
     systemd.services.prom-rpool-backup = {
       description = "Weekly full ZFS send of prom rpool to tower (age-encrypted)";
-      documentation = ["file:///run/current-system/etc/nixos/docs/wiki/infrastructure/prom-rpool-backup-restore.md"];
+      documentation = ["file:///run/fleet-notes/docs/wiki/infrastructure/prom-rpool-backup-restore.md"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig = {

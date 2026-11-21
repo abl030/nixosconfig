@@ -1046,14 +1046,16 @@
   # git -c/curl-header/URL/tracing variants by the source audit.
   forgejoAuthHelper = self.nixosConfigurations.proxmox-vm.config.systemd.services.rolling-flake-update.environment.RFU_FORGEJO_AUTH;
 
+  # docs/ left this repository on 2026-11-21 for the private fleet-notes
+  # repository; `docs` is now a symlink that dangles in the build sandbox.
+  # The runbooks get the same audit from fleet-notes' own scripts/check, which
+  # calls forgejo-auth-source-audit.py from a checkout of this repository.
   forgejoAuthSourceFiles = [
     ../../scripts
     ../../modules/nixos/ci/rolling-flake-update.nix
     ../../.claude
     ../../hermes/skills
     ../../CLAUDE.md
-    ../../docs/wiki
-    ../../docs/plans/2026-06-10-001-feat-signed-fleet-deploys-forgejo-cutover-plan.md
   ];
 
   forgejoAuthSourceCheck =

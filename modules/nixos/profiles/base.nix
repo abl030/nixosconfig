@@ -457,6 +457,17 @@ in {
   '';
 
   # ---------------------------------------------------------
+  # 5b. PRIVATE NOTES LINK
+  # ---------------------------------------------------------
+  # This repository is mirrored to public GitHub, so its prose (docs/ and the
+  # shared agent memory) lives in the private fleet-notes repository instead.
+  # `docs` and `.claude/memory` are tracked symlinks to /run/fleet-notes/...;
+  # this link gives them one target that is the same in every checkout and
+  # worktree, whatever the host's user is called. It dangles harmlessly on a
+  # host with no ~/fleet-notes clone.
+  systemd.tmpfiles.rules = ["L+ /run/fleet-notes - - - - ${hostConfig.homeDirectory}/fleet-notes"];
+
+  # ---------------------------------------------------------
   # 6. ADMIN USER
   # ---------------------------------------------------------
   # Dynamically configure the user defined in hosts.nix

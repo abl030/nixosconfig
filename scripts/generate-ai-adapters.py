@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tomllib
@@ -220,13 +221,31 @@ def validate_shared_surfaces() -> list[str]:
     if len(claude_text.splitlines()) > 300:
         errors.append("CLAUDE.md exceeds the 300-line shared-instruction budget")
 
+    # This repository is mirrored to public GitHub. Its prose (docs/ and the
+    # shared memory) lives in the private fleet-notes repository and is reached
+    # through these two tracked symlinks. Fail closed if either becomes a real
+    # directory again: that would be prose about to be published.
+    private_links = {
+        ROOT / "docs": "/run/fleet-notes/docs",
+        ROOT / ".claude" / "memory": "/run/fleet-notes/memory",
+    }
+    for link, target in private_links.items():
+        if not link.is_symlink() or os.readlink(link) != target:
+            errors.append(
+                f"{link.relative_to(ROOT)} must be a symlink to {target}; "
+                "prose belongs in the private fleet-notes repository"
+            )
+
+    # The memory index is readable only where fleet-notes is cloned, never in
+    # the Nix build sandbox. fleet-notes' scripts/check owns the same budget.
     memory = ROOT / ".claude" / "memory" / "MEMORY.md"
-    memory_text = memory.read_text()
-    if len(memory_text.splitlines()) > 15:
-        errors.append(".claude/memory/MEMORY.md exceeds its 15-line budget")
-    for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", memory_text):
-        if "://" not in target and not (memory.parent / target).resolve().exists():
-            errors.append(f"MEMORY.md contains a broken link: {target}")
+    if memory.is_file():
+        memory_text = memory.read_text()
+        if len(memory_text.splitlines()) > 15:
+            errors.append(".claude/memory/MEMORY.md exceeds its 15-line budget")
+        for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", memory_text):
+            if "://" not in target and not (memory.parent / target).resolve().exists():
+                errors.append(f"MEMORY.md contains a broken link: {target}")
     return errors
 
 

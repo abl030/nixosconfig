@@ -13,6 +13,20 @@ the current machine, time, and shared cross-agent memory.
 Before any `nixos-rebuild switch`, run `hostname` again and use the actual host in
 `--flake .#<actual-hostname>`. Never assume or hardcode the rebuild target.
 
+## Public Repository, Private Notes
+
+This repository is mirrored to public GitHub within five minutes of every push,
+all branches included. Code, comments, commit messages and branch names are
+published for good: keep Andy's personal life, family, finances and mail out of
+them, and never add prose directories here (`aiPortabilityCheck` fails on it).
+
+`docs/` and `.claude/memory/` are tracked symlinks into the private
+`~/fleet-notes` repository (`abl030/fleet-notes`; host setup in its README).
+Read and write wiki pages, plans and memory through those paths as before, then
+commit and push there with plain git (`git -C ~/fleet-notes …`); it has no
+signing gate, PR or deploy. Pull it at session start. `git grep` and a
+root-level `rg` skip the links, so name the path: `rg <pattern> docs/`.
+
 ## Non-Negotiable Safety
 
 ### Source, Signing, and Deployment
@@ -184,11 +198,9 @@ Author skills in the common `SKILL.md` format and keep platform-specific tool
 names out of workflows where a normal shell/read/edit instruction suffices.
 
 Claude auto-memory and Codex native memory are client-local recall caches, not
-project truth. Promote durable discoveries to the shared Markdown/wiki/issue
-surfaces. Keep `.claude/memory/MEMORY.md` at 15 lines or fewer as an index; do not
-duplicate rationale there. Codex native memory is enabled as personal local
-recall, with tasks that used external MCP/web/tool-search context excluded from
-generation; it never replaces the shared surfaces.
+project truth; promote durable discoveries to the wiki, shared memory or an
+issue. Keep `.claude/memory/MEMORY.md` at 15 lines or fewer as an index without
+rationale. Codex native memory excludes tasks that used external MCP/web context.
 
 ### Specialist Agents and MCP
 
@@ -210,12 +222,12 @@ renamed options or package availability.
 - Use the Forgejo REST API for issue, pull-request, repository, and instance
   operations. The doc1-only admin token is documented in
   `.claude/memory/forgejo-issue-token-doc1.md`.
-- Lightweight TODOs live in `docs/todo/`.
-- `docs/wiki/` is the long-form knowledge base written by agents for agents.
-  Update it as research or operational understanding changes. Include date,
-  status, issue links, what was tried, what works, and when to revisit.
+- `docs/wiki/` is the long-form knowledge base written by agents for agents;
+  lightweight TODOs live in `docs/todo/`. Update the wiki as understanding
+  changes: date, status, issue links, what was tried, what works, when to revisit.
 - Add short code comments pointing to relevant wiki pages where future agents
-  need the rationale. Do not duplicate the full explanation in code or memory.
+  need the rationale. Comments are public, so the explanation itself goes in the
+  wiki, not in code or memory.
 - External service agents should start with `docs/wiki/agent-operations.md`.
 
 ## Fleet Orientation

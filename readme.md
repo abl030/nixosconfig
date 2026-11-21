@@ -7,6 +7,10 @@ from this repo.
 
 This README is a showcase of the cool bits, not a usage guide.
 
+Comments throughout the code point at `docs/wiki/...` pages. Those design notes
+and runbooks are kept in a separate private repository; here `docs` is only a
+symlink to where a fleet host mounts them.
+
 ## The headline trick: one-line service deploys
 
 A service module looks like this:
@@ -37,8 +41,7 @@ That single line wires up:
 
 Each piece is its own module (`homelab.localProxy`, `homelab.monitoring`,
 etc.); a service module just declares the inputs and the platform wires
-the rest. The full module-authoring spec lives in
-[`docs/wiki/nixos-service-modules.md`](docs/wiki/nixos-service-modules.md).
+the rest.
 
 ## Autoupdates that don't fight the user
 
@@ -104,9 +107,8 @@ declares:
 - Tailscale IP and LAN IP
 
 Trust is least-privilege on both layers: the fleet SSH key lives on doc1 only
-(the [SSH bastion](docs/wiki/infrastructure/ssh-bastion-model.md)), and sops
-secrets are scoped per-host with cold break-glass / warm editor keys (the
-[secret layer](docs/wiki/infrastructure/sops-break-glass-recovery.md)).
+(the SSH bastion), and sops secrets are scoped per-host with cold break-glass /
+warm editor keys.
 
 A factory in [`nix/lib.nix`](nix/lib.nix) reads it and produces NixOS
 systems or standalone Home Manager configs. Add a host entry, drop in a

@@ -1,4 +1,40 @@
-{pkgs, ...}: {
+{pkgs, ...}: let
+  # Safety net for ~/fleet-notes, the private repository behind this
+  # repository's `docs` and `.claude/memory` symlinks (CLAUDE.md "Public
+  # Repository, Private Notes"). Agents write memory files mid-session with no
+  # commit step, and unattended agents edit wiki pages, so anything left
+  # uncommitted is committed and pushed here. Uses the same Forgejo credential
+  # helper as any plain git on doc1; no new credential.
+  fleetNotesSync = pkgs.writeShellApplication {
+    name = "fleet-notes-sync";
+    runtimeInputs = [pkgs.git pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.python3 pkgs.bash];
+    text = ''
+      cd "$HOME/fleet-notes"
+      gitdir="$(git rev-parse --absolute-git-dir)"
+      if [ -d "$gitdir/rebase-merge" ] || [ -d "$gitdir/rebase-apply" ] || [ -f "$gitdir/MERGE_HEAD" ]; then
+        echo "a rebase or merge is in progress; leaving it for whoever started it" >&2
+        exit 1
+      fi
+
+      git add -A
+      if ! git diff --cached --quiet; then
+        # The pre-commit hook runs scripts/check; a failure leaves the changes
+        # staged and fails this unit rather than pushing them.
+        git commit -q -m "notes: autosync from $(</proc/sys/kernel/hostname) $(date '+%F %H:%M')"
+      fi
+
+      git fetch -q origin
+      if ! git rebase -q origin/master; then
+        git rebase --abort
+        echo "local notes commits conflict with origin; resolve by hand" >&2
+        exit 1
+      fi
+      if [ -n "$(git rev-list origin/master..HEAD)" ]; then
+        git push -q origin HEAD:master
+      fi
+    '';
+  };
+in {
   imports = [
     ../../home/home.nix
     ../../home/utils/common.nix
@@ -52,6 +88,26 @@
       OnCalendar = "*-*-* 06:30:00";
       Persistent = true;
       RandomizedDelaySec = "5m";
+    };
+    Install.WantedBy = ["timers.target"];
+  };
+
+  systemd.user.services.fleet-notes-sync = {
+    Unit = {
+      Description = "Commit and push uncommitted fleet-notes changes";
+      ConditionPathIsDirectory = "%h/fleet-notes/.git";
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${fleetNotesSync}/bin/fleet-notes-sync";
+    };
+  };
+  systemd.user.timers.fleet-notes-sync = {
+    Unit.Description = "Half-hourly fleet-notes safety-net sync";
+    Timer = {
+      OnCalendar = "*:0/30";
+      Persistent = true;
+      RandomizedDelaySec = "3m";
     };
     Install.WantedBy = ["timers.target"];
   };
