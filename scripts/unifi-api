@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# unifi-api — call the UniFi Network controller API directly (replaces the old UniFi MCP, #244).
+#
+# Usage:
+#   unifi-api GET  stat/health                       # site-relative: /api/s/{site}/stat/health
+#   unifi-api GET  rest/wlanconf
+#   unifi-api PUT  rest/wlanconf/<_id> '{"enabled":false}'   # rest/* PUT is a partial update
+#   unifi-api POST cmd/stamgr '{"cmd":"kick-sta","mac":"aa:bb:cc:dd:ee:ff"}'
+#   unifi-api GET  /v2/api/site/{site}/firewall-policies     # absolute path; {site} is filled in
+#   echo '{...}' | unifi-api POST rest/networkconf -          # body from stdin
+#   unifi-api endpoints [REGEX]   # known endpoints (scripts/unifi-api.endpoints.tsv)
+#
+# A PATH without a leading "/" is relative to /api/s/{site}/. Prints the JSON response
+# on stdout; exits non-zero on HTTP >= 400 or a v1 "rc":"error" (body still printed).
+# Secret fields (x_passphrase, x_iapp_key, *password*, *secret*, ...) are printed as
+# "<redacted>". Writing them is fine; reading them back is deliberately not possible.
+#
+# Credentials: UNIFI_HOST/PORT/USERNAME/PASSWORD/SITE from $UNIFI_MCP_ENV_FILE (default
+# /run/secrets/mcp/unifi.env, doc1 only); the password never reaches argv. The session
+# cookie is kept in $XDG_RUNTIME_DIR/unifi-api/ and refreshed on 401.
+# Env: UNIFI_API_TIMEOUT (seconds, default 60).
+set -euo pipefail
+umask 077
+
+ENV_FILE="${UNIFI_MCP_ENV_FILE:-/run/secrets/mcp/unifi.env}"
+ENDPOINTS="$(dirname "$(readlink -f "$0")")/unifi-api.endpoints.tsv"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/unifi-api-$(id -u)"
+JAR="$STATE_DIR/cookies"
+TIMEOUT="${UNIFI_API_TIMEOUT:-60}"
+
+die() {
+  echo "unifi-api: $*" >&2
+  exit 2
+}
+
+[[ $# -ge 1 ]] || die "usage: unifi-api METHOD PATH [BODY|-] | endpoints [REGEX]"
+
+if [[ "$1" == endpoints ]]; then
+  grep -v '^#' "$ENDPOINTS" | grep -iE -- "${2:-.}" || true
+  exit 0
+fi
+
+[[ -r "$ENV_FILE" ]] || die "credentials not readable: $ENV_FILE (doc1 only; homelab.mcp.unifi.enable)"
+envval() { grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2-; }
+SITE="$(envval UNIFI_SITE)"
+BASE="https://$(envval UNIFI_HOST):$(envval UNIFI_PORT)"
+
+mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR"
+TMP="$(mktemp -d -p "$STATE_DIR")"
+trap 'rm -rf "$TMP"' EXIT
+
+METHOD="$(tr '[:lower:]' '[:upper:]' <<<"$1")"
+REQ_PATH="${2:?unifi-api: PATH required}"
+[[ "$REQ_PATH" == /* ]] || REQ_PATH="/api/s/{site}/$REQ_PATH"
+REQ_PATH="${REQ_PATH//\{site\}/$SITE}"
+case "$METHOD" in GET | POST | PUT | DELETE) ;; *) die "unsupported method $METHOD" ;; esac
+
+BODY_FILE=""
+if [[ $# -ge 3 ]]; then
+  BODY_FILE="$TMP/body"
+  if [[ "$3" == "-" ]]; then cat >"$BODY_FILE"; else printf '%s' "$3" >"$BODY_FILE"; fi
+  jq -e . "$BODY_FILE" >/dev/null || die "BODY is not valid JSON"
+fi
+
+login() {
+  # Piped, not --arg: the password must not appear in any argv.
+  grep -E '^UNIFI_(USERNAME|PASSWORD)=' "$ENV_FILE" |
+    jq -Rn '[inputs | capture("^UNIFI_(?<key>[A-Z]+)=(?<value>.*)$")] | from_entries
+            | {username: .USERNAME, password: .PASSWORD}' >"$TMP/login" ||
+    die "could not read UniFi credentials from $ENV_FILE"
+  local code
+  code="$(curl -sS -k --max-time "$TIMEOUT" -c "$JAR" -o /dev/null -w '%{http_code}' \
+    -H 'Content-Type: application/json' --data-binary "@$TMP/login" "$BASE/api/login")" ||
+    die "controller unreachable at $BASE"
+  rm -f "$TMP/login"
+  [[ "$code" == 200 ]] || die "login failed (HTTP $code)"
+}
+
+request() {
+  local args=(-sS -k --max-time "$TIMEOUT" -X "$METHOD" -b "$JAR" -c "$JAR"
+    -o "$TMP/out" -w '%{http_code}')
+  [[ -n "$BODY_FILE" ]] && args+=(-H 'Content-Type: application/json' --data-binary "@$BODY_FILE")
+  curl "${args[@]}" "$BASE$REQ_PATH" || die "request failed"
+}
+
+if [[ ! -s "$JAR" ]]; then login; fi
+CODE="$(request)"
+if [[ "$CODE" == 401 ]]; then
+  login
+  CODE="$(request)"
+fi
+
+# Redact secrets; pass non-JSON responses through untouched.
+if jq -e . "$TMP/out" >/dev/null 2>&1; then
+  jq 'def secret: . as $k | ($k | ascii_downcase) as $l
+        | (["x_passphrase","x_iapp_key","x_password","x_shadow","x_private_key",
+            "x_certificate_pem","x_certificate_arn","x_api_token","x_mgmt_key",
+            "x_secret","x_psk","x_mesh_psk","x_element_psk"] | index($k)) != null
+          or ($l | test("password|passphrase|secret|preshared_key"));
+      walk(if type == "object" then with_entries(if (.key | secret) then .value = "<redacted>" else . end) else . end)' \
+    "$TMP/out"
+  RC="$(jq -r 'if type == "object" then (.meta.rc // "") else "" end' "$TMP/out")"
+else
+  cat "$TMP/out"
+  echo
+  RC=""
+fi
+
+if [[ "$CODE" -ge 400 || "$RC" == error ]]; then
+  echo "unifi-api: HTTP $CODE${RC:+ rc=$RC}" >&2
+  exit 1
+fi

@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# pfsense-api — call the pfSense REST API v2 directly (replaces the old pfSense MCP, #244).
+#
+# Usage:
+#   pfsense-api GET    /api/v2/firewall/rules
+#   pfsense-api GET    '/api/v2/firewall/rule?id=5'
+#   pfsense-api PATCH  /api/v2/firewall/rule '{"id":5,"descr":"new"}'
+#   pfsense-api POST   /api/v2/firewall/apply
+#   pfsense-api DELETE '/api/v2/firewall/alias?id=9'
+#   echo '{...}' | pfsense-api POST /api/v2/firewall/rule -     # body from stdin
+#   pfsense-api endpoints [REGEX]   # METHODS + path from the live OpenAPI schema
+#   pfsense-api schema PATH [METHOD] # parameters / request body for one endpoint
+#
+# Prints the JSON response on stdout; exits non-zero on HTTP >= 400 (body still printed).
+#
+# Safety gate (not optional): every PUT is refused (in API v2, PUT on a plural
+# endpoint is "replace the whole collection" and silently drops attributes the
+# caller omits — it corrupted the live ruleset on 2026-06-23), and so is every
+# DELETE whose endpoint does not require an `id` (delete-all-by-query, including
+# DELETE /api/v2/firewall/states, a full state-table flush). Make changes per
+# object with POST/PATCH/DELETE?id=N, then POST the matching .../apply endpoint.
+#
+# Credentials: PFSENSE_HOST and PFSENSE_API_KEY from $PFSENSE_MCP_ENV_FILE
+# (default /run/secrets/mcp/pfsense.env, doc1 only). The key never reaches argv.
+# Env: PFSENSE_API_TIMEOUT (seconds, default 120).
+set -euo pipefail
+umask 077
+
+ENV_FILE="${PFSENSE_MCP_ENV_FILE:-/run/secrets/mcp/pfsense.env}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pfsense-api"
+SCHEMA="$CACHE_DIR/openapi.json"
+TIMEOUT="${PFSENSE_API_TIMEOUT:-120}"
+
+die() {
+  echo "pfsense-api: $*" >&2
+  exit 2
+}
+
+[[ $# -ge 1 ]] || die "usage: pfsense-api METHOD PATH [BODY|-] | endpoints [REGEX] | schema PATH [METHOD]"
+[[ -r "$ENV_FILE" ]] || die "credentials not readable: $ENV_FILE (doc1 only; homelab.mcp.pfsense.enable)"
+
+envval() { grep -m1 "^$1=" "$ENV_FILE" | cut -d= -f2-; }
+HOST="$(envval PFSENSE_HOST)"
+HOST="${HOST%/}"
+[[ -n "$HOST" ]] || die "PFSENSE_HOST missing from $ENV_FILE"
+
+RUN_DIR="$(mktemp -d -p "${XDG_RUNTIME_DIR:-/tmp}" pfsense-api.XXXXXX)"
+trap 'rm -rf "$RUN_DIR"' EXIT
+chmod 700 "$RUN_DIR"
+printf 'X-API-Key: %s\nAccept: application/json\n' "$(envval PFSENSE_API_KEY)" >"$RUN_DIR/headers"
+
+# curl_api METHOD PATH [BODYFILE] -> response on stdout, returns 1 on HTTP >= 400
+curl_api() {
+  local method=$1 path=$2 body=${3:-} code
+  local args=(-sS -k --max-time "$TIMEOUT" -X "$method" -H "@$RUN_DIR/headers"
+    -o "$RUN_DIR/out" -w '%{http_code}')
+  if [[ -n "$body" ]]; then
+    args+=(-H 'Content-Type: application/json' --data-binary "@$body")
+  fi
+  code="$(curl "${args[@]}" "$HOST$path")" || die "request failed (unreachable? do NOT fall back to SSH)"
+  cat "$RUN_DIR/out"
+  [[ -s "$RUN_DIR/out" ]] && echo
+  [[ "$code" -lt 400 ]] || {
+    echo "pfsense-api: HTTP $code" >&2
+    return 1
+  }
+}
+
+# Live OpenAPI schema, cached for a day (about 4 MB).
+schema() {
+  if [[ ! -s "$SCHEMA" || -n "$(find "$SCHEMA" -mmin +1440 2>/dev/null)" ]]; then
+    mkdir -p "$CACHE_DIR"
+    curl_api GET /api/v2/schema/openapi >"$SCHEMA.tmp" || die "could not fetch the OpenAPI schema"
+    mv "$SCHEMA.tmp" "$SCHEMA"
+  fi
+  printf '%s' "$SCHEMA"
+}
+
+case "$1" in
+endpoints)
+  jq -r --arg re "${2:-.}" '.paths | to_entries[] | select(.key | test($re; "i"))
+      | "\([.value | keys[] | select(. != "parameters") | ascii_upcase] | join(","))\t\(.key)"' "$(schema)"
+  exit 0
+  ;;
+schema)
+  [[ $# -ge 2 ]] || die "usage: pfsense-api schema PATH [METHOD]"
+  jq --arg p "$2" --arg m "$(tr '[:upper:]' '[:lower:]' <<<"${3:-}")" '.paths[$p]
+      | if . == null then error("no such path \($p)") else . end
+      | if $m == "" then . else .[$m] end' "$(schema)"
+  exit 0
+  ;;
+esac
+
+METHOD="$(tr '[:lower:]' '[:upper:]' <<<"$1")"
+REQ_PATH="${2:?pfsense-api: PATH required}"
+[[ "$REQ_PATH" == /api/v2/* ]] || die "PATH must start with /api/v2/"
+BASE_PATH="${REQ_PATH%%\?*}"
+
+case "$METHOD" in
+GET | POST | PATCH) ;;
+PUT)
+  die "PUT refused: in API v2 it replaces a whole collection and drops omitted attributes. Use PATCH on the singular endpoint (with \"placement\" to reorder rules)."
+  ;;
+DELETE)
+  if ! jq -e --arg p "$BASE_PATH" '.paths[$p].delete.parameters // [] | any(.name == "id" and .required == true)' \
+    "$(schema)" >/dev/null; then
+    die "DELETE refused on $BASE_PATH: it is a delete-all-by-query endpoint (or unknown). Delete one object via its singular endpoint with ?id=N."
+  fi
+  [[ "$REQ_PATH" == *"id="* ]] || die "DELETE needs ?id=N"
+  ;;
+*) die "unsupported method $METHOD" ;;
+esac
+
+BODY_FILE=""
+if [[ $# -ge 3 ]]; then
+  BODY_FILE="$RUN_DIR/body"
+  if [[ "$3" == "-" ]]; then cat >"$BODY_FILE"; else printf '%s' "$3" >"$BODY_FILE"; fi
+  jq -e . "$BODY_FILE" >/dev/null || die "BODY is not valid JSON"
+fi
+
+curl_api "$METHOD" "$REQ_PATH" "$BODY_FILE"

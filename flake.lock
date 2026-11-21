@@ -549,22 +549,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-fastmcp": {
-      "locked": {
-        "lastModified": 1792116957,
-        "narHash": "sha256-EjZqHKObBfIOeHZnMRVV87HB3pPq/WBkmRJWyFxmZu8=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "f20cd90e28fe0403873f473b29e42662cd86e8c4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "f20cd90e28fe0403873f473b29e42662cd86e8c4",
-        "type": "github"
-      }
-    },
     "nixpkgs-held": {
       "locked": {
         "lastModified": 1790600678,
@@ -698,26 +682,6 @@
         "type": "github"
       }
     },
-    "pfsense-mcp": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs-fastmcp"
-        ]
-      },
-      "locked": {
-        "lastModified": 1782198632,
-        "narHash": "sha256-us66T0UmUTtHqnvUOzDj0fLzRmq4olqHklQ5tK52a30=",
-        "owner": "abl030",
-        "repo": "pfsense-mcp",
-        "rev": "11f4246ad5b44372e75bb633280c45ecf8fe267c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "abl030",
-        "repo": "pfsense-mcp",
-        "type": "github"
-      }
-    },
     "pyproject-build-systems": {
       "inputs": {
         "nixpkgs": [
@@ -792,40 +756,16 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-fastmcp": "nixpkgs-fastmcp",
         "nixpkgs-held": "nixpkgs-held",
         "ntopng-exporter-src": "ntopng-exporter-src",
         "nvchad4nix": "nvchad4nix",
         "pfsense-exporter-src": "pfsense-exporter-src",
-        "pfsense-mcp": "pfsense-mcp",
-        "slskd-mcp": "slskd-mcp",
         "sops-nix": "sops-nix",
         "spicetify-nix": "spicetify-nix",
         "systems": "systems_6",
         "trackerslist": "trackerslist",
-        "unifi-mcp": "unifi-mcp",
         "vinsight-mcp": "vinsight-mcp",
         "yt-dlp-src": "yt-dlp-src"
-      }
-    },
-    "slskd-mcp": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs-fastmcp"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771235401,
-        "narHash": "sha256-ELUoAOOWmNoxoTjPxxAY00exN56lngSPs4wtn/GadQU=",
-        "owner": "abl030",
-        "repo": "slskd-mcp",
-        "rev": "08e4373f41fddcceff8ea3240323e0c6258a373e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "abl030",
-        "repo": "slskd-mcp",
-        "type": "github"
       }
     },
     "sops-nix": {
@@ -1003,26 +943,6 @@
       "original": {
         "owner": "ngosang",
         "repo": "trackerslist",
-        "type": "github"
-      }
-    },
-    "unifi-mcp": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs-fastmcp"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771141817,
-        "narHash": "sha256-8IO1wZeAifmhhR3e8kMRVu4LNy+zqmKWRwIbMuwwxAU=",
-        "owner": "abl030",
-        "repo": "unifi-mcp",
-        "rev": "ea3bab4522c2744418db44229a0e51cc0ba45e59",
-        "type": "github"
-      },
-      "original": {
-        "owner": "abl030",
-        "repo": "unifi-mcp",
         "type": "github"
       }
     },

@@ -22,10 +22,12 @@ So future `hermes config ...`, `hermes mcp ...`, and skill-dir changes that edit
 The config declares MCP servers using the existing repo wrappers:
 
 - `nixos` → `uvx mcp-nixos` (small/default CLI toolset `mcp-nixos`)
-- `pfsense` → `scripts/mcp-pfsense.sh` (configured global MCP server)
-- `unifi` → `scripts/mcp-unifi.sh` (`mcp-unifi`, opt-in)
 - `homeassistant` → `scripts/mcp-homeassistant.sh` (`mcp-homeassistant`, opt-in)
 - `playwright` → `scripts/mcp-playwright.sh` (`mcp-playwright`, opt-in)
+
+pfSense and UniFi have no MCP server (#244): their skills drive `scripts/pfsense-api`
+and `scripts/unifi-api` through the terminal tool. Those two skills are symlinks to
+`.claude/agents/{pfsense,unifi}.md`, so there is one copy to maintain.
 - `mailsearch` → `scripts/mcp-mailsearch.sh` configured but disabled; enable only for human-present doc1 sessions, never always-on/gateway/cron.
 
 ## Common usage
@@ -38,7 +40,7 @@ hermes --tui
 hermes --tui --skills homelab-agents,pfsense
 
 # Direct UniFi-focused session
-hermes --tui --skills homelab-agents,unifi --toolsets mcp-unifi,skills,terminal,file
+hermes --tui --skills homelab-agents,unifi --toolsets skills,terminal,file
 
 # Direct Home Assistant-focused session
 hermes --tui --skills homelab-agents,homeassistant --toolsets mcp-homeassistant,skills,terminal,file
@@ -52,8 +54,6 @@ In the TUI, use `/agents` to watch delegated subagents live.
 hermes skills list | grep homelab-agents
 hermes mcp list
 hermes mcp test nixos
-hermes mcp test pfsense
-hermes mcp test unifi
 hermes mcp test homeassistant
 hermes mcp test playwright
 ```

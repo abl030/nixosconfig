@@ -13,8 +13,8 @@ This skill is the Hermes-side routing layer for the Claude-style subagents track
 
 ## Routing
 
-- Firewall, DNS, DHCP, NAT, VPN, WireGuard, pfSense system config → load/use `pfsense`; the configured `pfsense` MCP loads globally.
-- UniFi switches, APs, WLANs, VLAN-only networks, port profiles, clients → load/use `unifi`; use MCP toolset `mcp-unifi`.
+- Firewall, DNS, DHCP, NAT, VPN, WireGuard, pfSense system config → load/use `pfsense`; terminal tool with `scripts/pfsense-api` (no MCP since #244).
+- UniFi switches, APs, WLANs, VLAN-only networks, port profiles, clients → load/use `unifi`; terminal tool with `scripts/unifi-api` (no MCP since #244).
 - Home Assistant entities, automations, dashboards, media playback → load/use `homeassistant`; use MCP toolset `mcp-homeassistant`.
 - Grafana UI / browser dashboard verification → load/use `playwright`; use MCP toolset `mcp-playwright` once the wrapper is healthy.
 - Radarr/Sonarr/Prowlarr/NZBHydra/qBittorrent/NZBGet → load/use `arr`; normal terminal/file tools.

@@ -37,9 +37,7 @@ platform_toolsets:
     - image_gen
     - mcp-homeassistant
     - mcp-nixos
-    - mcp-pfsense
     - mcp-playwright
-    - mcp-unifi
     - memory
     - session_search
     - skills
@@ -71,9 +69,7 @@ platform_toolsets:
     - image_gen
     - mcp-homeassistant
     - mcp-nixos
-    - mcp-pfsense
     - mcp-playwright
-    - mcp-unifi
     - memory
     - session_search
     - skills
@@ -104,18 +100,6 @@ mcp_servers:
       - mcp-nixos
     enabled: true
     timeout: 180
-    connect_timeout: 60
-  pfsense:
-    command: /home/abl030/nixosconfig/scripts/mcp-pfsense.sh
-    args: []
-    enabled: true
-    timeout: 300
-    connect_timeout: 60
-  unifi:
-    command: /home/abl030/nixosconfig/scripts/mcp-unifi.sh
-    args: []
-    enabled: true
-    timeout: 300
     connect_timeout: 60
   homeassistant:
     command: /home/abl030/nixosconfig/scripts/mcp-homeassistant.sh

@@ -18,7 +18,7 @@ in {
     };
 
     pfsense = {
-      enable = lib.mkEnableOption "pfSense MCP server secrets";
+      enable = lib.mkEnableOption "pfSense REST API credentials (scripts/pfsense-api)";
       sopsFile = lib.mkOption {
         type = lib.types.path;
         default = config.homelab.secrets.sopsFile "pfsense-mcp.env";
@@ -33,7 +33,7 @@ in {
     };
 
     unifi = {
-      enable = lib.mkEnableOption "UniFi MCP server secrets";
+      enable = lib.mkEnableOption "UniFi controller API credentials (scripts/unifi-api)";
       sopsFile = lib.mkOption {
         type = lib.types.path;
         default = config.homelab.secrets.sopsFile "unifi-mcp.env";
@@ -59,21 +59,6 @@ in {
         readOnly = true;
         default = "${secretsDir}/homeassistant.env";
         description = "Path to decrypted Home Assistant MCP env file.";
-      };
-    };
-
-    slskd = {
-      enable = lib.mkEnableOption "slskd MCP server secrets";
-      sopsFile = lib.mkOption {
-        type = lib.types.path;
-        default = config.homelab.secrets.sopsFile "slskd-mcp.env";
-        description = "Sops file containing slskd MCP credentials.";
-      };
-      path = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${secretsDir}/slskd.env";
-        description = "Path to decrypted slskd MCP env file.";
       };
     };
 
@@ -134,7 +119,6 @@ in {
         pfsenseFile = cfg.pfsense.sopsFile;
         unifiFile = cfg.unifi.sopsFile;
         homeassistantFile = cfg.homeassistant.sopsFile;
-        slskdFile = cfg.slskd.sopsFile;
         vinsightFile = cfg.vinsight.sopsFile;
         audiobookshelfFile = cfg.audiobookshelf.sopsFile;
         paperlessFile = cfg.paperless.sopsFile;
@@ -166,12 +150,6 @@ in {
             chown ${user}:users ${cfg.homeassistant.path}
           ''}
 
-          ${lib.optionalString cfg.slskd.enable ''
-            ${sops} -d --output-type dotenv ${slskdFile} | grep -v '^#' > ${cfg.slskd.path}
-            chmod 400 ${cfg.slskd.path}
-            chown ${user}:users ${cfg.slskd.path}
-          ''}
-
           ${lib.optionalString cfg.vinsight.enable ''
             ${sops} -d --output-type dotenv ${vinsightFile} | grep -v '^#' > ${cfg.vinsight.path}
             chmod 400 ${cfg.vinsight.path}
@@ -201,9 +179,6 @@ in {
         })
         (lib.mkIf cfg.homeassistant.enable {
           HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
-        })
-        (lib.mkIf cfg.slskd.enable {
-          SLSKD_MCP_ENV_FILE = cfg.slskd.path;
         })
         (lib.mkIf cfg.vinsight.enable {
           VINSIGHT_MCP_ENV_FILE = cfg.vinsight.path;

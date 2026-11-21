@@ -206,14 +206,13 @@
     fleetDeploy.role = "bastion";
 
     # MCP agent creds live ONLY here (#234): doc1 is the sole host the
-    # pfsense/unifi/HA/slskd/vinsight/abs/paperless control agents run from.
+    # pfsense/unifi/HA/vinsight/abs/paperless control agents run from.
     # Base default is now false everywhere.
     mcp = {
       enable = true;
       pfsense.enable = true;
       unifi.enable = true;
       homeassistant.enable = true;
-      slskd.enable = true;
       vinsight.enable = true;
       audiobookshelf.enable = true;
       paperless.enable = true;

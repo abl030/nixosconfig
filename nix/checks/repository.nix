@@ -108,6 +108,7 @@
       effective = set(_get_platform_tools(config, "ntfy"))
       cli_effective = set(_get_platform_tools(config, "cli"))
       assert effective == cli_effective, sorted(effective ^ cli_effective)
+      # pfSense/UniFi have no MCP since #244; their skills use the terminal tool.
       required = {
           "browser",
           "code_execution",
@@ -116,10 +117,8 @@
           "file",
           "homeassistant",
           "nixos",
-          "pfsense",
           "playwright",
           "terminal",
-          "unifi",
       }
       assert required <= effective, sorted(required - effective)
     '';

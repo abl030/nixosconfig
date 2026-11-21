@@ -1,0 +1,219 @@
+# UniFi Network controller endpoints, probed against controller 10.0.162 (standalone; live is newer, so treat as a map, not a contract).
+# Source: spec/endpoint-inventory.json in github.com/abl030/unifi-mcp. Columns: methods, path, note.
+# {site} is filled in by unifi-api. Commands under cmd/* are POSTed as {"cmd":"<name>", ...}.
+POST	/api/logout	POST with empty body to invalidate session
+GET	/api/self	
+GET	/api/self/sites	
+POST	/api/s/{site}/cmd/alarm	cmd: archive
+POST	/api/s/{site}/cmd/backup	cmd: list-backups delete-backup generate-backup generate-backup-site
+POST	/api/s/{site}/cmd/devmgr	cmd: adopt restart force-provision power-cycle speedtest speedtest-status set-locate unset-locate upgrade upgrade-external migrate cancel-migrate spectrum-scan rename led-override disable-ap rolling-upgrade cancel-rolling-upgrade check-firmware-update upgrade-all-devices advanced-adopt set-rollupgrade unset-rollupgrade restart-http-portal enable disable cable-test set-inform
+POST	/api/s/{site}/cmd/evtmgr	cmd: archive-all-alarms archive-alarm
+POST	/api/s/{site}/cmd/hotspot	cmd: authorize-guest create-voucher revoke-voucher extend-guest-validity delete-voucher
+POST	/api/s/{site}/cmd/sitemgr	cmd: add-site delete-site update-site get-admins move-device delete-device site-leds invite-admin assign-existing-admin update-admin revoke-admin delete-admin grant-super-admin create-admin revoke-super-admin set-site-name
+POST	/api/s/{site}/cmd/stamgr	cmd: block-sta unblock-sta kick-sta forget-sta unauthorize-guest authorize-guest reconnect-sta
+POST	/api/s/{site}/cmd/stat	cmd: reset-dpi
+POST	/api/s/{site}/cmd/system	cmd: backup reboot-cloudkey element-adoption download-backup
+GET	/api/s/{site}/cnt/alarm	count of alarms
+GET	/api/s/{site}/cnt/event	
+GET	/api/s/{site}/cnt/sta	needs connected client (station)
+GET	/api/s/{site}/cnt/user	
+GET	/api/s/{site}//dl/firmware/bundles.json	firmware version/device name mappings
+GET	/api/s/{site}/get/setting	returns all settings (29 records on v10.0.162)
+GET	/api/s/{site}/get/setting/auto_speedtest	from py-unifi OpenAPI spec
+GET	/api/s/{site}/get/setting/baresip	SIP phone settings
+GET	/api/s/{site}/get/setting/broadcast	
+GET	/api/s/{site}/get/setting/connectivity	
+GET	/api/s/{site}/get/setting/country	
+GET	/api/s/{site}/get/setting/doh	DNS-over-HTTPS settings
+GET	/api/s/{site}/get/setting/dpi	
+GET	/api/s/{site}/get/setting/element_adopt	
+GET	/api/s/{site}/get/setting/ether_lighting	Ethernet port LED settings
+GET	/api/s/{site}/get/setting/global_ap	
+GET	/api/s/{site}/get/setting/global_switch	
+GET	/api/s/{site}/get/setting/guest_access	
+GET	/api/s/{site}/get/setting/ips	IDS/IPS settings
+GET	/api/s/{site}/get/setting/lcm	LED/LCD display settings
+GET	/api/s/{site}/get/setting/locale	
+GET	/api/s/{site}/get/setting/magic_site_to_site_vpn	
+GET	/api/s/{site}/get/setting/mgmt	
+GET	/api/s/{site}/get/setting/network_optimization	
+GET	/api/s/{site}/get/setting/ntp	
+GET	/api/s/{site}/get/setting/porta	captive portal settings
+GET	/api/s/{site}/get/setting/radio_ai	Radio AI optimization
+GET	/api/s/{site}/get/setting/radius	
+GET	/api/s/{site}/get/setting/rsyslogd	remote syslog settings
+GET	/api/s/{site}/get/setting/snmp	
+GET	/api/s/{site}/get/setting/super_cloudaccess	
+GET	/api/s/{site}/get/setting/super_events	
+GET	/api/s/{site}/get/setting/super_fwupdate	
+GET	/api/s/{site}/get/setting/super_identity	
+GET	/api/s/{site}/get/setting/super_mail	
+GET	/api/s/{site}/get/setting/super_mgmt	
+GET	/api/s/{site}/get/setting/super_sdn	
+GET	/api/s/{site}/get/setting/super_smtp	
+GET	/api/s/{site}/get/setting/teleport	Teleport VPN settings
+GET	/api/s/{site}/get/setting/usg	USG/gateway settings
+GET	/api/s/{site}/get/setting/usw	USW/switch settings
+POST	/api/s/{site}/group/user	POST with {"objects":[{"data":{"mac":"...","usergroup_id":"..."}}]}
+GET	/api/s/{site}//guest/s/{site}/hotspotconfig	
+GET	/api/s/{site}//guest/s/{site}/hotspotpackages	
+GET	/api/s/{site}/list/account	
+GET	/api/s/{site}/list/alarm	
+GET	/api/s/{site}/list/channelplan	
+GET	/api/s/{site}/list/devices	needs adopted device
+GET	/api/s/{site}/list/dhcpoption	
+GET	/api/s/{site}/list/dnsrecord	needs adopted device
+GET	/api/s/{site}/list/dpiapp	
+GET	/api/s/{site}/list/dpigroup	
+GET	/api/s/{site}/list/dynamicdns	
+GET	/api/s/{site}/list/firewallgroup	
+GET	/api/s/{site}/list/firewallrule	
+GET	/api/s/{site}/list/firmware	needs adopted device
+GET	/api/s/{site}/list/heatmap	
+GET	/api/s/{site}/list/heatmappoint	
+GET	/api/s/{site}/list/hotspot2conf	
+GET	/api/s/{site}/list/hotspotop	
+GET	/api/s/{site}/list/hotspotpackage	
+GET	/api/s/{site}/list/map	
+GET	/api/s/{site}/list/networkconf	
+GET	/api/s/{site}/list/portconf	
+GET	/api/s/{site}/list/portforward	
+GET	/api/s/{site}/list/radiusprofile	
+GET	/api/s/{site}/list/rogueknown	
+GET	/api/s/{site}/list/routing	
+GET	/api/s/{site}/list/scheduletask	
+GET	/api/s/{site}/list/setting	
+GET	/api/s/{site}/list/spatialrecord	
+GET	/api/s/{site}/list/tag	
+GET	/api/s/{site}/list/user	
+GET	/api/s/{site}/list/usergroup	
+GET	/api/s/{site}/list/virtualdevice	
+GET	/api/s/{site}/list/wifichannels	needs adopted device
+GET	/api/s/{site}/list/wlanconf	
+GET	/api/s/{site}/list/wlangroup	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/account	
+GET	/api/s/{site}/rest/alarm	oldest first
+GET,POST,PUT,DELETE	/api/s/{site}/rest/broadcastgroup	 (needs adopted device)
+GET	/api/s/{site}/rest/channelplan	
+GET,PUT	/api/s/{site}/rest/device	device config, used for port_overrides (needs adopted device)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/dhcpoption	DHCP option management (from py-unifi OpenAPI spec)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/dnsrecord	 (needs adopted device)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/dpiapp	DPI application definitions (py-unifi + aiounifi)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/dpigroup	DPI restriction groups (py-unifi + aiounifi)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/dynamicdns	
+GET	/api/s/{site}/rest/element	 (needs adopted device)
+GET	/api/s/{site}/rest/event	oldest first
+GET,POST,PUT,DELETE	/api/s/{site}/rest/firewallgroup	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/firewallrule	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/heatmap	site heatmap data (from py-unifi OpenAPI spec)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/heatmappoint	heatmap data points (from py-unifi OpenAPI spec)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/hotspot2conf	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/hotspotop	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/hotspotpackage	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/map	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/mediafile	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/networkconf	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/portconf	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/portforward	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/radiusaccount	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/radiusprofile	
+GET	/api/s/{site}/rest/rogueknown	known/neighboring rogue APs
+GET,POST,PUT,DELETE	/api/s/{site}/rest/routing	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/scheduletask	
+GET,PUT	/api/s/{site}/rest/setting	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/spatialrecord	spatial/positioning records (from py-unifi OpenAPI spec)
+GET,POST,PUT,DELETE	/api/s/{site}/rest/tag	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/user	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/usergroup	
+GET	/api/s/{site}/rest/virtualdevice	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/wlanconf	
+GET,POST,PUT,DELETE	/api/s/{site}/rest/wlangroup	
+PUT	/api/s/{site}/set/setting/auto_speedtest	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/baresip	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/broadcast	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/connectivity	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/country	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/doh	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/dpi	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/element_adopt	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/ether_lighting	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/global_ap	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/global_switch	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/guest_access	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/ips	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/lcm	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/locale	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/magic_site_to_site_vpn	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/mgmt	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/network_optimization	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/ntp	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/porta	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/radio_ai	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/radius	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/rsyslogd	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/snmp	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_cloudaccess	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_events	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_fwupdate	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_identity	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_mail	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_mgmt	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_sdn	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/super_smtp	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/teleport	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/usg	PUT-only. Read via get/setting/{name}
+PUT	/api/s/{site}/set/setting/usw	PUT-only. Read via get/setting/{name}
+GET	/api/s/{site}/stat/alarm	
+GET	/api/s/{site}/stat/alluser	
+GET	/api/s/{site}/stat/anomalies	site anomalies (unpoller). Supports ?scale=hourly&end=<timestamp>
+POST	/api/s/{site}/stat/authorization	
+GET	/api/s/{site}/stat/ccode	
+GET	/api/s/{site}/stat/current-channel	
+GET	/api/s/{site}/stat/dashboard	
+GET	/api/s/{site}/stat/device	also POST with macs filter
+GET	/api/s/{site}/stat/device-basic	
+GET	/api/s/{site}/stat/dpi	
+GET	/api/s/{site}/stat/dynamicdns	
+GET	/api/s/{site}/stat/event	
+GET	/api/s/{site}/stat/gateway	needs adopted USG/UDM gateway
+GET	/api/s/{site}/stat/guest	
+GET	/api/s/{site}/stat/health	
+POST	/api/s/{site}/stat/ips/event	IDS/IPS events — singular form (unpoller APIEventPathIDS)
+GET	/api/s/{site}/stat/payment	
+GET	/api/s/{site}/stat/portforward	
+GET	/api/s/{site}/stat/remoteuservpn	remote user VPN stats
+POST	/api/s/{site}/stat/report/5minutes.ap	
+POST	/api/s/{site}/stat/report/5minutes.gw	5-minute gateway stats
+POST	/api/s/{site}/stat/report/archive.speedtest	archived speedtest results with start/end timestamps (Art-of-WiFi)
+POST	/api/s/{site}/stat/report/daily.gw	
+POST	/api/s/{site}/stat/report/hourly.gw	
+POST	/api/s/{site}/stat/report/{interval}.{type}	intervals: 5minutes, hourly, daily, monthly; types: site, ap, user, gw
+POST	/api/s/{site}/stat/report/monthly.ap	
+POST	/api/s/{site}/stat/report/monthly.gw	
+POST	/api/s/{site}/stat/report/monthly.site	
+POST	/api/s/{site}/stat/report/monthly.user	
+GET	/api/s/{site}/stat/rogueap	
+GET	/api/s/{site}/stat/routing	
+GET	/api/s/{site}/stat/sdn	
+POST	/api/s/{site}/stat/session	requires POST with {"type":"all","start":0,"end":9999999999}
+GET	/api/s/{site}/stat/sitedpi	
+GET	/api/s/{site}/stat/spectrum-scan	
+GET	/api/s/{site}/stat/sta	
+GET	/api/s/{site}/stat/stadpi	
+GET	/api/s/{site}/stat/sysinfo	
+GET	/api/s/{site}/stat/voucher	
+PUT	/api/s/{site}/upd/device	PUT with device _id (needs adopted device)
+PUT	/api/s/{site}/upd/user	PUT /api/s/{site}/upd/user/{user_id} to update client fields
+GET	/api/s/{site}//wss/s/{site}/events	WebSocket upgrade at /wss/s/{site}/events
+GET	/api/stat/admin	
+GET	/api/stat/sites	
+POST	/api/system/poweroff	DANGEROUS — powers off controller. Never call.
+POST	/api/system/reboot	DANGEROUS — reboots controller. Never call.
+GET	/status	no auth
+GET	/v2/api/site/{site}/apgroups	
+GET	/v2/api/site/{site}/clients/active	
+GET	/v2/api/site/{site}/clients/history	
+GET,POST,PUT,DELETE	/v2/api/site/{site}/firewall-policies	
+GET,PUT	/v2/api/site/{site}/firewall/zone	
+GET,PUT	/v2/api/site/{site}/trafficroutes	
+GET,POST,PUT,DELETE	/v2/api/site/{site}/trafficrules	

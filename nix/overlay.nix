@@ -150,27 +150,6 @@
     }
   )
 
-  # unifi-mcp overlay: auto-generated MCP server for UniFi Network Controller
-  (
-    final: _prev: {
-      unifi-mcp = inputs.unifi-mcp.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
-  # pfsense-mcp overlay: auto-generated MCP server for pfSense REST API v2
-  (
-    final: _prev: {
-      pfsense-mcp = inputs.pfsense-mcp.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
-  # slskd-mcp overlay: MCP server for slskd (Soulseek client)
-  (
-    final: _prev: {
-      slskd-mcp = inputs.slskd-mcp.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
   # slskd overlay: truncate local path segments to the filesystem's name limit.
   #
   # slskd sanitizes remote path segments for invalid characters but never for length

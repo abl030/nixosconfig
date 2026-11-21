@@ -233,8 +233,6 @@ in {
     claude-clean-bash
     # MCP servers + runtime deps formerly installed by homelab.claudeCode.
     # Kept available even though most are subagent-only (see .claude/agents/).
-    pkgs.unifi-mcp
-    pkgs.pfsense-mcp
     pkgs.vinsight-mcp # installed fleet-wide; projects opt in to the MCP server
     pkgs.playwright-mcp
     pkgs.nodejs

@@ -300,7 +300,6 @@ in {
       pfsense.enable = lib.mkDefault false;
       unifi.enable = lib.mkDefault false;
       homeassistant.enable = lib.mkDefault false;
-      slskd.enable = lib.mkDefault false;
       vinsight.enable = lib.mkDefault false;
       audiobookshelf.enable = lib.mkDefault false;
       paperless.enable = lib.mkDefault false;
