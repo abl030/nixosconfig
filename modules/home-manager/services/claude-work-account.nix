@@ -19,7 +19,7 @@
 #
 # Until the work account has credentials the wrapper falls back to personal
 # (with a note on stderr), so deploying this never breaks unattended
-# `claude -p` runs such as brain-sweep.
+# `claude -p` runs such as brain's Ask Claude (brain.act).
 # See docs/wiki/claude-code/two-accounts.md.
 {
   config,
