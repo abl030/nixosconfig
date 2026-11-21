@@ -49,6 +49,10 @@ in {
           "time"
           "uname"
         ];
+        # node_systemd_service_restart_total, for the restart-loop alert
+        # (alerting.nix unitHealthAlert, #233). Restart=on-failure units
+        # never reach `failed`, so unit state alone cannot see them.
+        extraFlags = ["--collector.systemd.enable-restarts-metrics"];
       };
 
       networking.firewall = {

@@ -1105,8 +1105,50 @@
       ${pkgs.gnugrep}/bin/grep -q 'rolling-flake-update.sh' ${lib.escapeShellArg wrapper}
       touch "$out"
     '';
+  # lego CLI flags (#233). The 2026-09 nixpkgs bump moved lego 4 -> 5, which
+  # renamed --dns.propagation-wait; our extraLegoFlags kept the old spelling
+  # and every renewal on every host failed at flag parsing for six days.
+  # Every flag any host passes through extraLego*Flags must exist in that
+  # host's own pinned lego, so a rename fails the rolling-update PR's flake
+  # check instead of production renewals.
+  legoFlagSets = lib.filter (entry: entry.flags != []) (lib.mapAttrsToList (host: nixos: let
+    certs = lib.attrValues nixos.config.security.acme.certs;
+    raw = lib.concatMap (c: c.extraLegoFlags ++ c.extraLegoRunFlags ++ c.extraLegoRenewFlags) certs;
+    names = map (f: lib.head (lib.splitString "=" f)) (lib.filter (lib.hasPrefix "-") raw);
+  in {
+    inherit host;
+    lego = nixos.pkgs.lego;
+    flags = lib.unique names;
+  }) (lib.filterAttrs (_: nixos: nixos.config.security.acme.certs != {}) self.nixosConfigurations));
+
+  legoFlagsCheck = pkgs.runCommand "lego-extra-flags-exist" {} ''
+    status=0
+    ${lib.concatMapStrings (entry: ''
+        ${entry.lego}/bin/lego run --help 2>&1 \
+          | ${pkgs.gnugrep}/bin/grep -oE -- '(^|[[:space:],])-{1,2}[A-Za-z0-9][A-Za-z0-9.-]*' \
+          | ${pkgs.gnused}/bin/sed -E 's/^[[:space:],]+//' | sort -u > known
+        if [ "$(wc -l < known)" -lt 20 ]; then
+          echo "${entry.host}: could not read the flag list from ${entry.lego}/bin/lego run --help"
+          status=1
+        fi
+        for flag in ${lib.escapeShellArgs entry.flags}; do
+          if ! ${pkgs.gnugrep}/bin/grep -qxF -- "$flag" known; then
+            echo "${entry.host}: extraLego*Flags passes $flag, which ${entry.lego.name} does not accept"
+            status=1
+          fi
+        done
+      '')
+      legoFlagSets}
+    if [ "$status" -ne 0 ]; then
+      echo "Fix the flag spelling in security.acme.defaults/certs extraLego*Flags (see #233)."
+      exit 1
+    fi
+    echo "lego flags OK on: ${lib.concatMapStringsSep " " (e: e.host) legoFlagSets}"
+    touch "$out"
+  '';
 in {
   inherit
+    legoFlagsCheck
     pushDeployEnrollmentCheck
     onLanMatcherCheck
     bastionInvariantCheck

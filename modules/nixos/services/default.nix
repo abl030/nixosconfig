@@ -11,6 +11,7 @@
     ./display/sunshine.nix
     ./rdp-inhibitor.nix
     ./nginx.nix
+    ./acme-monitor.nix
     ./local_proxy.nix
     ./legacy-edge-caddy.nix
     ./dadnas-proxy.nix

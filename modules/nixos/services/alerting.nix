@@ -691,6 +691,213 @@
     })
   ];
 
+  # ACME certificate alerts (#233). The 2026-09 lego 5 flag rename broke
+  # every renewal fleet-wide for six days without a page, because NixOS's
+  # renew script logs "Ignoring failed renewal because expiration isn't due
+  # yet" and exits 0 until a third of the cert lifetime is left. Two
+  # independent layers; see docs/wiki/services/acme-certificates.md.
+  #
+  # 1. Renewal failing: per (host, unit), at least two lego ERROR lines in
+  #    50h and no successful run ("Skip renewal" = checked and not due,
+  #    "Server responded with a certificate" = renewed) in the last 26h.
+  #    Renewals run daily, so this fires on the second consecutive failed
+  #    day (or within ~30m for a first order, which retries every 15m).
+  #    A single fleet-wide blip — LE's directory unreachable on 2026-11-16 —
+  #    gives one line per unit and does not page. Matches both lego 5.5
+  #    (`level=ERROR msg=Error`) and current (`ERROR Error error=`) formats.
+  #    Scoped by unit, so Loki's own query echo cannot self-trigger it.
+  # 2. Expiry: acme-monitor.nix logs EXPIRING/MISSING hourly on every ACME
+  #    host for certs under 21 days, from the cert actually served on :443.
+  #    That is independent of how renewal works or fails.
+  acmeFailSelector = ''{unit=~"acme-order-renew-.+"}'';
+  acmeFailPattern = "ERROR +Error error=|level=ERROR msg=Error";
+  acmeOkPattern = "Skip renewal|Server responded with a certificate";
+  acmeExpirySelector = ''{unit="acme-expiry-check.service"}'';
+  acmeExpiryPattern = "acme-expiry-check: (EXPIRING|MISSING)";
+  acmeAlerts = lib.optionals cfg.acmeAlert.enable [
+    (mkLokiAlert {
+      uid = "homelab-acme-renewal-failing";
+      title = "ACME renewal failing";
+      severity = "warning";
+      summary = "A certificate renewal has failed on two runs with no success since — NixOS hides this until ~30 days before expiry.";
+      description = ''
+        An acme-order-renew-* unit logged lego errors on at least two runs in
+        the last 50h and has not completed a run since. Existing certs keep
+        serving until they expire, so this is the early warning (#233).
+
+        Journal: `journalctl -u acme-order-renew-<cert>.service -e` on the host.
+        Retry: `systemctl start acme-order-renew-<cert>.service`.
+
+        Query in Grafana Explore (Loki):
+          ${acmeFailSelector} |~ "${acmeFailPattern}"
+      '';
+      logql = ''max(sum by (host, unit) (count_over_time(${acmeFailSelector} |~ "${acmeFailPattern}" [50h])) unless sum by (host, unit) (count_over_time(${acmeFailSelector} |~ "${acmeOkPattern}" [26h])))'';
+      lokiLines = ''${acmeFailSelector} |~ "${acmeFailPattern}"'';
+      threshold = 1;
+    })
+    (mkLokiAlert {
+      uid = "homelab-acme-cert-expiring";
+      title = "TLS certificate expiring";
+      severity = "critical";
+      summary = "A served ACME certificate has under ${toString cfg.acmeAlert.warnDays} days left (or is missing) — renewal is not working.";
+      description = ''
+        acme-expiry-check on a fleet host found a certificate with fewer than
+        ${toString cfg.acmeAlert.warnDays} days left, or none at all. Healthy
+        Let's Encrypt certs renew with ~30 days left, so renewal for this cert
+        has been failing for over a week. The matched lines name the cert,
+        days left and whether that was the served cert or the file.
+
+        Query in Grafana Explore (Loki):
+          ${acmeExpirySelector} |~ "${acmeExpiryPattern}"
+      '';
+      logql = ''sum(count_over_time(${acmeExpirySelector} |~ "${acmeExpiryPattern}" [2h]))'';
+      lokiLines = ''${acmeExpirySelector} |~ "${acmeExpiryPattern}"'';
+    })
+  ];
+
+  # Mimir-backed instant rule with the same A/B/C DAG as the disk rule. The
+  # expression should return only the offending series (filter with a
+  # comparison), so Grafana tracks a handful of instances rather than one
+  # per unit on every host.
+  mkMimirAlert = {
+    uid,
+    title,
+    expr,
+    forDuration,
+    annotations,
+    labels,
+  }: {
+    inherit uid title annotations labels;
+    condition = "C";
+    "for" = forDuration;
+    noDataState = "OK";
+    execErrState = "OK";
+    data = [
+      {
+        refId = "A";
+        queryType = "";
+        relativeTimeRange = {
+          from = 600;
+          to = 0;
+        };
+        datasourceUid = "Prometheus";
+        model = {
+          refId = "A";
+          datasource = {
+            type = "prometheus";
+            uid = "Prometheus";
+          };
+          inherit expr;
+          instant = true;
+          intervalMs = 60000;
+          maxDataPoints = 43200;
+        };
+      }
+      {
+        refId = "B";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "B";
+          type = "reduce";
+          expression = "A";
+          reducer = "last";
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
+      }
+      {
+        refId = "C";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "C";
+          type = "threshold";
+          expression = "B";
+          conditions = [
+            {
+              evaluator = {
+                params = [0];
+                type = "gt";
+              };
+              operator.type = "and";
+              query.params = ["C"];
+              reducer = {
+                params = [];
+                type = "last";
+              };
+              type = "query";
+            }
+          ];
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
+      }
+    ];
+  };
+
+  # Unit health (#233). Two shapes systemd failures hide in:
+  #   - `failed` and staying failed: a oneshot timer job stays failed until
+  #     its next run, so "failed for 3h" means it is still broken, not a
+  #     blip. (Measured 2026-11-21: 15m/1h holds caught dozens of
+  #     self-healing timer runs a week; 3h keeps the ones that matter.)
+  #   - restart-looping: Restart=on-failure keeps the unit `activating` and
+  #     never `failed` — how the stuck ACME renewals hid in 2026-09. Needs
+  #     node_exporter's --collector.systemd.enable-restarts-metrics
+  #     (prometheus.nix).
+  unitSelector = ''host!~"${cfg.unitHealthAlert.excludeHostsRegex}", name!~"${cfg.unitHealthAlert.excludeUnitsRegex}"'';
+  unitHealthAlerts = lib.optionals cfg.unitHealthAlert.enable [
+    (mkMimirAlert {
+      uid = "homelab-unit-failed";
+      title = "systemd unit failed";
+      expr = ''max by (host, name) (node_systemd_unit_state{state="failed", ${unitSelector}}) == 1'';
+      forDuration = cfg.unitHealthAlert.failedFor;
+      annotations = {
+        summary = "{{ $labels.host }}: {{ $labels.name }} has been failed for ${cfg.unitHealthAlert.failedFor}";
+        description = ''
+          {{ $labels.name }} on {{ $labels.host }} is in the failed state and
+          has been for at least ${cfg.unitHealthAlert.failedFor}. Look at
+          `journalctl -u {{ $labels.name }} -e` on the host; a timer job stays
+          failed until its next run succeeds or `systemctl reset-failed`.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        category = "systemd";
+      };
+    })
+    (mkMimirAlert {
+      uid = "homelab-unit-restart-loop";
+      title = "systemd unit restart-looping";
+      expr = ''sum by (host, name) (increase(node_systemd_service_restart_total{${unitSelector}}[1h])) > ${toString cfg.unitHealthAlert.restartsPerHour}'';
+      forDuration = "10m";
+      annotations = {
+        summary = "{{ $labels.host }}: {{ $labels.name }} restarted {{ $value | printf \"%.0f\" }} times in the last hour";
+        description = ''
+          {{ $labels.name }} on {{ $labels.host }} keeps restarting
+          (Restart=on-failure). Units in this state never show as failed, so
+          nothing else notices. Look at `journalctl -u {{ $labels.name }} -e`.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        category = "systemd";
+      };
+    })
+  ];
+
   # Per-host log-ingestion silence alert. Fires when a fleet host that
   # should always be shipping logs to Loki has sent zero lines in the
   # past `window`. Closes the silent-log-loss gap that hid prom's
@@ -1302,6 +1509,24 @@
           rules = mimirWriteStallAlerts;
         }
       ]
+      ++ lib.optionals (acmeAlerts != []) [
+        {
+          orgId = 1;
+          name = "acme-certificates";
+          folder = "Homelab";
+          interval = "1m";
+          rules = acmeAlerts;
+        }
+      ]
+      ++ lib.optionals (unitHealthAlerts != []) [
+        {
+          orgId = 1;
+          name = "systemd-units";
+          folder = "Homelab";
+          interval = "1m";
+          rules = unitHealthAlerts;
+        }
+      ]
       ++ lib.optionals (ingestionSilenceAlerts != []) [
         {
           orgId = 1;
@@ -1420,6 +1645,43 @@ in {
 
     namespaceFailAlert = {
       enable = lib.mkEnableOption "Fleet-wide alert when any unit fails its systemd sandbox/namespace setup (replaces the per-service NAMESPACE errorPatterns; one stale mount → one page)" // {default = true;};
+    };
+
+    acmeAlert = {
+      enable = lib.mkEnableOption "Fleet-wide alerts on failing ACME renewals and expiring certificates (#233)" // {default = true;};
+      warnDays = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 21;
+        description = "Days-left threshold shown in the expiry alert text; keep in step with homelab.acmeMonitor.warnDays (the per-host check that applies it).";
+      };
+    };
+
+    unitHealthAlert = {
+      enable = lib.mkEnableOption "Fleet-wide alerts on failed and restart-looping systemd units (#233)" // {default = true;};
+      failedFor = lib.mkOption {
+        type = lib.types.str;
+        default = "3h";
+        description = "How long a unit must stay failed before it pages.";
+      };
+      restartsPerHour = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 2;
+        description = "Page when a unit restarts more than this many times in an hour.";
+      };
+      excludeHostsRegex = lib.mkOption {
+        type = lib.types.str;
+        # Roaming workstations: suspend/resume and off-LAN mounts fail units
+        # routinely and nobody is waiting on them.
+        default = "framework|epimetheus";
+        description = "Hosts (regex on the `host` label) left out of the unit health rules.";
+      };
+      excludeUnitsRegex = lib.mkOption {
+        type = lib.types.str;
+        # openipmi.service: failed permanently on prom (not flake-managed,
+        # Debian/Proxmox defaults) since before this rule existed.
+        default = "openipmi\\.service";
+        description = "Units (regex on the `name` label) left out of the unit health rules.";
+      };
     };
 
     ingestionSilenceAlert = {
