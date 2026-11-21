@@ -88,16 +88,16 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
 
 - **All indexers are Prowlarr-managed** (the old manual Newznab in radarr/sonarr was removed).
 - Working torrents: BT.etree, LimeTorrents, The Pirate Bay, Torrent9, TorrentProject2, YTS,
-  **Nyaa.si, Internet Archive, Knaben**. 1337x + EZTV sit behind Cloudflare and need a solver
-  (Byparr, now retired — see below); expect them to fail. Disabled:
+  **Nyaa.si, Internet Archive, Knaben** (verified live 2026-11-21). 1337x + EZTV are not
+  configured: they sit behind Cloudflare and need a solver (Byparr, now retired). Disabled:
   **TorrentDownload** (dead site). Deleted (dead defs): Torlock, TorrentFunk, YourBittorrent.
 - **Usenet** = the single `NZBHydra2 (Prowlarr)` Newznab indexer (→ NZBGeek etc.).
 - **Usenet is the preferred protocol:** delay profile id=1 `preferredProtocol=usenet`,
   `usenetDelay=0`, `torrentDelay=30` (torrents held 30 min so usenet wins). Tune via
   `PUT /api/v3/delayprofile/1` on each app.
 - **Byparr (Cloudflare solver) is retired** (2026-11-21): the `homelab.services.byparr` module and
-  container are gone. Any Prowlarr "Byparr" indexer-proxy and its `byparr` tag point at nothing;
-  remove them, or bring a solver back as a new module if 1337x/EZTV are wanted again.
+  container are gone, and Prowlarr has no indexer-proxy and no `byparr` tag (checked 2026-11-21).
+  Bring a solver back as a new module only if 1337x/EZTV are wanted again.
 
 ## Radarr quality policy (snapshot 2026-10-18 — verify live)
 
@@ -130,7 +130,7 @@ path are a solid set on their own.
 
 **Coverage note:** 1337x + EZTV were disabled for **Cloudflare (access), not quality**. They need a
 FlareSolverr-type indexer-proxy tagged onto them (a proxy only applies to indexers sharing its tag);
-Byparr filled that role until it was retired on 2026-11-21.
+Byparr filled that role until it was retired on 2026-11-21; both indexers are now gone from Prowlarr.
 
 ## Safety rules
 
