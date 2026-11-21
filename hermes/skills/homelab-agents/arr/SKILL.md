@@ -107,19 +107,16 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
 
 - **All indexers are Prowlarr-managed** (the old manual Newznab in radarr/sonarr was removed).
 - Working torrents: BT.etree, LimeTorrents, The Pirate Bay, Torrent9, TorrentProject2, YTS,
-  **Nyaa.si, Internet Archive, Knaben**, and **1337x + EZTV** (recovered via Byparr). Disabled:
+  **Nyaa.si, Internet Archive, Knaben**. 1337x + EZTV sit behind Cloudflare and need a solver
+  (Byparr, now retired — see below); expect them to fail. Disabled:
   **TorrentDownload** (dead site). Deleted (dead defs): Torlock, TorrentFunk, YourBittorrent.
 - **Usenet** = the single `NZBHydra2 (Prowlarr)` Newznab indexer (→ NZBGeek etc.).
 - **Usenet is the preferred protocol:** delay profile id=1 `preferredProtocol=usenet`,
   `usenetDelay=0`, `torrentDelay=30` (torrents held 30 min so usenet wins). Tune via
   `PUT /api/v3/delayprofile/1` on each app.
-- **Byparr (Cloudflare solver)** runs on **doc2** at `byparr.ablz.au` (`homelab.services.byparr`;
-  the maintained FlareSolverr replacement — FlareSolverr is dead in 2026). Prowlarr wires it as a
-  **FlareSolverr-type indexer-proxy** ("Byparr") carrying the **`byparr` tag**, applied to 1337x +
-  EZTV. The container needs `seccomp=unconfined` for the headless browser (the one hardening
-  carve-out; otherwise userns-remapped + cap-drop=all + isolated bridge + loopback-bound). It does
-  **one browser solve at a time** — do NOT hammer `testall`, it transiently flaps "indexer
-  unavailable due to failures" (self-heals).
+- **Byparr (Cloudflare solver) is retired** (2026-11-21): the `homelab.services.byparr` module and
+  container are gone. Any Prowlarr "Byparr" indexer-proxy and its `byparr` tag point at nothing;
+  remove them, or bring a solver back as a new module if 1337x/EZTV are wanted again.
 
 ## Indexers Prowlarr REMOVED — and why NOT to re-add them
 
@@ -135,10 +132,9 @@ You *can* re-add via a custom Cardigann YAML in `/var/lib/private/prowlarr/Defin
 agent), but the standing recommendation is **don't**. The current 9 torrent indexers + the usenet
 path are a solid set on their own.
 
-**The better coverage win:** 1337x + EZTV were disabled for **Cloudflare (access), not quality** —
-they're genuinely good general indexers. Recover them with **Byparr** (the FlareSolverr successor):
-add it as a FlareSolverr-type indexer-proxy in Prowlarr, **tag it onto 1337x/EZTV**, and re-enable
-them. (A proxy only applies to indexers that share its tag — the #1 "shows disabled" gotcha.)
+**Coverage note:** 1337x + EZTV were disabled for **Cloudflare (access), not quality**. They need a
+FlareSolverr-type indexer-proxy tagged onto them (a proxy only applies to indexers sharing its tag);
+Byparr filled that role until it was retired on 2026-11-21.
 
 ## Safety rules
 
@@ -148,7 +144,7 @@ them. (A proxy only applies to indexers that share its tag — the #1 "shows dis
   quality profiles, triggering mass searches or RSS syncs. Describe the blast radius and wait.
 - **NEVER mutate the nixosconfig repo.** No `git`, no `Edit`/`Write` to repo files (you only have
   Bash/Read/Grep/Glob — keep it that way). If a change needs a repo edit (custom indexer defs, a
-  Byparr container, a NixOS option), report exactly what's needed and hand it back to the main session.
+  Cloudflare solver container, a NixOS option), report exactly what's needed and hand it back to the main session.
 - **`timeout`-wrap** any curl that might hang (a Cloudflare/dead indexer test stalls ~30–60s).
 - Don't restart services on the locked host — you can't (`sudo` is gated); request a `fleet-deploy`
   or the qemu-guest-agent path (see the `tower` agent) if a restart is truly needed.

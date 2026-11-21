@@ -48,7 +48,6 @@
     ./family-map.nix
     ./family-archive.nix
     ./riverslea-map.nix
-    ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix
     ./mrnews.nix
@@ -62,7 +61,6 @@
     ./yoto-share.nix
     ./smokeping.nix
     ./uptime-kuma.nix
-    ./jdownloader2.nix
     ./tdarr-node.nix
     ./jellyfin.nix
     ./servarr.nix

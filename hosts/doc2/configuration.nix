@@ -331,7 +331,6 @@
         rcaWebhookUrl = "http://192.168.1.29:8644/webhooks/alert-rca";
         rcaWebhookSecret = "alert-bridge-rca";
       };
-      byparr.enable = false;
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";
@@ -421,10 +420,6 @@
       uptime-kuma = {
         enable = true;
         dataDir = "/mnt/virtio/uptime-kuma";
-      };
-      jdownloader2 = {
-        enable = true;
-        dataDir = "/mnt/virtio/jdownloader2";
       };
       netboot = {
         enable = true;
