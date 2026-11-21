@@ -1,7 +1,7 @@
 ---
 name: triage-overnight
 description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki, audit recent Gotify pings on doc2, AND review any auto-generated RCA fix PRs on Forgejo, then summarise with a merge recommendation per PR. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Triage Overnight Failures
@@ -284,8 +284,14 @@ in the triage chat walk-through. Operator decision, 2026-10-15.
    and the session reads it.
 
    ```bash
-   (cd /home/abl030/cratedigger && claude --bg "Solve GitHub issue abl030/cratedigger#<N> and merge the fix.")
+   (cd /home/abl030/cratedigger && claude --bg --permission-mode bypassPermissions \
+     "Solve GitHub issue abl030/cratedigger#<N> and merge the fix.")
    ```
+
+   Always pass `--permission-mode bypassPermissions`: without it the session
+   starts in auto mode, stalls on approvals nobody is watching, and holds
+   cross-session messages from a bypass-mode triage session for manual
+   approval. Operator decision, 2026-11-22.
 
    `claude --bg` prints the session id; it shows up in `claude agents`, and
    `claude logs <id>` / `claude attach <id>` / `claude stop <id>` drive it.
