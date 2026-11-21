@@ -19,8 +19,16 @@
 
   bridgeUrl = config.homelab.services.alertBridge.rcaWebhookUrl or null;
   rollingUrl = config.homelab.ci.rollingFlakeUpdate.rcaWebhookUrl or null;
-  bridgeSecret = config.homelab.services.alertBridge.rcaWebhookSecret or null;
-  rollingSecret = config.homelab.ci.rollingFlakeUpdate.rcaWebhookSecret or null;
+  # rollingFlakeUpdate.rcaWebhookSecret is a plain str defaulting to "", so a
+  # bare `or null` picked the empty string on every host without the bridge or
+  # the rolling update, and Hermes rejected each delivery as an invalid
+  # signature. Treat empty as unset so the shared default below applies.
+  nonEmpty = s:
+    if s == null || s == ""
+    then null
+    else s;
+  bridgeSecret = nonEmpty (config.homelab.services.alertBridge.rcaWebhookSecret or null);
+  rollingSecret = nonEmpty (config.homelab.ci.rollingFlakeUpdate.rcaWebhookSecret or null);
   rcaWebhookUrl =
     if bridgeUrl != null
     then bridgeUrl
