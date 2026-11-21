@@ -1,7 +1,7 @@
 ---
 name: triage-overnight
 description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki, audit recent Gotify pings on doc2, AND review any auto-generated RCA fix PRs on Forgejo, then summarise with a merge recommendation per PR. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Triage Overnight Failures
@@ -249,7 +249,7 @@ Verify **five** things before recommending merge:
 5. **Is the service still down?** Re-probe live (HTTP / Kuma). A still-down service
    makes its PR urgent (deploy now); a self-recovered flap makes its PR routine.
 
-## Step 1d: Auto-open cratedigger issues for Cratedigger failures
+## Step 1d: Auto-open cratedigger issues, then launch a background fix
 
 **Cratedigger only, and don't ask first.** Before writing the summary, open a
 GitHub issue on `abl030/cratedigger` for every confirmed failure whose fix
@@ -275,7 +275,26 @@ in the triage chat walk-through. Operator decision, 2026-10-15.
    the verified cause with file:line evidence; production impact; a proposed
    fix; how to verify it; and the Gotify ping ids.
 
-Issues only. Code changes still go through cratedigger's own PR flow.
+4. **Launch a background fix session** for each issue you just **filed** (not
+   for a comment on an existing issue: that one already has, or had, its own
+   session or PR). Start it inside the cratedigger checkout so it loads that
+   repo's own `CLAUDE.md`, settings and PR flow:
+
+   ```bash
+   (cd /home/abl030/cratedigger && claude --bg "Fix GitHub issue abl030/cratedigger#<N> \
+     (gh issue view <N> -R abl030/cratedigger). Follow this repo's CLAUDE.md and \
+     its normal PR flow. <one-paragraph summary of the verified cause and the \
+     constraints, e.g. no type: ignore / cast / explicit Any>. Run the full check \
+     gate and open a PR that closes #<N>. Don't merge it.")
+   ```
+
+   `claude --bg` prints the session id; it shows up in `claude agents`, and
+   `claude logs <id>` / `claude attach <id>` / `claude stop <id>` drive it.
+   Don't wait for it: the session opens a PR, and merging stays with the user.
+   Operator decision, 2026-11-22 (first run: cratedigger#1458).
+
+The session writes the code; you only file the issue and launch it. Code
+still lands through cratedigger's own PR flow.
 
 Example: cratedigger#1418, the Beets tip canary red since 2026-10-10 because
 tip needs `python3-discogs-client>=2.10` and the tip set had 2.9.
@@ -302,8 +321,9 @@ For each auto-generated RCA PR (Step 1c):
 - **Urgency** — is the service still down (deploy now) or did it self-recover (routine, land it to stop the recurrence).
 
 For every cratedigger issue Step 1d opened or commented on, add a line to the end of the
-summary, before the walk-through question. For example: *"I opened
-cratedigger#1418 for the Beets tip canary failure."* Include the link.
+summary, before the walk-through question, with the background session id when you
+launched one. For example: *"I opened cratedigger#1418 for the Beets tip canary
+failure and launched background session `ba8a02fa` to fix it."* Include the link.
 
 If nothing fired in the 12h window and Gotify is just HA/Kuma noise: report "no overnight failures, both jobs green, Gotify clean" and stop.
 
