@@ -7,7 +7,7 @@
   # helper as any plain git on doc1; no new credential.
   fleetNotesSync = pkgs.writeShellApplication {
     name = "fleet-notes-sync";
-    runtimeInputs = [pkgs.git pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.python3 pkgs.bash];
+    runtimeInputs = [pkgs.git pkgs.openssh pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.python3 pkgs.bash];
     text = ''
       cd "$HOME/fleet-notes"
       gitdir="$(git rev-parse --absolute-git-dir)"
@@ -32,6 +32,22 @@
       if [ -n "$(git rev-list origin/master..HEAD)" ]; then
         git push -q origin HEAD:master
       fi
+
+      # Read replicas, for hosts that hold no credential to fetch a private
+      # repository themselves. Any remote named replica-* in this clone gets a
+      # fast-forward push over SSH. One-way on purpose: a lower-trust host never
+      # feeds notes back automatically. An offline, dirty or diverged replica is
+      # reported and skipped. The remotes are local git config, not Nix.
+      export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=8"
+      for remote in $(git remote); do
+        case "$remote" in
+          replica-*)
+            if ! timeout 90 git push -q "$remote" HEAD:master; then
+              echo "replica $remote not updated (offline, dirty or diverged)" >&2
+            fi
+            ;;
+        esac
+      done
     '';
   };
 in {
