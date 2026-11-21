@@ -22,6 +22,10 @@ This skill is the Hermes-side routing layer for the Claude-style subagents track
 - Audiobookshelf import/metadata/scan/library tasks → load/use `audiobookshelf`; normal terminal/file tools and ABS REST env on doc1/doc2.
 - Mail archive search/reading → load/use `mailsearch` ONLY in human-present doc1 interactive sessions. Never expose to gateway/cron/webhooks/unattended agents.
 
+For pfSense and UniFi, a one-off lookup needs no skill: run `scripts/pfsense-api` or
+`scripts/unifi-api` directly. Load the skill (or delegate) for changes and for
+investigations that read large collections.
+
 ## Hermes usage patterns
 
 Direct session:

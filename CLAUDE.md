@@ -205,12 +205,13 @@ rationale. Codex native memory excludes tasks that used external MCP/web context
 ### Specialist Agents and MCP
 
 The generated Codex agents mirror the Claude agent bodies and scoped MCP servers.
-Use the matching specialist for pfSense, UniFi, Home Assistant, mail search,
-Audiobookshelf, browser testing, tower, and the arr stack. Control credentials for
-pfSense, UniFi, Home Assistant, and mail search exist only on doc1 under
-`/run/secrets/mcp/`; do not widen them fleet-wide. Live state overrides snapshots
-in agent documentation, and an agent that changes infrastructure must update its
-source definition when the snapshot changes.
+Specialists cover pfSense, UniFi, Home Assistant, mail search, Audiobookshelf,
+browser testing, tower, and the arr stack. Route by job: a one-off lookup runs in
+the main thread via the API script (`scripts/pfsense-api`, `scripts/unifi-api`);
+changes and large reads go to the specialist, which proposes destructive changes
+for confirmation, then resumes to execute (`docs/wiki/agent-operations.md`).
+Control credentials stay doc1-only (`/run/secrets/mcp/`). Live state overrides
+agent snapshots; an agent that changes infrastructure updates its definition.
 
 `mcp-nixos` provides current package and option data. Use it rather than guessing
 renamed options or package availability.

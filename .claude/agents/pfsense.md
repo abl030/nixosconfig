@@ -1,6 +1,6 @@
 ---
 name: pfsense
-description: Manage pfSense firewall - rules, NAT, VPN, DHCP, DNS, and system configuration - over its REST API v2 with scripts/pfsense-api
+description: Make pfSense changes (firewall rules, NAT, aliases, VPN, DHCP, DNS, routing, system config) or investigations that read large collections, over the REST API v2 with scripts/pfsense-api. For a one-off lookup (an IP, gateway status, one rule) call scripts/pfsense-api from the main thread instead of spawning this agent.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---

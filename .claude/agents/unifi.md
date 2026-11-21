@@ -1,6 +1,6 @@
 ---
 name: unifi
-description: Manage UniFi network - devices, clients, networks, WLANs, and port profiles - over the controller API with scripts/unifi-api
+description: Make UniFi changes (devices, clients, networks/VLANs, WLANs, port profiles) or investigations that read large collections, over the controller API with scripts/unifi-api. For a one-off lookup (a client's AP, device state) call scripts/unifi-api from the main thread instead of spawning this agent.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
