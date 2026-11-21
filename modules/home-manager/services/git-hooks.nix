@@ -40,7 +40,11 @@
   repoGuard = ''
     root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
     # Only act on the fleet config repo, identified by its own audit check.
-    if [ ! -f "$root/flake.nix" ] || ! grep -q hostBindAuditCheck "$root/flake.nix"; then
+    # That check lived in flake.nix until the 2026-09-06 refactor moved it to
+    # nix/checks/; this guard then matched nothing and both hooks were silent
+    # no-ops until 2026-11-21. Look in both places. gitHooksRepoGuardCheck
+    # (nix/checks/repository.nix) fails if the marker stops being findable.
+    if [ ! -f "$root/flake.nix" ] || ! grep -rqs hostBindAuditCheck "$root/flake.nix" "$root/nix/checks"; then
       exit 0
     fi
     cd "$root" || exit 1

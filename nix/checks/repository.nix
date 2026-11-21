@@ -153,10 +153,27 @@
       "$hermes_python" ${ntfyRuntimeCheck}
       touch $out
     '';
+
+  # The doc1 git hooks (modules/home-manager/services/git-hooks.nix) act only
+  # on this repository, which they recognise by finding hostBindAuditCheck in
+  # flake.nix or under nix/checks. When the checks were extracted from
+  # flake.nix on 2026-09-06 the guard looked only in flake.nix, matched
+  # nothing, and the pre-push audit gate was a silent no-op for eleven weeks.
+  # This runs the same search the guard runs. If it fails, the marker moved:
+  # update repoGuard in git-hooks.nix and this check together.
+  gitHooksRepoGuardCheck = pkgs.runCommand "git-hooks-repo-guard" {} ''
+    if ! ${pkgs.gnugrep}/bin/grep -rqs hostBindAuditCheck ${../../flake.nix} ${../../nix/checks}; then
+      echo "git-hooks repoGuard marker (hostBindAuditCheck) not found in flake.nix or nix/checks:" >&2
+      echo "the doc1 pre-push and pre-commit hooks would silently do nothing." >&2
+      exit 1
+    fi
+    touch $out
+  '';
 in {
   inherit
     codexAgentsWrapperCheck
     nixpkgsFollowsCheck
     aiPortabilityCheck
+    gitHooksRepoGuardCheck
     ;
 }
