@@ -157,6 +157,72 @@
     touch $out
   '';
 
+  # No OCI container may reach host root or host UID 1000 / abl030 (#140,
+  # forgejo#2). Evaluates every NixOS host's real container definitions, so a
+  # new container fails `nix flake check` unless it either:
+  #   - has a homelab.podman.userns remap (container root -> high host range;
+  #     passing UID 1000 through is refused), or
+  #   - runs under an explicit non-root, non-1000 user (`user` or --user), or
+  #   - is listed in homelab.podman.rootAllowed with a reason.
+  # LXC hosts (boot.isContainer) are skipped: their container root is already
+  # an unprivileged ID on the hypervisor. See docs/wiki/nixos-service-modules.md
+  # "No container ever runs as host UID 1000".
+  containerRootAuditCheck = let
+    userOf = ctr: let
+      opts = ctr.extraOptions;
+      eqForm = lib.findFirst (o: lib.hasPrefix "--user=" o) null opts;
+      idx = lib.lists.findFirstIndex (o: o == "--user" || o == "-u") null opts;
+    in
+      if ctr.user != null
+      then ctr.user
+      else if eqForm != null
+      then lib.removePrefix "--user=" eqForm
+      else if idx != null && idx + 1 < lib.length opts
+      then lib.elemAt opts (idx + 1)
+      else null;
+    badUser = u: let
+      uid = lib.head (lib.splitString ":" u);
+    in
+      lib.elem uid ["0" "root" "1000" "abl030"];
+    hostViolations = host: c: let
+      cfg = c.config;
+      userns = cfg.homelab.podman.userns or {};
+      allowed = cfg.homelab.podman.rootAllowed or {};
+      check = name: ctr: let
+        u = userOf ctr;
+      in
+        if allowed ? ${name}
+        then []
+        else if userns ? ${name}
+        then lib.optional (lib.elem 1000 userns.${name}.uids) "${host}/${name}: userns passes host UID 1000 through"
+        else if u == null
+        then ["${host}/${name}: runs as the image's default user (usually root) with no userns remap"]
+        else lib.optional (badUser u) "${host}/${name}: --user ${u} is root or host UID 1000";
+    in
+      if cfg.boot.isContainer
+      then []
+      else lib.concatLists (lib.mapAttrsToList check cfg.virtualisation.oci-containers.containers);
+    violations = lib.concatLists (lib.mapAttrsToList hostViolations self.nixosConfigurations);
+    skipped = lib.attrNames (lib.filterAttrs (_: c: c.config.boot.isContainer) self.nixosConfigurations);
+    report = pkgs.writeText "container-root-violations" (lib.concatStringsSep "\n" violations);
+  in
+    pkgs.runCommand "container-root-audit" {} ''
+      if [ -s ${report} ]; then
+        cat ${report}
+        echo ""
+        echo "These OCI containers could run as host root or host UID 1000"
+        echo "(abl030, passwordless sudo). Fix one of:"
+        echo "  - homelab.podman.userns.<name> = { base = <unused 65536-ID range>; ... };"
+        echo "    (pass the app's PUID/GIDs through with uids/gids if it drops to one)"
+        echo "  - user = \"<dedicated non-root uid>:<gid>\";  for images that honour it"
+        echo "  - homelab.podman.rootAllowed.<name> = \"<reason>\";  last resort"
+        echo "See docs/wiki/nixos-service-modules.md \"No container ever runs as host UID 1000\"."
+        exit 1
+      fi
+      echo "No OCI container can reach host root or UID 1000 (LXC hosts skipped: ${lib.concatStringsSep ", " skipped})."
+      touch $out
+    '';
+
   # Least-privilege sops invariant (#234): every secret under
   # secrets/hosts/<H>/ must be encrypted to EXACTLY {that host's age key,
   # editor, break-glass} — never a sibling host key. Grep over the
@@ -283,6 +349,7 @@ in {
     hostBindAuditCheck
     unitHardeningAuditCheck
     containerNetworkAuditCheck
+    containerRootAuditCheck
     sopsRecipientScopeCheck
     secretArgvAuditCheck
     ;

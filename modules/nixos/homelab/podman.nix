@@ -211,6 +211,18 @@ in {
       '';
     };
 
+    rootAllowed = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = {};
+      example = {legacy-app = "needs host root for X until upstream fixes Y (#NNN)";};
+      description = ''
+        Containers allowed to run with host root reachable: no userns remap
+        and no non-root --user. Keyed by container name; the value is the
+        reason. containerRootAuditCheck fails on any other such container.
+        Keep this empty: prefer homelab.podman.userns.
+      '';
+    };
+
     updateSchedule = lib.mkOption {
       type = lib.types.str;
       default = "*-*-* 06:00:00";
