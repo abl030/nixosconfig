@@ -13,6 +13,9 @@
 #    job); the audit derivations build in ~7s. Checks are enumerated dynamically
 #    so a newly-added audit is picked up automatically — no drift.
 #    BLOCKS the push on failure (bypass: git push --no-verify).
+#    Before the audits it runs an optional host-local veto script, if one is
+#    installed at ~/.config/nixcfg/pre-push-private (this repository is public;
+#    the script and whatever it checks against live outside it).
 #
 #  * pre-commit → LINT (nix fmt / deadnix / statix), WARN-ONLY, on the STAGED
 #    .nix files only. Surfaces drift in what you're touching without drowning you
@@ -48,6 +51,20 @@
     runtimeInputs = [pkgs.nix pkgs.git pkgs.gnugrep];
     text = ''
       ${repoGuard}
+      # Optional private veto. This repository is published, so the host may
+      # keep a check outside it, for example a list of terms that must never be
+      # pushed. If ~/.config/nixcfg/pre-push-private exists and is executable
+      # it receives git's pre-push ref lines on stdin and the hook's arguments;
+      # a non-zero exit aborts the push. It is cheap, so it runs first. What it
+      # checks is deliberately not described here.
+      refs="$(cat)"
+      private_check="''${XDG_CONFIG_HOME:-$HOME/.config}/nixcfg/pre-push-private"
+      if [ -x "$private_check" ]; then
+        if ! printf '%s\n' "$refs" | "$private_check" "$@"; then
+          echo "❌ pre-push: the private pre-push check refused this push (bypass: git push --no-verify)" >&2
+          exit 1
+        fi
+      fi
       echo "🔒 pre-push: fleet audits (no host-config eval; bypass: git push --no-verify)…" >&2
       # FULL_CHECK unset → checks.${system} is exactly the cheap audit set.
       # Enumerate it so a new audit check is gated automatically.

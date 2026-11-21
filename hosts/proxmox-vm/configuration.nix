@@ -81,6 +81,17 @@
     owner = "abl030";
     mode = "0400";
   };
+  # Gmail API refresh token for the mail-organising helper that runs on doc1
+  # with a human present: labels, moves and drafts. Scope gmail.modify only,
+  # which cannot permanently delete; the helper has no send path. Separate from
+  # doc2's backup token (full IMAP scope, never leaves doc2). Same Desktop
+  # client as above. doc1-only: this is a write credential to a mailbox.
+  sops.secrets."assistant-gmail.env" = {
+    sopsFile = config.homelab.secrets.sopsFile "assistant-gmail.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
   # doc1's own O365 IMAP login (Thunderbird client, device-code) so brain can
   # save Andy-approved reply drafts into his work Drafts. APPEND only, never sends.
   sops.secrets."brain-o365.env" = {
