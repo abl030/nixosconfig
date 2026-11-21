@@ -34,6 +34,9 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Whole-container remap: container 0..65535 -> host 100000..165535.
+    homelab.podman.userns.netboot.base = 100000;
+
     homelab = {
       podman.enable = true;
       podman.containers = [
@@ -85,16 +88,14 @@ in {
       # s6 init runs as root, chowns /config + /assets, then serves nginx/tftp
       # on privileged ports (:80, :69). cap-drop=all + the file-ownership drop
       # caps + NET_BIND_SERVICE for the <1024 binds; everything else removed.
-      # userns remap (forgejo#2 Phase 1b): the image's nbxyz app user is UID 1000
-      # = host abl030. Remap the whole container so container UID 1000 → host
-      # 101000, never abl030. The s6 caps + NET_BIND_SERVICE apply within the
+      # userns remap (forgejo#2 Phase 1b; homelab.podman.userns.netboot below):
+      # the image's nbxyz app user is UID 1000 = host abl030. Remap the whole
+      # container so container UID 1000 → host 101000, never abl030. The s6 caps + NET_BIND_SERVICE apply within the
       # userns (privileged-port bind happens in the container's own netns; the
       # host -p publish is done by podman as real root).
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
-          "--uidmap=0:100000:65536"
-          "--gidmap=0:100000:65536"
           "--cap-add=CHOWN"
           "--cap-add=SETUID"
           "--cap-add=SETGID"

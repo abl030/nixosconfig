@@ -35,6 +35,14 @@ in {
   };
   config = lib.mkIf cfg.enable {
     users.groups.booklore.gid = 2022;
+    # Userns remap (#140): container root -> host 400000+, so the root-run
+    # entrypoint never holds host root; the app UID and its groups (own +
+    # shared `users`) pass through 1:1 so on-disk ownership is unchanged.
+    homelab.podman.userns.booklore = {
+      base = 400000;
+      uids = [config.users.users.booklore.uid];
+      gids = [config.users.groups.booklore.gid config.users.groups.users.gid];
+    };
     users.users.booklore = {
       isSystemUser = true;
       uid = 2022;

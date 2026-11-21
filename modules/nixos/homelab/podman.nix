@@ -42,6 +42,41 @@
     ++ lib.optional (cfg.containers != []) "podman-update-containers"
     ++ map (entry: lib.removeSuffix ".service" entry.unit) cfg.containers;
 
+  # User-namespace remap registry (#140). Each entry maps the container's
+  # UID/GID 0..65535 onto host <base>..<base>+65535, so container root (and the
+  # image's other built-in users) are unprivileged high host IDs. IDs listed in
+  # `uids`/`gids` are passed through 1:1 instead, so an app that drops to a
+  # dedicated host UID (PUID) or writes shared media via a shared group keeps
+  # the exact on-disk ownership it has today. See docs/wiki/nixos-service-modules.md
+  # "No container ever runs as host UID 1000".
+  idmapFlags = flag: base: passthrough: let
+    ids = lib.sort lib.lessThan (lib.unique passthrough);
+    step = acc: id:
+      acc
+      // {
+        cur = id + 1;
+        out =
+          acc.out
+          ++ lib.optional (id > acc.cur) "--${flag}=${toString acc.cur}:${toString (base + acc.cur)}:${toString (id - acc.cur)}"
+          ++ ["--${flag}=${toString id}:${toString id}:1"];
+      };
+    r =
+      lib.foldl' step {
+        cur = 0;
+        out = [];
+      }
+      ids;
+  in
+    r.out ++ ["--${flag}=${toString r.cur}:${toString (base + r.cur)}:${toString (65536 - r.cur)}"];
+
+  usernsFlags = e: idmapFlags "uidmap" e.base e.uids ++ idmapFlags "gidmap" e.base e.gids;
+
+  usernsEntries = lib.mapAttrsToList (name: e: e // {inherit name;}) cfg.userns;
+  usernsOverlaps = lib.concatLists (lib.imap0 (i: a:
+    map (b: "${a.name} (${toString a.base}) and ${b.name} (${toString b.base})")
+    (lib.filter (b: a.base < b.base + 65536 && b.base < a.base + 65536) (lib.drop (i + 1) usernsEntries)))
+  usernsEntries);
+
   containerType = lib.types.submodule {
     options = {
       unit = lib.mkOption {
@@ -149,6 +184,33 @@ in {
       description = "Baseline cap-drop + no-new-privileges flags for OCI containers; prepend to extraOptions, cap-add minimal caps back per container.";
     };
 
+    userns = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.submodule {
+        options = {
+          base = lib.mkOption {
+            type = lib.types.ints.between 65536 4000000000;
+            description = "First host UID/GID of this container's 65536-ID range. Must not overlap any other entry.";
+          };
+          uids = lib.mkOption {
+            type = lib.types.listOf (lib.types.ints.between 1 65535);
+            default = [];
+            description = "Container UIDs mapped 1:1 to the same host UID (e.g. the app's PUID).";
+          };
+          gids = lib.mkOption {
+            type = lib.types.listOf (lib.types.ints.between 1 65535);
+            default = [];
+            description = "Container GIDs mapped 1:1 to the same host GID (e.g. a shared media group).";
+          };
+        };
+      });
+      default = {};
+      description = ''
+        Per-container user-namespace remap, keyed by the
+        `virtualisation.oci-containers.containers` attr name. Appends the
+        generated --uidmap/--gidmap flags to that container's extraOptions.
+      '';
+    };
+
     updateSchedule = lib.mkOption {
       type = lib.types.str;
       default = "*-*-* 06:00:00";
@@ -199,6 +261,10 @@ in {
         message = "Podman 6 requires Skopeo >=1.23; got ${skopeoVersion}";
       }
       {
+        assertion = usernsOverlaps == [];
+        message = "homelab.podman.userns host ID ranges overlap: ${lib.concatStringsSep "; " usernsOverlaps}";
+      }
+      {
         assertion = config.networking.nftables.enable;
         message = "Podman 6 / Netavark 2 requires networking.nftables.enable = true";
       }
@@ -241,9 +307,12 @@ in {
     # rewritten to the DB's hostAddress) all keep working — verified live on
     # doc2 2026-06-19 (incl. a real psql auth from an isolated net). The list is
     # merged (concatenated) with each module's own extraOptions.
-    virtualisation.oci-containers.containers = lib.genAttrs isolatedNames (name: {
-      extraOptions = ["--network=isolated-${name}"];
-    });
+    virtualisation.oci-containers.containers = lib.mkMerge [
+      (lib.genAttrs isolatedNames (name: {
+        extraOptions = ["--network=isolated-${name}"];
+      }))
+      (lib.mapAttrs (_: e: {extraOptions = usernsFlags e;}) cfg.userns)
+    ];
 
     # Aardvark DNS listens on the host-side address of every Netavark bridge.
     # NixOS' nftables input chain is independently drop-by-default, so Netavark's

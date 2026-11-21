@@ -45,6 +45,14 @@ in {
 
   config = lib.mkIf cfg.enable {
     users.groups.storyteller.gid = 2026;
+    # Userns remap (#140): container root -> host 600000+, so the root-run
+    # entrypoint never holds host root; the app UID/GID pass through 1:1 so
+    # /data keeps its storyteller ownership.
+    homelab.podman.userns.storyteller = {
+      base = 600000;
+      uids = [config.users.users.storyteller.uid];
+      gids = [config.users.groups.storyteller.gid];
+    };
     users.users.storyteller = {
       isSystemUser = true;
       uid = 2026;

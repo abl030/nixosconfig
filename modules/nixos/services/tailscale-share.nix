@@ -7,6 +7,15 @@
   # Only enabled instances
   instances = lib.filterAttrs (_: v: v.enable) config.homelab.tailscaleShare;
 
+  # Userns remap for the ts sidecars (#140). tailscaled runs as container root
+  # in userspace-networking mode, so map container 0..65535 to a per-instance
+  # host range: 1000000 + i*65536, i = the instance's sorted position. A
+  # re-index only re-chowns the small ts-state dir via `:U`. Skipped inside an
+  # LXC (igpu): its unprivileged CT already maps root off-host and has no spare
+  # subordinate IDs for a nested 65536 range.
+  tsUserns = !config.boot.isContainer;
+  tsBase = name: 1000000 + 65536 * lib.lists.findFirstIndex (n: n == name) 0 (lib.attrNames instances);
+
   caddyUser = "tailscale-share-caddy";
   caddyGroup = "tailscale-share-caddy";
   caddyUid = 2011;
@@ -484,9 +493,15 @@ in {
     };
 
     # Persistent directories
-    systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (_: cfg: [
+    systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (name: cfg: [
         "d ${cfg.dataDir} 0755 root root - -"
-        "d ${cfg.dataDir}/ts-state 0750 root root - -"
+        # Owned by the sidecar's mapped root when remapped: a root-owned rule
+        # would reset it under the running container on every switch.
+        (
+          if tsUserns
+          then "d ${cfg.dataDir}/ts-state 0750 ${toString (tsBase name)} ${toString (tsBase name)} - -"
+          else "d ${cfg.dataDir}/ts-state 0750 root root - -"
+        )
         "d ${cfg.dataDir}/caddy-data 0750 ${caddyUser} ${caddyGroup} - -"
         "d ${cfg.dataDir}/caddy-config 0750 ${caddyUser} ${caddyGroup} - -"
         "Z ${cfg.dataDir}/caddy-data - ${caddyUser} ${caddyGroup} - -"
@@ -504,6 +519,10 @@ in {
     # these ts sidecars — they can reach each other but NOT the isolated services,
     # and they already carry the TIER-2 sidecar hardening (admin off, cap-drop).
     # OCI containers — tailscale + caddy per instance
+    homelab.podman.userns = lib.mkIf tsUserns (lib.mapAttrs' (name: _:
+      lib.nameValuePair "ts-${name}" {base = tsBase name;})
+    instances);
+
     virtualisation.oci-containers.containers = lib.mkMerge (lib.mapAttrsToList (name: cfg: {
         # Tailscale sidecar: joins tailnet with a dedicated identity
         "ts-${name}" = {
@@ -528,19 +547,35 @@ in {
           environmentFiles = lib.optionals (cfg.authKeySecret != null) [
             config.sops.secrets."tailscale-share/${name}/authkey".path
           ];
-          volumes = [
-            "${cfg.dataDir}/ts-state:/var/lib/tailscale"
-            "/dev/net/tun:/dev/net/tun"
-          ];
-          extraOptions = [
-            # NET_ADMIN needed for tun device configuration; SYS_MODULE not needed
-            # since /dev/net/tun is mounted directly (kernel module already loaded).
-            "--cap-add=NET_ADMIN"
-            # Containers joining this namespace inherit /etc/hosts from ts.
-            # host.docker.internal lets caddy (sharing this namespace) reach services
-            # on the host — 127.0.0.1 is the container loopback, not the host.
-            "--add-host=host.docker.internal:host-gateway"
-          ];
+          volumes =
+            if tsUserns
+            then [
+              # :U moves the state into the mapped range on start.
+              "${cfg.dataDir}/ts-state:/var/lib/tailscale:U"
+            ]
+            else [
+              "${cfg.dataDir}/ts-state:/var/lib/tailscale"
+              "/dev/net/tun:/dev/net/tun"
+            ];
+          extraOptions =
+            (
+              if tsUserns
+              then
+                # containerboot defaults to TS_USERSPACE=true (userspace
+                # networking), so no TUN device and no NET_ADMIN are needed.
+                config.homelab.podman.hardenOptions
+              else [
+                # NET_ADMIN needed for tun device configuration; SYS_MODULE not needed
+                # since /dev/net/tun is mounted directly (kernel module already loaded).
+                "--cap-add=NET_ADMIN"
+              ]
+            )
+            ++ [
+              # Containers joining this namespace inherit /etc/hosts from ts.
+              # host.docker.internal lets caddy (sharing this namespace) reach services
+              # on the host — 127.0.0.1 is the container loopback, not the host.
+              "--add-host=host.docker.internal:host-gateway"
+            ];
         };
 
         # Caddy: shares tailscale's network namespace, handles HTTPS + ACME
@@ -634,10 +669,14 @@ in {
         case "$name" in
         ${lib.concatStrings (lib.mapAttrsToList (n: c: ''
             ${lib.escapeShellArg n})
-              state=${lib.escapeShellArg "${c.dataDir}/ts-state"}
               image=${lib.escapeShellArg config.virtualisation.oci-containers.containers."ts-${n}".image}
               hostname=${lib.escapeShellArg c.hostname}
               extra=${lib.escapeShellArg config.virtualisation.oci-containers.containers."ts-${n}".environment.TS_EXTRA_ARGS}
+              # Same caps, idmap and mounts as the generated sidecar.
+              opts=(${lib.escapeShellArgs (let
+              ctr = config.virtualisation.oci-containers.containers."ts-${n}";
+            in
+              ctr.extraOptions ++ lib.concatMap (v: ["-v" v]) ctr.volumes)})
               ;;
           '')
           instances)}
@@ -663,9 +702,9 @@ in {
         trap 'podman rm -f "$holder" >/dev/null 2>&1 || true' EXIT
         systemctl stop "podman-caddy-$name.service" "podman-ts-$name.service" "tailscale-share-dns-sync-$name.service"
         podman rm -f "$holder" >/dev/null 2>&1 || true
-        podman run -d --rm --name "$holder" --cap-add=NET_ADMIN \
-          -v /dev/net/tun:/dev/net/tun -v "$state:/var/lib/tailscale" \
-          --entrypoint tailscaled "$image" --statedir=/var/lib/tailscale >/dev/null
+        podman run -d --rm --name "$holder" "''${opts[@]}" \
+          --entrypoint tailscaled "$image" --statedir=/var/lib/tailscale \
+          --tun=userspace-networking >/dev/null
 
         for _ in $(seq 30); do
           [ -n "$(backend "$holder")" ] && break

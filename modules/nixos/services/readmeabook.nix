@@ -36,6 +36,16 @@ in {
   };
   config = lib.mkIf cfg.enable {
     users.groups.readmeabook.gid = 2024;
+    # Userns remap (#140): supervisord and app-start.sh stay root for the
+    # container's life, so map container root -> host 500000+. PUID and both
+    # groups pass through 1:1: shared media is written via `users` (gid 100)
+    # and the entrypoint chowns /app/config to PUID, which needs every UID/GID
+    # it touches mapped. No `:U` anywhere: the media mounts are shared trees.
+    homelab.podman.userns.readmeabook = {
+      base = 500000;
+      uids = [config.users.users.readmeabook.uid];
+      gids = [config.users.groups.users.gid config.users.groups.readmeabook.gid];
+    };
     users.users.readmeabook = {
       isSystemUser = true;
       uid = 2024;

@@ -706,6 +706,10 @@ in {
             max_collector_buffer_size: 1000
       '';
 
+      # Userns remap (#140): the exporter runs as container root; map it to
+      # host 300000+ so it is never host root.
+      pfeUsernsBase = 300000;
+
       preStartScript = pkgs.writeShellScript "pfsense-exporter-prestart" ''
         set -euo pipefail
         config_dir="/var/lib/pfsense-exporter"
@@ -721,6 +725,8 @@ in {
         ${pkgs.gnused}/bin/sed "s/__PFSENSE_API_KEY__/$api_key/" \
           ${configTemplate} > "$config_dir/config.yml"
         chmod 600 "$config_dir/config.yml"
+        # Readable only by the container's userns-mapped root (#140).
+        chown ${toString pfeUsernsBase}:${toString pfeUsernsBase} "$config_dir/config.yml"
       '';
     in {
       sops.secrets."pfsense-exporter/env" = {
@@ -734,6 +740,8 @@ in {
       systemd.tmpfiles.rules = [
         "d /var/lib/pfsense-exporter 0755 root root -"
       ];
+
+      homelab.podman.userns.pfsense-exporter.base = pfeUsernsBase;
 
       virtualisation.oci-containers.containers.pfsense-exporter = {
         inherit (pfeCfg) image;

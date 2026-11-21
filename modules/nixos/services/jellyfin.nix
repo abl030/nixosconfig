@@ -518,10 +518,14 @@ in {
     # watchstate (doc2) — Plex <-> Jellyfin sync, no DB
     # ============================================================
     (lib.mkIf cfg.watchstate.enable {
+      # userns remap (forgejo#2): container UID 1000 → host 201000, off
+      # abl030 (container 0..65535 -> host 200000..265535).
+      homelab.podman.userns.watchstate.base = 200000;
+
       # forgejo#2 Phase 1b: watchstate's image hardcodes a UID-1000 "user" which,
       # under rootful podman, IS host abl030 — and its WS_UID switch can't
       # relocate it under cap-drop=all (it crash-loops, see git history). So we
-      # userns-remap the whole container instead (--uidmap/--gidmap below):
+      # userns-remap the whole container instead (homelab.podman.userns.watchstate above):
       # container UID 1000 → host 201000, never abl030. WS_UID stays 1000 (the
       # image's happy default — no in-container switch needed). The `:U` volume
       # flag migrates the existing abl030-owned /config into the mapped range.
@@ -535,7 +539,7 @@ in {
         # /config and 503s until the next container restart re-runs `:U`. That is
         # exactly the 2026-06-23 outage (an unclean prom reboot left it reset).
         # Owning the dir as the mapped UID makes every tmpfiles re-run a no-op
-        # and survives reboots. Keep 201000 in sync with the --uidmap base
+        # and survives reboots. Keep 201000 in sync with homelab.podman.userns.watchstate.base
         # (200000) + WS_UID (1000) below.
         "d ${cfg.watchstate.dataDir} 0755 201000 201000 -"
       ];
@@ -563,10 +567,6 @@ in {
         extraOptions =
           config.homelab.podman.hardenOptions
           ++ [
-            # userns remap (forgejo#2): container UID 1000 → host 201000, off
-            # abl030. Specifying uid/gid maps implies a private user namespace.
-            "--uidmap=0:200000:65536"
-            "--gidmap=0:200000:65536"
             "--cap-add=CHOWN"
             "--cap-add=SETUID"
             "--cap-add=SETGID"
