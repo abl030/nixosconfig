@@ -265,6 +265,28 @@
   # doc1 as the one bdday authority. Assert the generated vhost's
   # numeric upstream/SNI boundary and retain the independent Cullen
   # dashboard vhost.
+  # The paste board must stay read-only from the web: the loopback server
+  # binds 127.0.0.1 only, the snippet directory refuses non-GET methods, and the
+  # public vhost is a plain localProxy entry.
+  pasteBoardCheck = let
+    wsl = self.nixosConfigurations.wsl.config;
+    pb = wsl.homelab.services.pasteBoard;
+    loop = wsl.services.nginx.virtualHosts."paste-board-loopback";
+    entry = lib.findFirst (e: e.host == pb.fqdn) null wsl.homelab.localProxy.hosts;
+  in
+    pkgs.runCommand "paste-board" {} ''
+      set -euo pipefail
+      test '${lib.boolToString pb.enable}' = true
+      test '${lib.boolToString (entry != null && entry.port == pb.port)}' = true
+      test '${builtins.toJSON (map (l: l.addr) loop.listen)}' = '["127.0.0.1"]'
+      case ${lib.escapeShellArg loop.locations."/msgs/".extraConfig} in
+        *'limit_except GET HEAD { deny all; }'*) ;;
+        *) echo "paste board snippet dir accepts writes" >&2; exit 1 ;;
+      esac
+      test '${lib.boolToString wsl.systemd.timers.paste-board-sweep.enable}' = true
+      touch $out
+    '';
+
   cullenBdProxyCheck = let
     wsl = self.nixosConfigurations.wsl.config;
     cullenVhost = wsl.services.nginx.virtualHosts."cullen.ablz.au";
@@ -800,6 +822,7 @@ in {
     bddayIntegrationCheck
     mrnewsIntegrationCheck
     cullenBdProxyCheck
+    pasteBoardCheck
     wslOpsSyncSourceCheck
     audiobookshelfCacheCleanupCheck
     doc2CrashCaptureCheck

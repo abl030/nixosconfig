@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paste board</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#1c1c1c;--mute:#6b6b6b;--line:#d9d9d4;--btn:#1f5f8b;--btnink:#fff;--ok:#2e7d32;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#161616;--card:#202020;--ink:#ececec;--mute:#a0a0a0;--line:#3a3a3a;--btn:#3d8bc4;--ok:#66bb6a}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:13px;margin-bottom:16px}
+.msg{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.title{font-weight:600;font-size:16px;flex:1 1 auto}
+.meta{color:var(--mute);font-size:13px}
+button{background:var(--btn);color:var(--btnink);border:0;border-radius:6px;padding:10px 22px;font-size:16px;font-weight:600;cursor:pointer}
+button.done{background:var(--ok)}
+pre{margin:10px 0 0;padding:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow-x:auto;white-space:pre;font:14px/1.4 ui-monospace,Consolas,monospace;user-select:all}
+.empty{color:var(--mute);padding:40px 0;text-align:center}
+</style>
+<script src="app.js" defer></script>
+</head>
+<body>
+<main>
+<h1>Paste board</h1>
+<div class="sub">Snippets delete themselves when their time runs out. Click Copy, then paste. <span id="status"></span></div>
+<div id="list"><div class="empty">Loading…</div></div>
+</main>
+</body>
+</html>

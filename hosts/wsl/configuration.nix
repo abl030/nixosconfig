@@ -96,6 +96,12 @@ in {
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
+    # Read-only, self-expiring copy-paste board; snippets are written from doc1
+    # over SSH (no web write path). Anyone on the site LAN can read it.
+    services.pasteBoard = {
+      enable = true;
+      fqdn = "paste.ablz.au";
+    };
     # Serves the Cullen split-horizon vhosts for cullenDoc1Hosts (below).
     nginx.enable = true;
     # cullen-dashboard syncs Vinsight via /run/secrets/mcp/vinsight.env. Base
