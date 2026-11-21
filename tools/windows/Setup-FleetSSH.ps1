@@ -41,13 +41,14 @@
      powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-FleetSSH.ps1
 
  WHAT IT DOES
-   1. Gets OpenSSH Server installed if it is missing. Uses the Windows feature
-      where that is actually possible, and otherwise -- on builds older than
-      17763 which have no such feature, or images where it fails or hangs
-      against an unreachable Windows Update -- downloads Microsoft's official
-      signed MSI and installs that, verifying its Authenticode signature first.
-      Only if BOTH routes fail does it stop and print manual instructions,
-      having changed nothing.
+   1. Gets OpenSSH Server installed if it is missing, from Microsoft's official
+      signed Win32-OpenSSH MSI (Authenticode signature verified before it runs).
+      The Windows "optional feature" route is deliberately not used: in
+      practice it hung against an unreachable Windows Update or installed
+      nothing on most of our boxes, so the MSI ended up doing the job every
+      time after a two-minute wait (#240). An sshd that is already installed,
+      from either source, is used as-is. If the MSI cannot be fetched, it stops
+      and prints manual instructions, having changed nothing.
    2. Opens TCP 22. Re-enables SSH rules a previous close disabled, and ALWAYS
       ensures its own port-keyed rule: a program-scoped rule pointing at an
       sshd.exe that has since moved enumerates perfectly and permits nothing.
@@ -64,7 +65,27 @@
    5. Starts sshd for this session.
    6. SELF-TESTS for real: generates a throwaway keypair, authorises it, performs
       an actual loopback SSH login, then removes it. You find out whether this
-      worked while still standing at the machine, not after driving away.
+      worked while still standing at the machine, not after driving away. On a
+      failure it prints the relevant sshd log events itself.
+
+ ENTRA ID (AZURE AD) ACCOUNTS
+   Key-only SSH as a cloud-only Entra account cannot work on Win32-OpenSSH: the
+   key is accepted, then the session closes as it opens, because sshd cannot
+   build a logon token for an account with no password. So when the target is
+   an Entra account (SID S-1-12-1-..., or AzureAD\name) the script creates a
+   local administrator instead (default 'fleet', random password that is never
+   shown or stored), authorises the key for that, and tells you to SSH as it.
+   -NoLocalAdmin refuses instead; -LocalAdmin <name> picks the name, and also
+   forces this mode for any other account sshd cannot log on (for example a
+   domain account on a box that cannot reach its domain controller).
+
+ THIRD-PARTY FIREWALLS
+   OEM security suites (McAfee, Norton, ...) register their own firewall and
+   drop inbound traffic regardless of Windows Firewall rules. The loopback
+   self-test cannot see that. The script warns when one is registered, and the
+   final check always has to come from doc1:  nc -vz -w5 <ip> 22
+   A timeout means something is dropping packets; "refused" means nothing is
+   listening.
 
    Idempotent. Existing authorised keys are preserved, never replaced, and the
    original sshd_config is kept at sshd_config.fleet-backup.
@@ -76,11 +97,13 @@
                             console user, then to the sole enabled local account.
    -PublicKey <string>      Override the embedded fleet key.
    -Persist                 Leave sshd Automatic rather than session-only.
-   -CapTimeoutSec <n>       Seconds to wait for the Windows feature install before
-                            falling back to the MSI. Default 120. Skipped entirely
-                            on builds older than 17763, which have no such feature.
-   -NoMsiDownload           Do not fetch the official OpenSSH MSI as a fallback;
-                            print manual instructions instead.
+   -LocalAdmin <name>       Create (or reuse) this local administrator and
+                            authorise the key for it instead of -TargetUser.
+                            Automatic, as 'fleet', for Entra ID accounts.
+   -NoLocalAdmin            For an Entra ID target, stop with an explanation
+                            instead of creating a local administrator.
+   -NoMsiDownload           Do not fetch the official OpenSSH MSI; print manual
+                            install instructions instead.
    -DownloadTimeoutSec <n>  Hard ceiling on the MSI download. Default 180.
    -MsiTimeoutSec <n>       Hard ceiling on the MSI install. Default 300.
    -AllowPasswordAuth       Keep SSH password authentication enabled. OFF by
@@ -93,7 +116,9 @@
                             machine-wide -- see the warning where it is used.
    -AnyRemote               Do not scope the firewall rule to LAN + tailnet.
 
- Exit codes: 0 success, 1 error, 2 OpenSSH could not be installed (needs a human).
+ Exit codes: 0 success (or installed but unverified), 1 error or failed self-test,
+ 2 OpenSSH could not be installed (needs a human). Run in memory (the one-liner),
+ a failure stops the script but leaves your PowerShell window open.
 
  Wiki: docs/wiki/infrastructure/windows-fleet-ssh-access.md
 ================================================================================
@@ -107,13 +132,18 @@ param(
     [switch] $AllowPasswordAuth,
     [switch] $AnyRemote,
     [switch] $Persist,
-    [int]    $CapTimeoutSec = 120,
+    [string] $LocalAdmin = 'fleet',
+    [switch] $NoLocalAdmin,
     [switch] $NoMsiDownload,
     [int]    $DownloadTimeoutSec = 180,
     [int]    $MsiTimeoutSec = 300
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Bump on every behaviour change: it is printed in the diagnostic panel, so a
+# photo of a failure says which version produced it.
+$FleetSshVersion = '2026-11-21 (#240)'
 
 # Well-known SIDs, used instead of names throughout: "Administrators" and
 # "SYSTEM" are localised, and name-based ACL code breaks on a non-English
@@ -136,6 +166,209 @@ function Write-Info { param($m) Write-Host "    [info] $m" -ForegroundColor Gray
 function Write-Warn { param($m) Write-Host "    [warn] $m" -ForegroundColor Yellow; $script:Warnings += $m }
 function Write-Fail { param($m) Write-Host "    [FAIL] $m" -ForegroundColor Red }
 
+$script:StopMarker = 'Setup-FleetSSH stopped'
+function Stop-FleetSsh {
+    <#
+      End the run with an exit code WITHOUT killing the operator's window.
+      Run as a file, `exit` ends the script. Run in memory -- the one-liner,
+      iex (irm ...) -- `exit` ends the operator's whole PowerShell session and
+      the window vanishes before the failure can be read or photographed. So in
+      memory we stop by throwing a short, recognisable error instead; the trap
+      below lets it through and the prompt comes back.
+    #>
+    param([int] $Code)
+    $global:LASTEXITCODE = $Code
+    if ($PSCommandPath) { exit $Code }
+    throw "$($script:StopMarker) with code $Code -- the panel above has the details."
+}
+
+# ------------------------------------------------------- decision helpers ---
+# Pure functions: no side effects and no Windows-only calls, so the unit tests
+# (tools/windows/tests/) can extract and run them anywhere, pwsh on Linux included.
+
+function Test-EntraAccount {
+    # Cloud-only Entra ID (Azure AD) accounts carry SIDs under S-1-12-1 and show
+    # up as AzureAD\<name>. dsregcmd's AzureAdJoined only describes the MACHINE: a
+    # local account on an Entra-joined box is perfectly fine for key-only SSH.
+    param([string] $Sid, [string] $Name)
+    return ($Sid -like 'S-1-12-1-*') -or ($Name -match '^AzureAD\\')
+}
+
+function Select-ThirdPartyFirewall {
+    # SecurityCenter2 FirewallProduct display names -> the ones that are NOT
+    # Windows' own firewall. Any of those overrides our Windows Firewall rule.
+    param([string[]] $DisplayNames)
+    return @($DisplayNames | Where-Object {
+        $_ -and $_ -notmatch '^(Windows|Microsoft) (Defender )?Firewall$|^Windows Defender$|^Microsoft Defender'
+    } | Select-Object -Unique)
+}
+
+function Get-SelfTestVerdict {
+    <#
+      Classify the loopback ssh result:
+        pass          exit 0 and whoami printed something
+        refused       sshd rejected the key (bad file, ACL, wrong account name)
+        closed        the key was ACCEPTED, then the session died as it opened:
+                      sshd could not create a logon (Entra ID / unreachable DC)
+        inconclusive  anything else -- never call the key bad on a guess
+    #>
+    param([int] $ExitCode, [string] $StdOut, [string] $StdErr)
+    if ($ExitCode -eq 0 -and "$StdOut".Trim()) { return 'pass' }
+    if ("$StdErr" -match 'Permission denied|Authentication failed|Invalid user|Too many authentication failures') { return 'refused' }
+    if ("$StdErr" -match 'Connection closed|closed by remote host|Connection reset') { return 'closed' }
+    return 'inconclusive'
+}
+
+function Format-DiagnosticPanel {
+    <#
+      The end-of-run panel, built to be photographed off a screen: fixed width,
+      one fact per line, long values cut rather than wrapped. Takes an ordered
+      dictionary of label -> value (a value may be an array: one line each).
+    #>
+    param([System.Collections.IDictionary] $Fields, [string] $Title, [int] $Width = 72)
+    $inner = $Width - 4
+    $out = @('+' + ('-' * ($Width - 2)) + '+')
+    $t = " $Title"
+    $out += '| ' + $t.Substring(0, [Math]::Min($t.Length, $inner)).PadRight($inner) + ' |'
+    $out += '+' + ('-' * ($Width - 2)) + '+'
+    foreach ($k in $Fields.Keys) {
+        $vals = @($Fields[$k])
+        if (-not $vals.Count) { $vals = @('') }
+        $first = $true
+        foreach ($v in $vals) {
+            $label = if ($first) { "$k".PadRight(10) } else { ''.PadRight(10) }
+            $line  = "$label $v"
+            if ($line.Length -gt $inner) { $line = $line.Substring(0, $inner - 1) + '~' }
+            $out += '| ' + $line.PadRight($inner) + ' |'
+            $first = $false
+        }
+    }
+    $out += '+' + ('-' * ($Width - 2)) + '+'
+    return $out
+}
+
+function Get-ElevationArgs {
+    # Rebuild the command line for the elevated re-launch from the parameters
+    # the caller actually passed, so no switch is silently dropped on the way.
+    param([string] $ScriptPath, [hashtable] $Bound)
+    $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', "`"$ScriptPath`"")
+    foreach ($k in ($Bound.Keys | Sort-Object)) {
+        $v = $Bound[$k]
+        if ($v -is [System.Management.Automation.SwitchParameter] -or $v -is [bool]) {
+            if ([bool]$v) { $a += "-$k" }
+        } else {
+            $a += "-$k"; $a += "`"$v`""
+        }
+    }
+    return $a
+}
+
+# --------------------------------------------------------- diagnostic panel ---
+# Printed before EVERY exit once the account is known, so one photo of the
+# screen carries everything needed to diagnose a failure from doc1. Also saved
+# to C:\ProgramData\ssh\fleetssh-last-run.txt for reading over SSH later.
+$script:SshdLogLines = @()
+$script:KeyFiles     = @()
+function Get-JoinState {
+    # dsregcmd is a native exe: run it bounded so it can never hang the run.
+    try {
+        $f = Join-Path $env:TEMP ("fleet-dsreg-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.txt')
+        $p = Start-Process dsregcmd.exe -ArgumentList '/status' -NoNewWindow -PassThru -RedirectStandardOutput $f
+        $null = $p.Handle
+        if (-not $p.WaitForExit(10000)) { try { $p.Kill() } catch {}; return 'unknown (dsregcmd timed out)' }
+        $t = Get-Content $f -Raw; Remove-Item $f -Force -ErrorAction SilentlyContinue
+        $v = { param($n) if ($t -match "(?m)^\s*$n\s*:\s*(\S.*?)\s*$") { $Matches[1] } else { '?' } }
+        $tenant = & $v 'TenantName'
+        return ("Entra={0} AD={1}{2}" -f (& $v 'AzureAdJoined'), (& $v 'DomainJoined'),
+                $(if ($tenant -ne '?') { " tenant=$tenant" } else { '' }))
+    } catch { return "unknown ($($_.Exception.Message))" }
+}
+function Get-SshdInfo {
+    try {
+        $img = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\sshd' -ErrorAction Stop).ImagePath
+        $exe = $img.Trim('"').Split('"')[0]
+        $src = if ($exe -match '\\System32\\OpenSSH\\') { 'Windows feature' } else { 'MSI' }
+        $ver = (Get-Item $exe -ErrorAction Stop).VersionInfo.ProductVersion
+        $svc = Get-Service sshd -ErrorAction Stop
+        return "$ver $src, $($svc.Status)/$($svc.StartType)"
+    } catch { return 'not installed' }
+}
+function Show-FleetPanel {
+    param([string] $Result, [string[]] $ErrorText)
+    $os = try {
+        $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+        $b = [Environment]::OSVersion.Version.Build
+        # ProductName still says "Windows 10" on Windows 11 (a Microsoft quirk).
+        $n = if ($b -ge 22000) { $cv.ProductName -replace 'Windows 10', 'Windows 11' } else { $cv.ProductName }
+        "$n $($cv.DisplayVersion) build $b"
+    } catch { "build $([Environment]::OSVersion.Version.Build)" }
+    $acct = if ($userSid) {
+        $kind = if (Test-EntraAccount -Sid $userSid.Value -Name $requestedUser) { 'Entra' }
+                elseif ($userSid.Value -like 'S-1-5-21-*' -and $requestedUser -like "$env:COMPUTERNAME\*") { 'local' }
+                else { 'domain/other' }
+        "$requestedUser [$kind]"
+    } else { "$TargetUser [unresolved]" }
+    $f = [ordered]@{
+        'RESULT'   = $Result
+        'script'   = $FleetSshVersion
+        'host'     = "$env:COMPUTERNAME  $(@($ips) -join ', ')"
+        'windows'  = $os
+        'joined'   = (Get-JoinState)
+        'account'  = $acct
+        'sid'      = $(if ($userSid) { $userSid.Value } else { '-' })
+        'admin'    = $(if ($null -ne $isAdminAccount) { "$(if ($isAdminAccount) { 'yes' } else { 'no' }) - $adminVia" } else { '-' })
+        'ssh as'   = $(if ($retargeted) { "$TargetUser (local admin, retargeted)" } else { $TargetUser })
+        'sshd'     = (Get-SshdInfo)
+        'keyfiles' = $(if ($script:KeyFiles.Count) { $script:KeyFiles } else { '-' })
+        'firewall' = $(if (@($thirdPartyFw).Count) { "THIRD-PARTY: $(@($thirdPartyFw) -join ', ')" } else { 'Windows only' })
+        'selftest' = $(if ($verdict) { $verdict } else { 'not run' })
+        'sshd log' = $(if ($script:SshdLogLines.Count) { $script:SshdLogLines } else { '-' })
+    }
+    if ($ErrorText) { $f['ERROR'] = $ErrorText }
+    $lines = Format-DiagnosticPanel -Fields $f -Title "FLEET SSH -- photograph this panel"
+    $color = if ($Result -like 'PASS*') { 'Green' } elseif ($Result -like 'WARN*') { 'Yellow' } else { 'Red' }
+    Write-Host ""
+    $lines | ForEach-Object { Write-Host $_ -ForegroundColor $color }
+    try {
+        if (Test-Path $SshDataDir) {
+            [IO.File]::WriteAllText((Join-Path $SshDataDir 'fleetssh-last-run.txt'),
+                (($lines + @('', "written $(Get-Date -Format s)")) -join "`r`n"), (New-Object Text.UTF8Encoding($false)))
+        }
+    } catch {}
+}
+function Get-LanIps {
+    try {
+        return @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+            Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } | Select-Object -ExpandProperty IPAddress)
+    } catch { return @() }
+}
+# Any unexpected terminating error still ends with the panel, carrying the
+# error and the line it came from, instead of a bare red PowerShell error that
+# says nothing about the box. (On the first #240 test run an over-long account
+# description killed the run with no output at all.)
+trap {
+    $err = $_
+    # Our own deliberate stop (in-memory mode): let it end the script quietly.
+    if ("$($err.Exception.Message)".StartsWith($script:StopMarker)) { break }
+    Write-Host ""
+    Write-Fail "Unexpected error: $($err.Exception.Message)"
+    $where = "line $($err.InvocationInfo.ScriptLineNumber): $("$($err.InvocationInfo.Line)".Trim())"
+    $ips = Get-LanIps
+    Show-FleetPanel -Result 'FAIL-SCRIPT-ERROR (send this photo)' -ErrorText @(
+        ($err.Exception.Message -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 3) + $where)
+    $global:LASTEXITCODE = 1
+    if ($PSCommandPath) { exit 1 }
+    break   # in memory: stop the script, keep the operator's window
+}
+
+$ips = @()
+$isAdminAccount = $null
+$adminVia = '-'
+$thirdPartyFw = @()
+$verdict = $null
+$retargeted = $false
+$requestedUser = $TargetUser
+
 # ---------------------------------------------------------------- elevation ---
 $principal = New-Object Security.Principal.WindowsPrincipal(
                  [Security.Principal.WindowsIdentity]::GetCurrent())
@@ -148,14 +381,10 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
         Write-Info "Start PowerShell as Administrator, then paste the same one-liner again:"
         Write-Info ""
         Write-Info "  [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')"
-        exit 1
+        Stop-FleetSsh 1
     }
     Write-Host "Not elevated. Re-launching as Administrator..." -ForegroundColor Yellow
-    $argList = @('-NoProfile','-ExecutionPolicy','Bypass','-NoExit',
-                 '-File', "`"$PSCommandPath`"", '-TargetUser', "`"$TargetUser`"")
-    if ($AllowBlankPasswordAuth) { $argList += '-AllowBlankPasswordAuth' }
-    if ($AllowPasswordAuth)      { $argList += '-AllowPasswordAuth' }
-    if ($AnyRemote)              { $argList += '-AnyRemote' }
+    $argList = Get-ElevationArgs -ScriptPath $PSCommandPath -Bound $PSBoundParameters
     try   { Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList }
     catch { Write-Fail "Could not elevate: $($_.Exception.Message)" ; exit 1 }
     exit 0
@@ -174,7 +403,10 @@ if (-not $PSBoundParameters.ContainsKey('TargetUser')) {
         $why = "running as '$TargetUser'"
         $console = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).UserName
         if ($console) {
-            $TargetUser = ($console -split '\\')[-1]
+            # Strip the prefix only from a LOCAL account (HOST\name). Keep it for
+            # AzureAD\name and DOMAIN\name: those resolve, and are detected as
+            # Entra, only in full.
+            $TargetUser = if ($console -like "$env:COMPUTERNAME\*") { ($console -split '\\')[-1] } else { $console }
             Write-Info "$why; targeting the console user '$TargetUser'."
         } else {
             $locals = @(Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Enabled })
@@ -197,31 +429,118 @@ Write-Host "  key  : $($keyParts[0]) ...$($keyParts[1][-12..-1] -join '') $(if (
 
 # ------------------------------------------------------- resolve the account ---
 Write-Step "Resolving account '$TargetUser'"
-try {
-    $userSid = (New-Object Security.Principal.NTAccount($TargetUser)).Translate(
-                   [Security.Principal.SecurityIdentifier])
-} catch {
-    Write-Fail "No such account: $TargetUser"
-    Write-Info "Enabled local accounts on this box:"
-    try { Get-LocalUser | Where-Object Enabled | ForEach-Object { Write-Info "  $($_.Name)" } } catch {}
-    Write-Info "Re-run with:  -TargetUser <name>"
-    exit 1
+$userSid = $null
+$me = [Security.Principal.WindowsIdentity]::GetCurrent()
+if ($TargetUser -eq $env:USERNAME -and $me.User -and $me.Name -notmatch '\$$') {
+    # Ourselves: take the SID from our own token. Re-translating the bare
+    # $env:USERNAME is exactly what goes wrong for an Entra account, whose
+    # short name is not a resolvable account name.
+    $userSid = $me.User
+} else {
+    try {
+        $userSid = (New-Object Security.Principal.NTAccount($TargetUser)).Translate(
+                       [Security.Principal.SecurityIdentifier])
+    } catch {
+        Write-Fail "No such account: $TargetUser"
+        Write-Info "Enabled local accounts on this box:"
+        try { Get-LocalUser | Where-Object Enabled | ForEach-Object { Write-Info "  $($_.Name)" } } catch {}
+        Write-Info "Re-run with:  -TargetUser <name>   (Entra ID accounts: AzureAD\<name>)"
+        $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-NO-SUCH-ACCOUNT'
+        Stop-FleetSsh 1
+    }
 }
-Write-Ok "SID $($userSid.Value)"
+$accountName = try { $userSid.Translate([Security.Principal.NTAccount]).Value } catch { $TargetUser }
+Write-Ok "SID $($userSid.Value)  ($accountName)"
+
+# ----------------------------------------- Entra ID -> local administrator ---
+# See ENTRA ID in the header. Key-only SSH as a cloud-only Entra account is
+# accepted and then closed by sshd, so we authorise a local admin instead.
+$requestedUser = $accountName
+$isEntra       = Test-EntraAccount -Sid $userSid.Value -Name $accountName
+if ($isEntra) { Write-Warn "'$accountName' is an Entra ID (Azure AD) account: key-only SSH cannot log it on." }
+
+if ($isEntra -or $PSBoundParameters.ContainsKey('LocalAdmin')) {
+    if ($isEntra -and $NoLocalAdmin) {
+        Write-Fail "Refusing to continue: -NoLocalAdmin was given and '$accountName' is an Entra ID account."
+        Write-Info "sshd would accept the key and then close the session as it opens (no password -> no logon token)."
+        Write-Info "Re-run without -NoLocalAdmin to create a local administrator for SSH, or target a local account."
+        $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-ENTRA-NOLOCALADMIN'
+        Stop-FleetSsh 1
+    }
+    Write-Step "Local administrator '$LocalAdmin' for SSH"
+    $lu = Get-LocalUser -Name $LocalAdmin -ErrorAction SilentlyContinue
+    if ($lu) {
+        if (-not $lu.Enabled) { Enable-LocalUser -Name $LocalAdmin; Write-Ok "Re-enabled existing account '$LocalAdmin'." }
+        else { Write-Ok "Using existing local account '$LocalAdmin'." }
+    } else {
+        # Random and immediately discarded: it is never shown or stored. Key auth
+        # never asks for it, and nobody should ever log on to this account
+        # interactively. The suffix guarantees every complexity class.
+        $pw = ConvertTo-SecureString ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N') + 'Aa1!') `
+                  -AsPlainText -Force
+        $lu = New-LocalUser -Name $LocalAdmin -Password $pw -PasswordNeverExpires -AccountNeverExpires `
+                  -Description 'doc1 fleet SSH, key only (Setup-FleetSSH.ps1)'   # max 48 chars
+        Remove-Variable pw
+        Write-Ok "Created local account '$LocalAdmin' (random password, not recorded)."
+    }
+    # Do NOT enumerate Administrators first: on Entra-joined boxes
+    # Get-LocalGroupMember throws ("Failed to compare two elements") because of
+    # the Entra SIDs in the group. Just add, and treat "already a member" as fine.
+    try {
+        Add-LocalGroupMember -SID $SID_ADMINS -Member $lu.SID.Value -ErrorAction Stop
+        Write-Ok "Added '$LocalAdmin' to Administrators."
+    } catch {
+        if ($_.Exception.Message -match 'already a member|MemberExists') {
+            Write-Ok "'$LocalAdmin' is already in Administrators."
+        } else {
+            # Fallback without the LocalAccounts module, by the localised group name.
+            $grp = (New-Object Security.Principal.SecurityIdentifier($SID_ADMINS)).Translate(
+                       [Security.Principal.NTAccount]).Value.Split('\')[-1]
+            $o = & net.exe localgroup "$grp" $LocalAdmin /add 2>&1
+            if ($LASTEXITCODE -ne 0 -and "$o" -notmatch '1378|already a member') {
+                Write-Fail "Could not add '$LocalAdmin' to Administrators: $($_.Exception.Message) / $o"
+                $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-LOCALADMIN-GROUP'
+                Stop-FleetSsh 1
+            }
+            Write-Ok "Added '$LocalAdmin' to Administrators (net localgroup)."
+        }
+    }
+    $TargetUser  = $LocalAdmin
+    $userSid     = $lu.SID
+    $accountName = "$env:COMPUTERNAME\$LocalAdmin"
+    $retargeted  = $true
+    Write-Ok "Retargeted: the key goes to '$LocalAdmin', not '$requestedUser'."
+}
 
 # Is the account a local Administrator? That decides which authorized-keys file
-# sshd will actually read. Checked by SID for the same locale reason as above.
+# sshd will actually read, and sshd decides by TOKEN membership, groups
+# included. Direct membership is not enough: on an Entra-joined box an Entra
+# user is usually an admin only through a role group (an S-1-12-1 SID) inside
+# Administrators. Missing that wrote the key to the wrong file on a real office PC.
+#  * The account running this script: it is elevated (checked above), so it
+#    IS an administrator -- whichever group got it there.
+#  * Anyone else: direct membership by SID (locale-proof); nested and
+#    role-group membership cannot be resolved offline, so say so.
 $isAdminAccount = $false
-try {
-    $isAdminAccount = [bool](Get-LocalGroupMember -SID $SID_ADMINS -ErrorAction Stop |
-        Where-Object { $_.SID.Value -eq $userSid.Value })
-} catch {
-    # Get-LocalGroupMember chokes on orphaned/domain SIDs left in the group. Fall
-    # back to the current process token when we are asking about ourselves.
-    if ($TargetUser -eq $env:USERNAME) { $isAdminAccount = $true }
-    else { Write-Warn "Could not enumerate Administrators; assuming '$TargetUser' is NOT an admin." }
+$adminVia = 'not a member of Administrators'
+if ($retargeted) {
+    $isAdminAccount = $true
+    $adminVia = 'local admin created/confirmed by this script'
+} elseif ($me.User -and $userSid.Value -eq $me.User.Value) {
+    $isAdminAccount = $true
+    $adminVia = 'this elevated session'
+} else {
+    try {
+        $isAdminAccount = [bool](@(Get-LocalGroupMember -SID $SID_ADMINS -ErrorAction Stop |
+            Where-Object { $_.SID.Value -eq $userSid.Value }).Count)
+        if ($isAdminAccount) { $adminVia = 'direct member of Administrators' }
+    } catch {
+        # Get-LocalGroupMember chokes on orphaned/Entra SIDs left in the group.
+        $adminVia = 'unknown (Administrators could not be enumerated)'
+        Write-Warn "Could not enumerate Administrators; assuming '$TargetUser' is NOT an admin."
+    }
 }
-Write-Ok ("Administrator: {0}" -f $(if ($isAdminAccount) { 'yes' } else { 'no' }))
+Write-Ok ("Administrator: {0}  ({1})" -f $(if ($isAdminAccount) { 'yes' } else { 'no' }), $adminVia)
 
 # Profile path from the SID. Deliberately NOT guessed if absent:
 #   * under SYSTEM, $env:USERPROFILE is C:\Windows\system32\config\systemprofile,
@@ -256,16 +575,9 @@ if ($blankPassword) { Write-Info "Account appears to have no password set." }
 # ------------------------------------------------------------ OpenSSH server ---
 Write-Step "OpenSSH Server"
 function Show-ManualInstallHelp {
-    <#
-      Features on Demand is not available on every SKU. IoT / LTSB / Enterprise
-      images behind WSUS routinely either throw or -- worse -- report success and
-      install nothing at all. Both land here, because the only thing that matters
-      is whether an sshd service exists afterwards.
-
-      Do not try to be clever and download it: fetching and executing an
-      installer for the operator is a much bigger supply-chain decision than
-      fetching this script. Tell them exactly what to do and get out of the way.
-    #>
+    # Reached when the MSI could not be fetched or installed (no route to
+    # GitHub, a signature that does not verify, a held MSI mutex), or with
+    # -NoMsiDownload. Tell the operator exactly what to do and get out of the way.
     param([string] $Reason)
 
     Write-Host ""
@@ -284,73 +596,13 @@ function Show-ManualInstallHelp {
     Write-Host "  3. Re-run the one-liner in an elevated PowerShell:" -ForegroundColor White
     Write-Host "       [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')" -ForegroundColor Cyan
     Write-Host ""
-    Write-Info "Nothing has been changed on this machine."
-    Write-Info "If the feature install was merely slow it may still complete in the background;"
-    Write-Info "re-running is always safe and will pick up an sshd that appeared since."
+    Write-Info "Nothing has been changed on this machine. Re-running is always safe."
     Write-Host ""
-}
-
-function Test-CapabilityUsable {
-    <#
-      Decide whether the Windows OpenSSH feature is even worth attempting, using
-      ONLY calls that cannot block.
-
-      Two traps here, both learned on CW-TS01:
-
-      * Get-CimInstance can hang on a box with a sick WMI service, and a
-        try/catch does not save you from a hang -- only from an error. The build
-        number comes from [Environment]::OSVersion instead, which is in-process.
-      * Get-WindowsCapability -Online is NOT a cheap lookup. It goes to the
-        servicing stack (DISM/CBS) and can hang indefinitely, exactly like
-        Add-WindowsCapability. Probing with it to decide whether to run the
-        bounded install put an UNBOUNDED call in front of the bounded one, which
-        is what actually hung. So we do not probe at all: the bounded install
-        below does its own filtering, inside a process we can kill.
-    #>
-    $build = 0
-    try { $build = [int][Environment]::OSVersion.Version.Build } catch {}
-    Write-Info "Windows build $build."
-    if ($build -gt 0 -and $build -lt 17763) {
-        Write-Info "That predates the OpenSSH feature (needs 17763+) -- going straight to the MSI."
-        return $false
-    }
-    return $true
-}
-
-function Invoke-CapabilityInstall {
-    <#
-      Run the feature install in a separate PROCESS, not a PowerShell job.
-
-      A job wedged inside DISM does not answer Stop-Job, and Stop-Job then blocks
-      forever waiting for the runspace to die -- so the timeout fires and the
-      script hangs anyway, which is exactly what happened on CW-TS01. A process
-      can simply be killed. Same pattern as the loopback self-test below.
-    #>
-    param([int] $TimeoutSec)
-
-    $cmd = "Get-WindowsCapability -Online -Name 'OpenSSH.Server*' | " +
-           "Where-Object State -ne 'Installed' | " +
-           "ForEach-Object { Add-WindowsCapability -Online -Name `$_.Name | Out-Null }"
-    $proc = Start-Process powershell.exe -NoNewWindow -PassThru `
-                -ArgumentList '-NoProfile','-NonInteractive','-Command',$cmd
-    $null = $proc.Handle   # cache the handle or .HasExited/.ExitCode misbehave
-
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while (-not $proc.HasExited -and $sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
-        Start-Sleep -Seconds 5
-        Write-Host '.' -NoNewline -ForegroundColor DarkGray   # visible progress, not a dead screen
-    }
-    Write-Host ''
-    if (-not $proc.HasExited) {
-        try { $proc.Kill() } catch {}
-        return "timed out after ${TimeoutSec}s -- this box most likely has no route to Windows Update"
-    }
-    return $null
 }
 
 function Install-OpenSSHFromMsi {
     <#
-      Fetch and install the official Win32-OpenSSH MSI.
+      Fetch and install the official Win32-OpenSSH MSI -- the only install route.
 
       We are already running a script fetched from GitHub as Administrator, so
       pulling Microsoft's own signed OpenSSH package from the same origin adds no
@@ -430,33 +682,23 @@ function Install-OpenSSHFromMsi {
 }
 
 $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
-if (-not $sshdSvc) {
+if ($sshdSvc) {
+    Write-Ok "sshd already installed."
+} else {
     Write-Info "sshd not present."
-    $capError = $null
-
-    if (Test-CapabilityUsable) {
-        Write-Info "Trying the OpenSSH Server capability (up to ${CapTimeoutSec}s, then the MSI)..."
-        $capError = Invoke-CapabilityInstall -TimeoutSec $CapTimeoutSec
-        # Re-query REGARDLESS of what it reported: some SKUs claim success and
-        # install nothing, so the service is the only honest signal.
-        $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
-        if ($sshdSvc) { Write-Ok "OpenSSH Server installed (Windows feature)." }
-        elseif (-not $capError) { $capError = "the capability reported success but no sshd service appeared" }
-    } else {
-        $capError = "the OpenSSH feature is not available on this Windows build"
-    }
-
-    if (-not $sshdSvc -and -not $NoMsiDownload) {
-        Write-Info "Falling back to the official OpenSSH MSI."
+    $installError = 'run with -NoMsiDownload'
+    if (-not $NoMsiDownload) {
+        $installError = 'the OpenSSH MSI could not be downloaded or installed (see above)'
         if (Install-OpenSSHFromMsi) {
             $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
             if ($sshdSvc) { Write-Ok "OpenSSH Server installed (MSI)." }
+            else { $installError = 'the MSI installed but no sshd service appeared' }
         }
     }
-
     if (-not $sshdSvc) {
-        Show-ManualInstallHelp -Reason $capError
-        exit 2
+        Show-ManualInstallHelp -Reason $installError
+        $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-NO-SSHD (see manual steps above)'
+        Stop-FleetSsh 2
     }
 }
 
@@ -470,7 +712,11 @@ if ((Get-Service sshd).Status -ne 'Running') { Start-Service sshd }
 Write-Ok "sshd is Running / $startup$(if (-not $Persist) { '  (this session only -- gone after a reboot)' })"
 
 # The first start is what creates C:\ProgramData\ssh and the host keys.
-if (-not (Test-Path $SshDataDir)) { Write-Fail "$SshDataDir missing -- sshd has never started."; exit 1 }
+if (-not (Test-Path $SshDataDir)) {
+    Write-Fail "$SshDataDir missing -- sshd has never started."
+    $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-SSHD-NEVER-STARTED'
+    Stop-FleetSsh 1
+}
 
 # ----------------------------------------------------------------- firewall ---
 Write-Step "Firewall (TCP 22 inbound)"
@@ -512,6 +758,20 @@ if ($ourRule) {
     New-NetFirewallRule @ruleArgs | Out-Null
     Write-Ok "Created port rule 'Fleet SSH (TCP 22 inbound)'$(if (-not $AnyRemote) { ' scoped to LAN + tailnet' })"
 }
+
+# A third-party firewall (OEM McAfee/Norton trialware) registered with Security
+# Center drops inbound traffic whatever the Windows Firewall rules say, and the
+# loopback self-test cannot see it. SecurityCenter2 exists on client SKUs only;
+# bounded so a sick WMI service cannot hang the run.
+try {
+    $fwNames = @(Get-CimInstance -Namespace 'root/SecurityCenter2' -ClassName 'FirewallProduct' `
+                     -OperationTimeoutSec 15 -ErrorAction Stop | ForEach-Object { $_.displayName })
+    $thirdPartyFw = @(Select-ThirdPartyFirewall -DisplayNames $fwNames)
+} catch {}
+foreach ($fw in $thirdPartyFw) {
+    Write-Warn "$fw is active and will override the Windows Firewall rule. Uninstall it (Settings > Apps) or allow inbound TCP 22 in it."
+}
+if (-not $thirdPartyFw.Count) { Write-Ok "No third-party firewall registered." }
 
 # -------------------------------------------------------------- ACL helpers ---
 function Set-KeyFileAcl {
@@ -601,7 +861,7 @@ function Remove-AuthorizedKey {
 # ----------------------------------------------------------- install the key ---
 Write-Step "Installing the fleet public key"
 if ($PublicKey -notmatch '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-\S+|sk-ssh-ed25519@openssh\.com)\s+\S+') {
-    Write-Fail "That does not look like an OpenSSH public key."; exit 1
+    Write-Fail "That does not look like an OpenSSH public key."; Stop-FleetSsh 1
 }
 
 $userKeys = if ($hasProfile) { Join-Path $profilePath '.ssh\authorized_keys' } else { $null }
@@ -612,15 +872,18 @@ $userKeys = if ($hasProfile) { Join-Path $profilePath '.ssh\authorized_keys' } e
 # an admin. Both end up locked down, so the extra file costs nothing.
 if ($isAdminAccount) {
     $had = Add-AuthorizedKey -Path $AdminKeys -Key $PublicKey -AllowSids @($SID_SYSTEM, $SID_ADMINS)
+    $script:KeyFiles += $AdminKeys
     Write-Ok ("{0}  ({1})" -f $AdminKeys, $(if ($had) { 'already present' } else { 'KEY ADDED' }))
 }
 if ($userKeys) {
     $had = Add-AuthorizedKey -Path $userKeys -Key $PublicKey -AllowSids @($SID_SYSTEM, $SID_ADMINS, $userSid.Value)
+    $script:KeyFiles += $userKeys
     Write-Ok ("{0}  ({1})" -f $userKeys, $(if ($had) { 'already present' } else { 'KEY ADDED' }))
 } elseif (-not $isAdminAccount) {
     Write-Fail "'$TargetUser' is not an administrator and has no profile, so there is nowhere sshd will look for its key."
     Write-Info "Log in as '$TargetUser' once to create the profile, then re-run."
-    exit 1
+    $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-NO-KEYFILE (non-admin, no profile)'
+    Stop-FleetSsh 1
 }
 
 $sshdText      = if (Test-Path $SshdConfig) { [IO.File]::ReadAllText($SshdConfig) } else { '' }
@@ -705,6 +968,7 @@ Write-Info "Original sshd_config saved as sshd_config.fleet-backup."
 # key. This is what catches the blank-password S4U problem, a bad ACL, or a
 # mis-scoped sshd_config -- now, rather than after you have walked away.
 Write-Step "Self-test: real key login over loopback"
+$testStart = Get-Date
 $testBase = Join-Path $env:TEMP ("fleet-selftest-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $testPub  = $null
 $testPass = $false
@@ -755,23 +1019,35 @@ try {
     if ($proc.WaitForExit(30000)) {
         $so = if (Test-Path $soFile) { (Get-Content $soFile -Raw) } else { '' }
         $se = if (Test-Path $seFile) { (Get-Content $seFile -Raw) } else { '' }
-        if ($proc.ExitCode -eq 0 -and "$so".Trim()) {
-            $testPass = $true
-            Write-Ok "Key authentication WORKS. Remote whoami: $("$so".Trim())"
-        } elseif ("$se" -match 'Permission denied|publickey|Authentication failed') {
-            # sshd actively rejected the key -- a real, actionable failure.
-            Write-Fail "Key authentication was REFUSED (exit $($proc.ExitCode))."
-            @("$se".Trim() -split "`r?`n" | Where-Object { $_.Trim() }) |
-                Select-Object -First 8 | ForEach-Object { Write-Info "  $_" }
-        } else {
-            # Non-zero, but nothing that looks like a refusal (client quirk,
-            # loopback oddity, ...). Do NOT claim the key is bad -- say so
-            # honestly and let the doc1 check be the decider.
-            $testInconclusive = $true
-            Write-Warn "Self-test inconclusive (exit $($proc.ExitCode)) -- no sign of an actual refusal."
-            @("$se".Trim() -split "`r?`n" | Where-Object { $_.Trim() }) |
-                Select-Object -First 6 | ForEach-Object { Write-Info "  $_" }
-            Write-Info "The key IS installed; verify from doc1 (command shown below)."
+        $verdict = Get-SelfTestVerdict -ExitCode $proc.ExitCode -StdOut "$so" -StdErr "$se"
+        $errLines = @("$se".Trim() -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 8)
+        switch ($verdict) {
+            'pass' {
+                $testPass = $true
+                Write-Ok "Key authentication WORKS. Remote whoami: $("$so".Trim())"
+            }
+            'refused' {
+                # sshd actively rejected the key -- a real, actionable failure.
+                Write-Fail "Key authentication was REFUSED (exit $($proc.ExitCode))."
+                $errLines | ForEach-Object { Write-Info "  $_" }
+            }
+            'closed' {
+                # The key was accepted and the session died as it opened: sshd
+                # could not create a logon for this account.
+                Write-Fail "The key was accepted, then sshd closed the session as it opened."
+                Write-Info "sshd could not create a logon for '$TargetUser'. That is what an Entra ID account"
+                Write-Info "or a domain account whose domain controller is unreachable looks like."
+                Write-Info "Fix: re-run with  -LocalAdmin fleet  and SSH as that account instead."
+            }
+            default {
+                # Non-zero, but nothing that looks like a refusal (client quirk,
+                # loopback oddity, ...). Do NOT claim the key is bad -- say so
+                # honestly and let the doc1 check be the decider.
+                $testInconclusive = $true
+                Write-Warn "Self-test inconclusive (exit $($proc.ExitCode)) -- no sign of an actual refusal."
+                $errLines | Select-Object -First 6 | ForEach-Object { Write-Info "  $_" }
+                Write-Info "The key IS installed; verify from doc1 (command shown below)."
+            }
         }
     } else {
         try { $proc.Kill() } catch {}
@@ -798,6 +1074,27 @@ try {
         Write-Info "Throwaway self-test key removed."
     }
     Remove-Item "$testBase", "$testBase.pub" -Force -ErrorAction SilentlyContinue
+}
+
+# The sshd log says in one line what went wrong ("Invalid user X", "Failed
+# publickey", "Connection closed"), so on any failure show it rather than
+# telling the operator to go and fetch it.
+if (-not $testPass) {
+    Write-Step "sshd log since the self-test (OpenSSH/Operational)"
+    try {
+        $ev = @(Get-WinEvent -FilterHashtable @{ LogName = 'OpenSSH/Operational'; StartTime = $testStart.AddSeconds(-2) } `
+                    -MaxEvents 12 -ErrorAction Stop | Sort-Object TimeCreated)
+        foreach ($e in $ev) {
+            $msg = ($e.Message -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
+            # sshd prefixes every line with "sshd: PID <n>: " -- noise on a photo.
+            $msg = $msg -replace '^sshd(-session)?: PID \d+: ', ''
+            Write-Info ("  {0:HH:mm:ss}  {1}" -f $e.TimeCreated, $msg)
+            if ($msg -notmatch '^(Server listening|Received disconnect|Disconnected from)') { $script:SshdLogLines += $msg }
+        }
+        $script:SshdLogLines = @($script:SshdLogLines | Select-Object -Last 5)
+    } catch {
+        Write-Info "  (no events: $($_.Exception.Message))"
+    }
 }
 
 # ------------------------------------------- blank-password fallback ----------
@@ -834,16 +1131,11 @@ if ($AllowBlankPasswordAuth) {
 
 # ----------------------------------------------------------------- summary ----
 Write-Step "Summary"
-$ips = @()
-try {
-    $ips = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
-        Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } |
-        Select-Object -ExpandProperty IPAddress)
-} catch {}
+$ips = Get-LanIps
 
 Write-Host ""
 Write-Host "  hostname : $env:COMPUTERNAME"
-Write-Host "  user     : $TargetUser"
+Write-Host "  user     : $TargetUser$(if ($retargeted) { "   (instead of $requestedUser)" })"
 Write-Host "  addresses: $($ips -join ', ')"
 Write-Host "  keyfile  : $effectiveFile"
 
@@ -863,6 +1155,11 @@ if (Test-Path $hostKey) {
 
 $addr = if ($ips.Count) { $ips[0] } else { $env:COMPUTERNAME }
 Write-Host ""
+if ($retargeted) {
+    $why = if ($isEntra) { 'Entra ID account detected' } else { 'Local administrator requested' }
+    Write-Host "  $why -- SSH as $TargetUser@$addr, not $requestedUser." -ForegroundColor Cyan
+    Write-Host ""
+}
 if ($testPass) {
     Write-Host "  DONE and VERIFIED. From doc1:" -ForegroundColor Green
     Write-Host "    ssh $TargetUser@$addr" -ForegroundColor Green
@@ -873,10 +1170,13 @@ if ($testPass) {
     Write-Host "  If that is refused, watch the sshd log here while doc1 retries:"
     Write-Host "    Get-WinEvent -LogName 'OpenSSH/Operational' -MaxEvents 30 | Format-List TimeCreated,Message"
 } else {
-    Write-Host "  NOT VERIFIED -- key authentication was actively REFUSED. See above." -ForegroundColor Red
-    Write-Host "  Watch the sshd log while doc1 tries to connect:" -ForegroundColor Red
-    Write-Host "    Get-WinEvent -LogName 'OpenSSH/Operational' -MaxEvents 30 | Format-List TimeCreated,Message"
+    Write-Host "  NOT VERIFIED -- the self-test login failed. The sshd log above says why." -ForegroundColor Red
 }
+Write-Host ""
+Write-Host "  The self-test runs over loopback, so it cannot see a firewall or the network."
+Write-Host "  Final check from doc1:  nc -vz -w5 $addr 22"
+Write-Host "    timeout -> something is dropping packets (third-party firewall, network);"
+Write-Host "    refused -> nothing listening on 22.  Then:  ssh $TargetUser@$addr whoami"
 
 if ($script:Warnings.Count) {
     Write-Host ""
@@ -885,4 +1185,17 @@ if ($script:Warnings.Count) {
         Write-Host "    - $(($_ -split "`n" | Select-Object -First 1).Trim())" -ForegroundColor Yellow
     }
 }
+
+$result = switch ($verdict) {
+    'pass'    { if (@($thirdPartyFw).Count) { 'WARN-PASS-LOCAL (third-party firewall: check from doc1)' } else { 'PASS' } }
+    'refused' { 'FAIL-REFUSED (key rejected; see sshd log)' }
+    'closed'  { 'FAIL-SESSION-CLOSED (no logon token; use -LocalAdmin)' }
+    default   { 'WARN-UNVERIFIED (self-test inconclusive; check from doc1)' }
+}
+Show-FleetPanel -Result $result
 Write-Host ""
+if ($verdict -in @('refused', 'closed')) { Stop-FleetSsh 1 }
+# Success: say so explicitly. Otherwise the run "returns" whatever the last
+# native tool left in $LASTEXITCODE (-1 on the first VM test), and an RMM or
+# guest-agent caller reads a working run as a failure.
+$global:LASTEXITCODE = 0

@@ -168,8 +168,24 @@
     fi
     touch $out
   '';
+
+  # tools/windows/*.ps1 are fetched straight off GitHub by a pinned one-liner
+  # and run as Administrator on boxes we cannot otherwise reach. Parse every
+  # one, and unit-test Setup-FleetSSH.ps1's decision helpers (#240). The
+  # Windows integration matrix is tools/windows/tests/fleetssh-vm-matrix.sh.
+  windowsScriptsCheck =
+    pkgs.runCommand "windows-scripts-check" {
+      nativeBuildInputs = [pkgs.powershell pkgs.shellcheck];
+    } ''
+      export HOME=$TMPDIR
+      cp -r ${../../tools/windows} windows && chmod -R u+w windows
+      pwsh -NoProfile -NonInteractive -File windows/tests/Setup-FleetSSH.Tests.ps1
+      shellcheck -S warning windows/tests/fleetssh-vm-matrix.sh
+      touch $out
+    '';
 in {
   inherit
+    windowsScriptsCheck
     codexAgentsWrapperCheck
     nixpkgsFollowsCheck
     aiPortabilityCheck
