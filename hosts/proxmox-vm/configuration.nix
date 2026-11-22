@@ -107,6 +107,15 @@
     }
   ];
 
+  # Wix REST API key (account-level) plus account and site ids, for editing a
+  # Wix site from doc1 with a human present. doc1-only: a write credential.
+  sops.secrets."wix-api.env" = {
+    sopsFile = config.homelab.secrets.sopsFile "wix-api.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   sops.secrets."sonicwall-api.env" = {
     sopsFile = config.homelab.secrets.sopsFile "sonicwall-api.env";
     format = "dotenv";
