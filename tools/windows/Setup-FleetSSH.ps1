@@ -20,7 +20,7 @@
 
    Close it deliberately when you are done:
      Stop-Service sshd -Force; Set-Service sshd -StartupType Disabled; `
-       Get-NetFirewallRule -DisplayName '*SSH*' | Disable-NetFirewallRule
+       netsh advfirewall firewall set rule name='Fleet SSH (TCP 22 inbound)' new enable=no
 
  USAGE  (ELEVATED PowerShell)
    Normally straight off the GitHub mirror, with nothing to download or save. It
@@ -143,7 +143,7 @@ $ErrorActionPreference = 'Stop'
 
 # Bump on every behaviour change: it is printed in the diagnostic panel, so a
 # photo of a failure says which version produced it.
-$FleetSshVersion = '2026-11-21 (#240)'
+$FleetSshVersion = '2026-11-22 (netsh firewall)'
 
 # Well-known SIDs, used instead of names throughout: "Administrators" and
 # "SYSTEM" are localised, and name-based ACL code breaks on a non-English
@@ -720,43 +720,49 @@ if (-not (Test-Path $SshDataDir)) {
 
 # ----------------------------------------------------------------- firewall ---
 Write-Step "Firewall (TCP 22 inbound)"
-# Idempotently OPEN the port. Two distinct jobs:
+# Guarantee our OWN port-keyed rule exists and is enabled (which also undoes a
+# previous "close"). A pre-existing rule whose name matches /SSH/ is NOT proof
+# the port is open: Windows firewall rules are often PROGRAM-scoped, and a rule
+# pointing at an sshd.exe that no longer exists (e.g. OpenSSH moved from Features
+# on Demand to the MSI, at a different path) enumerates perfectly and permits
+# nothing. Observed live: sshd Running, an enabled "OpenSSH SSH Server Preview
+# (sshd)" rule present, and port 22 still refusing. A PORT rule cannot go stale.
 #
-#  1. Re-enable SSH rules that a previous "close" disabled, rather than stacking
-#     a duplicate alongside them.
-#  2. Guarantee our OWN port-based rule exists. A pre-existing rule whose name
-#     matches /SSH/ is NOT proof the port is open: Windows firewall rules are
-#     often PROGRAM-scoped, and a rule pointing at an sshd.exe that no longer
-#     exists (e.g. the box previously had OpenSSH via Features on Demand and now
-#     has it from the MSI, at a different path) enumerates perfectly and permits
-#     nothing. Observed live: sshd Running, an enabled "OpenSSH SSH Server
-#     Preview (sshd)" rule present, and port 22 still refusing connections.
-#     A rule keyed on the PORT cannot go stale that way.
-$sshRules = @(Get-NetFirewallRule -Direction Inbound -Action Allow -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -match 'OpenSSH|SSH' })
-$disabled = @($sshRules | Where-Object { $_.Enabled -ne 'True' -and $_.Enabled -ne $true })
-if ($disabled.Count) {
-    $disabled | Enable-NetFirewallRule
-    Write-Ok "Re-enabled $($disabled.Count) disabled SSH rule(s): $(($disabled.DisplayName | Select-Object -Unique) -join ', ')"
+# netsh in a killable process, never the NetSecurity cmdlets: Get-NetFirewallRule
+# goes through CIM with no timeout and stalled MEAGANS_LAPTOP for 20+ minutes
+# (2026-11-22) right after the MSI install, with sshd running and port 22 already
+# open, holding up the key. The rule must never block the key step: on a timeout we warn and go
+# on, and `nc -vz <ip> 22` from doc1 settles whether the port is open.
+# Same display name as the old New-NetFirewallRule rule, so netsh finds those.
+$FleetRuleName = 'Fleet SSH (TCP 22 inbound)'
+function Invoke-Netsh {
+    # -> netsh exit code, or $null if it did not finish within $TimeoutMs (killed).
+    param([string] $Arguments, [int] $TimeoutMs = 20000)
+    $out = Join-Path $env:TEMP ("fleet-netsh-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.txt')
+    try {
+        $p = Start-Process netsh.exe -ArgumentList $Arguments -NoNewWindow -PassThru `
+                 -RedirectStandardOutput $out
+        $null = $p.Handle   # cache the native handle, or .ExitCode reads back empty
+        if (-not $p.WaitForExit($TimeoutMs)) { try { $p.Kill() } catch {}; return $null }
+        return $p.ExitCode
+    } catch { return $null
+    } finally { Remove-Item $out -Force -ErrorAction SilentlyContinue }
 }
-
-$ourRule = Get-NetFirewallRule -Name 'FleetSSH-In-TCP22' -ErrorAction SilentlyContinue
-if ($ourRule) {
-    if ($ourRule.Enabled -ne 'True' -and $ourRule.Enabled -ne $true) { $ourRule | Enable-NetFirewallRule }
-    Write-Ok "Port rule 'FleetSSH-In-TCP22' present and enabled."
+$rc = Invoke-Netsh "advfirewall firewall show rule name=`"$FleetRuleName`""
+if ($null -eq $rc) {
+    Write-Warn "Windows Firewall did not answer within 20s; rule step skipped. Check from doc1: nc -vz <ip> 22"
+} elseif ($rc -eq 0) {
+    $rc = Invoke-Netsh "advfirewall firewall set rule name=`"$FleetRuleName`" new enable=yes"
+    if ($rc -eq 0) { Write-Ok "Port rule '$FleetRuleName' present and enabled." }
+    else { Write-Warn "Could not enable '$FleetRuleName' (netsh rc=$rc). Check from doc1: nc -vz <ip> 22" }
 } else {
-    $ruleArgs = @{
-        Name        = 'FleetSSH-In-TCP22'
-        DisplayName = 'Fleet SSH (TCP 22 inbound)'
-        Direction   = 'Inbound'; Action = 'Allow'
-        Protocol    = 'TCP';     LocalPort = 22
-        Profile     = 'Any'
-    }
     # Tailscale subnet routers SNAT by default, so traffic from doc1 arrives
     # sourced from the subnet router's own LAN address -- hence the local /16.
-    if (-not $AnyRemote) { $ruleArgs.RemoteAddress = @('192.168.0.0/16','10.0.0.0/8','172.16.0.0/12','100.64.0.0/10') }
-    New-NetFirewallRule @ruleArgs | Out-Null
-    Write-Ok "Created port rule 'Fleet SSH (TCP 22 inbound)'$(if (-not $AnyRemote) { ' scoped to LAN + tailnet' })"
+    $scope = if ($AnyRemote) { '' } else { ' remoteip=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10' }
+    $rc = Invoke-Netsh ("advfirewall firewall add rule name=`"$FleetRuleName`" dir=in action=allow " +
+                        "protocol=TCP localport=22 profile=any enable=yes$scope")
+    if ($rc -eq 0) { Write-Ok "Created port rule '$FleetRuleName'$(if (-not $AnyRemote) { ' scoped to LAN + tailnet' })" }
+    else { Write-Warn "Could not create '$FleetRuleName' (netsh rc=$(if ($null -eq $rc) { 'timeout' } else { $rc })). Check from doc1: nc -vz <ip> 22" }
 }
 
 # A third-party firewall (OEM McAfee/Norton trialware) registered with Security
