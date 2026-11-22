@@ -69,6 +69,34 @@ rule 35 via `AIRVPN_US_PREFERRED`; LAN kill-switch rule 36. The dedicated skill
 must verify these identities live before every write rather than searching for
 replacement IDs.
 
+### LAN DHCP reservation (static mapping) for a new device
+
+Learned the hard way 2026-11-22 (a laptop reservation took four attempts):
+
+- **Never reserve inside the pool (`.100`-`.200`).** The API rejects it with a
+  misleading 409, `DHCP_SERVER_STATIC_MAPPING_IPADDR_OVERLAPS_EXISTING_OBJECT`
+  "overlaps ... ID `N`", where `N` is the new or patched object **itself**
+  (create, and create-elsewhere-then-PATCH, both fail). The one in-pool mapping
+  (`.111`, gaming VM) predates this; do not copy it.
+- **`.2`-`.99` is not free just because no static mapping holds it.** Statically
+  addressed NICs pfSense does not know about live there (e.g. `.43`/`.44` with
+  MACs `02:53:00:00:00:4x`, `.46` a Proxmox VM). Reserving `.43` would have
+  collided with one.
+- **Prefer `.201`-`.254`** (outside the pool, unused as of 2026-11-22). Before
+  writing, prove the address free on all three: no static mapping, no lease
+  (`GET /api/v2/status/dhcp_server/leases?limit=0`), and no ARP/ping reply from
+  doc1 *and* in `/api/v2/diagnostics/arp_table`. Also `rg` the repo and
+  `docs/` for the IP.
+- `POST .../dhcp_server/apply` returns `{"applied": false}` and finishes
+  asynchronously; poll `GET .../dhcp_server/apply` until `applied: true`.
+- A create/delete round trip leaves the service marked dirty; apply again even
+  when the net change is nothing.
+- Moving the client: it only picks up the reservation on renewal. On Windows,
+  run `ipconfig /renew` from a one-shot SYSTEM scheduled task, not inline over
+  SSH (the session dies with the address). Then verify the new IP by **MAC in
+  `ip neigh` and the SSH host key**, never by "port 22 answers" alone, and never
+  `StrictHostKeyChecking=accept-new` against a freshly chosen IP.
+
 ## Cross-repo sync contract: MV_VPN_IPS ↔ Nix
 
 The `MV_VPN_IPS` alias on pfSense (LAN IPs that get policy-routed through AirVPN) has a mirror in this repo:
