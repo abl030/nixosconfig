@@ -1299,6 +1299,15 @@ send_rca_notification() {
     # but the excerpt lets it start from the actual error rather than from a
     # pre-chewed one-shot verdict it would then have to argue against.
     local excerpts="" i
+    if [ "${#FAILED_GROUP_NAMES[@]}" -eq 0 ]; then
+        # Fatal abort outside any group: no build log exists, and the error
+        # text went to the unit journal, so point the agent there.
+        excerpts="
+### fatal — no group build log
+The updater aborted outside a group. The error text is in the unit journal:
+Loki {unit=\"rolling-flake-update.service\", host=\"${RFU_HOSTNAME}\"} around $(date -u +%FT%TZ); the workdir is preserved at ${WORK_DIR:-unknown}.
+"
+    fi
     for i in "${!FAILED_GROUP_NAMES[@]}"; do
         excerpts="${excerpts}
 ### ${FAILED_GROUP_NAMES[$i]} — last 40 build-log lines
@@ -1344,7 +1353,7 @@ fatal_error() {
     ANY_FAIL=1
     SUMMARY_LINES+=("❌ fatal — updater aborted near line $line (exit $code); workdir preserved at ${WORK_DIR:-unknown}")
     log "❌ Fatal updater failure near line $line (exit $code)."
-    send_summary_notification || true
+    send_rca_notification || send_summary_notification || true
     exit "$code"
 }
 
@@ -1421,6 +1430,12 @@ fi
 
 git config user.name "$GIT_USER_NAME"
 git config user.email "$GIT_USER_EMAIL"
+# No background auto-maintenance in the throwaway clone: a detached post-commit
+# `git maintenance run --auto` creates and removes .git/objects/maintenance.lock
+# while `builtins.getFlake (toString ./.)` walks the tree, failing the run with
+# "path .../maintenance.lock does not exist" (2026-11-22).
+git config maintenance.auto false
+git config gc.auto 0
 configure_git_signing
 
 # The helper reads PUSH_TOKEN_FILE only after validating the cloned remote's
