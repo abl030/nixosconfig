@@ -122,6 +122,20 @@ in {
     };
   };
 
+  # Windows shop laptop, shared in from Dad's tailnet; same private daemon as dadnas.
+  # Key-only Win32-OpenSSH as local admin `ibl`. See docs/wiki/services/shop-laptop.md.
+  programs.ssh.matchBlocks.shoplaptop = {
+    hostname = "100.71.143.121";
+    user = "ibl";
+    port = 22;
+    identityFile = "~/.ssh/id_ed25519";
+    forwardAgent = false;
+    extraOptions = {
+      IdentitiesOnly = "yes";
+      ProxyCommand = "/run/wrappers/bin/sudo -n -u dadnas-tailnet ${pkgs.tailscale}/bin/tailscale --socket=/run/dadnas-tailnet/tailscaled.sock nc %h %p";
+    };
+  };
+
   # doc1 is the sole writer to Forgejo master. Audit-gate pushes (so a policy
   # violation can't reach master and break overnight's rolling-flake-update),
   # plus warn-only staged-file lint at commit time (decoupled from deploys).
