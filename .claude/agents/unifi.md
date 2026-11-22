@@ -156,6 +156,12 @@ The change reprovisions the device without rebooting it.
 
 All WLANs broadcast on all 3 APs. No VLAN tagging on wireless — all traffic lands on Default network. PMF and WPA3 disabled on all SSIDs.
 
+Guest restrictions (`set/setting/guest_access`): `restricted_subnet_1..4` =
+`192.168.1.0/16`, `172.16.0.0/12`, `10.0.0.0/8`, `100.64.0.0/10`. The CGNAT
+entry (added 2026-11-22) stops guests reaching pfSense's own Tailscale address
+(100.123.61.111, which routes via the gateway) on :22/:443. DNS on :53 still
+answers from any address because pfSense redirects all DNS to itself.
+
 ## Port Profiles (Custom)
 
 | Name | Native Network | Tagged VLANs | Notes |
