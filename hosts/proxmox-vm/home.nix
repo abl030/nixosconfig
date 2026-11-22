@@ -122,6 +122,10 @@ in {
     };
   };
 
+  # Host aliases that would name people (this repo is public) live in the private
+  # fleet-notes repo instead. A missing include file is silently skipped.
+  programs.ssh.includes = ["~/fleet-notes/ssh/config"];
+
   # Windows shop laptop, shared in from Dad's tailnet; same private daemon as dadnas.
   # Key-only Win32-OpenSSH as local admin `ibl`. See docs/wiki/services/shop-laptop.md.
   programs.ssh.matchBlocks.shoplaptop = {
