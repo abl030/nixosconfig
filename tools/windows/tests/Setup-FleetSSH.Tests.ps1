@@ -42,7 +42,7 @@ foreach ($f in Get-ChildItem (Join-Path $root '*.ps1')) {
 
 # ---- load only the pure helpers out of the script ---------------------------
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$null, [ref]$null)
-$want = 'Test-EntraAccount', 'Select-ThirdPartyFirewall', 'Get-SelfTestVerdict', 'Get-ElevationArgs', 'Format-DiagnosticPanel'
+$want = 'Test-EntraAccount', 'Select-ThirdPartyFirewall', 'Get-SelfTestVerdict', 'Get-SshLoginName', 'Test-ServiceDeletePending', 'Get-ElevationArgs', 'Format-DiagnosticPanel'
 foreach ($name in $want) {
     $fn = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true) |
           Select-Object -First 1
@@ -65,6 +65,16 @@ Assert-Equal 0 @(Select-ThirdPartyFirewall -DisplayNames @('Windows Defender Fir
 Assert-Equal @('Norton Smart Firewall', 'McAfee Firewall') (Select-ThirdPartyFirewall -DisplayNames @('Norton Smart Firewall', 'McAfee Firewall', 'McAfee Firewall')) 'firewall: several, de-duplicated'
 Assert-Equal 0 @(Select-ThirdPartyFirewall -DisplayNames @()).Count 'firewall: none registered (as the script calls it)'
 Assert-Equal 0 @(Select-ThirdPartyFirewall -DisplayNames @($null, '')).Count 'firewall: blank names ignored'
+
+# ---- Get-SshLoginName / Test-ServiceDeletePending ------------------------------
+Assert-Equal 'Administrator@CULLENWINES' (Get-SshLoginName -AccountName 'CULLENWINES\Administrator' -ComputerName 'CW-PC003' -Fallback 'Administrator') 'login: domain account is name@DOMAIN (seen in the field)'
+Assert-Equal 'luke@CULLENWINES' (Get-SshLoginName -AccountName 'CULLENWINES\luke' -ComputerName 'CW-PC002' -Fallback 'luke') 'login: domain user'
+Assert-Equal 'bob' (Get-SshLoginName -AccountName 'CW-PC003\bob' -ComputerName 'cw-pc003' -Fallback 'bob') 'login: local account stays bare (case-insensitive host)'
+Assert-Equal 'fleet' (Get-SshLoginName -AccountName 'CW-PC003\fleet' -ComputerName 'CW-PC003' -Fallback 'fleet') 'login: retargeted local admin stays bare'
+Assert-Equal 'x' (Get-SshLoginName -AccountName 'AzureAD\x' -ComputerName 'PC' -Fallback 'x') 'login: Entra stays bare'
+Assert-Equal 'solo' (Get-SshLoginName -AccountName 'solo' -ComputerName 'PC' -Fallback 'solo') 'login: unqualified falls back'
+Assert-Equal $true  (Test-ServiceDeletePending "Service 'OpenSSH SSH Server (sshd)' cannot be configured due to the following error: The specified service has been marked for deletion") 'delete-pending: seen in the field'
+Assert-Equal $false (Test-ServiceDeletePending 'Access is denied') 'delete-pending: other errors are not'
 
 # ---- Get-SelfTestVerdict -----------------------------------------------------
 Assert-Equal 'pass'    (Get-SelfTestVerdict -ExitCode 0 -StdOut "host\fleet`r`n" -StdErr '') 'verdict: pass'

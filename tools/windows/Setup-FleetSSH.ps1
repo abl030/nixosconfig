@@ -143,7 +143,7 @@ $ErrorActionPreference = 'Stop'
 
 # Bump on every behaviour change: it is printed in the diagnostic panel, so a
 # photo of a failure says which version produced it.
-$FleetSshVersion = '2026-11-22 (netsh firewall)'
+$FleetSshVersion = '2026-11-23 (domain login names)'
 
 # Well-known SIDs, used instead of names throughout: "Administrators" and
 # "SYSTEM" are localised, and name-based ACL code breaks on a non-English
@@ -201,6 +201,31 @@ function Select-ThirdPartyFirewall {
     return @($DisplayNames | Where-Object {
         $_ -and $_ -notmatch '^(Windows|Microsoft) (Defender )?Firewall$|^Windows Defender$|^Microsoft Defender'
     } | Select-Object -Unique)
+}
+
+function Get-SshLoginName {
+    <#
+      The username sshd must be given for this account. A bare name on a
+      domain-joined PC resolves to the LOCAL account of that name (often a
+      disabled built-in Administrator), so a domain account has to be
+      name@DOMAIN (NetBIOS domain). Win32-OpenSSH rejects DOMAIN\name on the
+      client command line, so that form is never produced. Local accounts and
+      anything we cannot classify stay bare.
+    #>
+    param([string] $AccountName, [string] $ComputerName, [string] $Fallback)
+    if ($AccountName -match '^([^\\]+)\\([^\\]+)$') {
+        $dom = $Matches[1]; $nm = $Matches[2]
+        if ($dom -ieq $ComputerName -or $dom -match '^(NT AUTHORITY|NT SERVICE|BUILTIN|AzureAD)$') { return $nm }
+        return "$nm@$dom"
+    }
+    return $Fallback
+}
+
+function Test-ServiceDeletePending {
+    # Windows refuses to change a service that is "marked for deletion" (error
+    # 1072) until every handle to it closes -- in practice, a reboot.
+    param([string] $Message)
+    return [bool]("$Message" -match 'marked for deletion|\b1072\b')
 }
 
 function Get-SelfTestVerdict {
@@ -317,7 +342,7 @@ function Show-FleetPanel {
         'account'  = $acct
         'sid'      = $(if ($userSid) { $userSid.Value } else { '-' })
         'admin'    = $(if ($null -ne $isAdminAccount) { "$(if ($isAdminAccount) { 'yes' } else { 'no' }) - $adminVia" } else { '-' })
-        'ssh as'   = $(if ($retargeted) { "$TargetUser (local admin, retargeted)" } else { $TargetUser })
+        'ssh as'   = $(if ($retargeted) { "$sshLogin (local admin, retargeted)" } elseif ($sshLogin) { $sshLogin } else { $TargetUser })
         'sshd'     = (Get-SshdInfo)
         'keyfiles' = $(if ($script:KeyFiles.Count) { $script:KeyFiles } else { '-' })
         'firewall' = $(if (@($thirdPartyFw).Count) { "THIRD-PARTY: $(@($thirdPartyFw) -join ', ')" } else { 'Windows only' })
@@ -511,6 +536,9 @@ if ($isEntra -or $PSBoundParameters.ContainsKey('LocalAdmin')) {
     $retargeted  = $true
     Write-Ok "Retargeted: the key goes to '$LocalAdmin', not '$requestedUser'."
 }
+
+# What to type after `ssh` for this account (name@DOMAIN for a domain account).
+$sshLogin = Get-SshLoginName -AccountName $accountName -ComputerName $env:COMPUTERNAME -Fallback $TargetUser
 
 # Is the account a local Administrator? That decides which authorized-keys file
 # sshd will actually read, and sshd decides by TOKEN membership, groups
@@ -707,8 +735,20 @@ if ($sshdSvc) {
 # runs now but does not come back after a reboot, so a forgotten box closes
 # itself. -Persist opts into the old Automatic behaviour.
 $startup = if ($Persist) { 'Automatic' } else { 'Manual' }
-Set-Service -Name sshd -StartupType $startup
-if ((Get-Service sshd).Status -ne 'Running') { Start-Service sshd }
+try {
+    Set-Service -Name sshd -StartupType $startup -ErrorAction Stop
+    if ((Get-Service sshd).Status -ne 'Running') { Start-Service sshd -ErrorAction Stop }
+} catch {
+    if (Test-ServiceDeletePending $_.Exception.Message) {
+        Write-Fail "The sshd service is marked for deletion; Windows will not change it until it is released."
+        Write-Info "Something removed or replaced sshd while a handle to it was still open"
+        Write-Info "(services.msc, Task Manager, the running sshd.exe)."
+        Write-Info "Fix: REBOOT this PC, then re-run the one-liner. Nothing else has been changed."
+        $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-SSHD-DELETE-PENDING (reboot, then re-run)'
+        Stop-FleetSsh 1
+    }
+    throw
+}
 Write-Ok "sshd is Running / $startup$(if (-not $Persist) { '  (this session only -- gone after a reboot)' })"
 
 # The first start is what creates C:\ProgramData\ssh and the host keys.
@@ -1012,7 +1052,7 @@ try {
         '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL',
         '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=10',
         '-o', 'PreferredAuthentications=publickey',
-        "$TargetUser@127.0.0.1", 'whoami'
+        "$sshLogin@127.0.0.1", 'whoami'
     )
     $proc = Start-Process -FilePath 'ssh.exe' -ArgumentList $sshArgs -NoNewWindow -PassThru `
                           -RedirectStandardOutput $soFile -RedirectStandardError $seFile
@@ -1163,16 +1203,16 @@ $addr = if ($ips.Count) { $ips[0] } else { $env:COMPUTERNAME }
 Write-Host ""
 if ($retargeted) {
     $why = if ($isEntra) { 'Entra ID account detected' } else { 'Local administrator requested' }
-    Write-Host "  $why -- SSH as $TargetUser@$addr, not $requestedUser." -ForegroundColor Cyan
+    Write-Host "  $why -- SSH as $sshLogin@$addr, not $requestedUser." -ForegroundColor Cyan
     Write-Host ""
 }
 if ($testPass) {
     Write-Host "  DONE and VERIFIED. From doc1:" -ForegroundColor Green
-    Write-Host "    ssh $TargetUser@$addr" -ForegroundColor Green
+    Write-Host "    ssh $sshLogin@$addr" -ForegroundColor Green
 } elseif ($testInconclusive) {
     Write-Host "  KEY INSTALLED, but not verified locally (the self-test could not run)." -ForegroundColor Yellow
     Write-Host "  Nothing is necessarily wrong. Confirm from doc1:" -ForegroundColor Yellow
-    Write-Host "    ssh $TargetUser@$addr" -ForegroundColor Yellow
+    Write-Host "    ssh $sshLogin@$addr" -ForegroundColor Yellow
     Write-Host "  If that is refused, watch the sshd log here while doc1 retries:"
     Write-Host "    Get-WinEvent -LogName 'OpenSSH/Operational' -MaxEvents 30 | Format-List TimeCreated,Message"
 } else {
@@ -1182,7 +1222,7 @@ Write-Host ""
 Write-Host "  The self-test runs over loopback, so it cannot see a firewall or the network."
 Write-Host "  Final check from doc1:  nc -vz -w5 $addr 22"
 Write-Host "    timeout -> something is dropping packets (third-party firewall, network);"
-Write-Host "    refused -> nothing listening on 22.  Then:  ssh $TargetUser@$addr whoami"
+Write-Host "    refused -> nothing listening on 22.  Then:  ssh $sshLogin@$addr whoami"
 
 if ($script:Warnings.Count) {
     Write-Host ""
