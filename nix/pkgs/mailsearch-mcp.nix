@@ -23,7 +23,7 @@
 # Runbook: docs/wiki/services/mailsearch.md
 #
 # DEPLOY-TIME VERIFY: first-cut, validated by `nix flake check` (eval only).
-# Confirm the FastMCP API, notmuch JSON shapes, and sqlite-vec KNN at deploy.
+# Confirm the MCPServer (ex-FastMCP) API, notmuch JSON shapes, and sqlite-vec KNN at deploy.
 # find_similar reads a stored vector back out of vec0 (`SELECT v.embedding`) and
 # feeds it straight into a fresh `embedding MATCH ?` KNN — verify the returned
 # blob is byte-compatible with the probe param (a str/JSON fallback is handled).
@@ -61,7 +61,10 @@ in
     import apsw
     import html2text
     import sqlite_vec
-    from mcp.server.fastmcp import FastMCP
+    try:  # mcp 2.x renamed FastMCP -> MCPServer (same tool()/run() API)
+        from mcp.server.mcpserver import MCPServer as FastMCP
+    except ImportError:  # mcp 1.x
+        from mcp.server.fastmcp import FastMCP
 
     NOTMUCH = os.environ.get("NOTMUCH_BIN", "notmuch")
     VECTOR_DB = os.environ["MAILSEARCH_VECTOR_DB"]
