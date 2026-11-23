@@ -83,6 +83,10 @@ in {
           {
             bind-address = localAddress;
             port = 3306;
+            # TCP grants use the fixed numeric host-side veth address. Avoid
+            # blocking each connection on reverse DNS inside isolated nspawn
+            # containers, where a resolver outage can exceed client timeouts.
+            skip-name-resolve = true;
             character-set-server = "utf8mb4";
             collation-server = "utf8mb4_unicode_ci";
             plugin_load_add = "server_audit";
