@@ -67,10 +67,10 @@ Assert-Equal 0 @(Select-ThirdPartyFirewall -DisplayNames @()).Count 'firewall: n
 Assert-Equal 0 @(Select-ThirdPartyFirewall -DisplayNames @($null, '')).Count 'firewall: blank names ignored'
 
 # ---- Get-SshLoginName / Test-ServiceDeletePending ------------------------------
-Assert-Equal 'Administrator@CULLENWINES' (Get-SshLoginName -AccountName 'CULLENWINES\Administrator' -ComputerName 'CW-PC003' -Fallback 'Administrator') 'login: domain account is name@DOMAIN (seen in the field)'
-Assert-Equal 'luke@CULLENWINES' (Get-SshLoginName -AccountName 'CULLENWINES\luke' -ComputerName 'CW-PC002' -Fallback 'luke') 'login: domain user'
-Assert-Equal 'bob' (Get-SshLoginName -AccountName 'CW-PC003\bob' -ComputerName 'cw-pc003' -Fallback 'bob') 'login: local account stays bare (case-insensitive host)'
-Assert-Equal 'fleet' (Get-SshLoginName -AccountName 'CW-PC003\fleet' -ComputerName 'CW-PC003' -Fallback 'fleet') 'login: retargeted local admin stays bare'
+Assert-Equal 'Administrator@CONTOSO' (Get-SshLoginName -AccountName 'CONTOSO\Administrator' -ComputerName 'PC-A' -Fallback 'Administrator') 'login: domain account is name@DOMAIN '
+Assert-Equal 'alice@CONTOSO' (Get-SshLoginName -AccountName 'CONTOSO\alice' -ComputerName 'PC-A' -Fallback 'alice') 'login: domain user'
+Assert-Equal 'bob' (Get-SshLoginName -AccountName 'PC-A\bob' -ComputerName 'pc-a' -Fallback 'bob') 'login: local account stays bare (case-insensitive host)'
+Assert-Equal 'fleet' (Get-SshLoginName -AccountName 'PC-A\fleet' -ComputerName 'PC-A' -Fallback 'fleet') 'login: retargeted local admin stays bare'
 Assert-Equal 'x' (Get-SshLoginName -AccountName 'AzureAD\x' -ComputerName 'PC' -Fallback 'x') 'login: Entra stays bare'
 Assert-Equal 'solo' (Get-SshLoginName -AccountName 'solo' -ComputerName 'PC' -Fallback 'solo') 'login: unqualified falls back'
 Assert-Equal $true  (Test-ServiceDeletePending "Service 'OpenSSH SSH Server (sshd)' cannot be configured due to the following error: The specified service has been marked for deletion") 'delete-pending: seen in the field'
