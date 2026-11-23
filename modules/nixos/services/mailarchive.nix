@@ -16,6 +16,9 @@
 }: let
   cfg = config.homelab.services.mailarchive;
 
+  # Accounts that own an OAuth credential; the rest borrow one via tokenAccount.
+  tokenOwners = lib.filterAttrs (name: acct: acct.tokenAccount == name) cfg.accounts;
+
   # OAuth2 helper — same definition exported by nix/devshell.nix as the
   # `oauth2-helper` flake app, so the bootstrap and runtime refresh paths
   # share one binary.
@@ -189,6 +192,21 @@
         description = "Seconds between mbsync runs.";
       };
 
+      tokenAccount = lib.mkOption {
+        type = lib.types.str;
+        default = name;
+        defaultText = lib.literalExpression "<account>";
+        description = ''
+          Account whose OAuth credential (sops dotenv) and rotating
+          refresh-token state this account uses. Set it to another account
+          to IMAP a shared/delegated mailbox: `remoteUser` is the shared
+          mailbox address (the XOAUTH2 user field) and the access token is the
+          delegate's. Both accounts then share one token state file, whose
+          lock serialises every exchange, so rotations cannot clobber each
+          other. See docs/wiki/services/mailarchive.md, shared mailboxes.
+        '';
+      };
+
       credentialSecret = lib.mkOption {
         type = lib.types.str;
         default = "mailarchive/${name}";
@@ -264,6 +282,18 @@ in {
     };
     users.groups.mailarchive = {};
 
+    assertions =
+      lib.mapAttrsToList (name: acct: {
+        assertion =
+          acct.tokenAccount
+          == name
+          || (cfg.accounts ? ${acct.tokenAccount}
+            && cfg.accounts.${acct.tokenAccount}.tokenAccount == acct.tokenAccount
+            && cfg.accounts.${acct.tokenAccount}.provider == acct.provider);
+        message = "mailarchive.accounts.${name}.tokenAccount must name a token-owning account with the same provider.";
+      })
+      cfg.accounts;
+
     sops.secrets =
       lib.mapAttrs' (
         name: _:
@@ -274,7 +304,7 @@ in {
             mode = "0400";
           }
       )
-      cfg.accounts;
+      tokenOwners;
 
     # mbsync rc files. mbsync runs PassCmd via popen() so the rendered string
     # is shell-evaluated — Nix store paths and the provider enum are safe.
@@ -302,7 +332,7 @@ in {
         ++ (lib.mapAttrsToList (
             name: _: "d /var/lib/mailarchive/oauth-${name} 0700 mailarchive mailarchive - -"
           )
-          (lib.filterAttrs (_: acct: acct.provider == "o365") cfg.accounts));
+          (lib.filterAttrs (_: acct: acct.provider == "o365") tokenOwners));
 
       services =
         (lib.mapAttrs' (
@@ -324,7 +354,7 @@ in {
                 # Runtime rotation stays local; SOPS remains the bootstrap seed.
                 # See docs/wiki/services/mailarchive.md, refresh-token rotation.
                 environment = lib.optionalAttrs (acct.provider == "o365") {
-                  OAUTH_TOKEN_STATE_FILE = "/var/lib/mailarchive/oauth-${name}/token.json";
+                  OAUTH_TOKEN_STATE_FILE = "/var/lib/mailarchive/oauth-${acct.tokenAccount}/token.json";
                 };
                 serviceConfig = {
                   Type = "oneshot";
@@ -335,7 +365,7 @@ in {
                   Group = "mailarchive";
                   # libsasl2 finds plugins via SASL_PATH; PATH alone is not enough.
                   Environment = "SASL_PATH=${pkgs.cyrus-sasl-xoauth2}/lib/sasl2";
-                  EnvironmentFile = config.sops.secrets."mailarchive/${name}".path;
+                  EnvironmentFile = config.sops.secrets."mailarchive/${acct.tokenAccount}".path;
                   ExecStart = "${pkgs.isync}/bin/mbsync -c /etc/mailarchive/mbsync-${name}.rc -a";
                   # ExecStartPost only runs on ExecStart success — heartbeat
                   # therefore reflects last successful sync.

@@ -493,6 +493,13 @@
             provider = "o365";
             remoteUser = "andy@cullenwines.com.au";
           };
+          # Shared Cullen mailbox; andy@ has FullAccess. IMAPed with andy's
+          # token (XOAUTH2 user = the shared mailbox), no credential of its own.
+          gerlinde = {
+            provider = "o365";
+            remoteUser = "Gerlinde@cullenwines.com.au";
+            tokenAccount = "work";
+          };
           gmail = {
             provider = "gmail";
             remoteUser = "abl030@gmail.com";
