@@ -108,6 +108,33 @@ in {
     Install.WantedBy = ["timers.target"];
   };
 
+  # Weekly Ezy (ERP) refresh: VSS snapshot from the Cullen terminal server, then a
+  # scrubbed copy (no card/password fields) pushed to an on-site finance PC.
+  # Script and docs: cullen-assistant scripts/ezy-weekly, knowledge/systems/ezy-gl.md.
+  # Runs weekdays at lunch; the script itself skips when nothing is due, so a missed
+  # day (laptop subnet route down) just retries the next weekday.
+  systemd.user.services.ezy-weekly = {
+    Unit = {
+      Description = "Weekly Ezy snapshot + scrubbed copy push";
+      ConditionPathExists = "%h/cullen-assistant/scripts/ezy-weekly";
+    };
+    Service = {
+      Type = "oneshot";
+      Environment = "PATH=/run/wrappers/bin:/etc/profiles/per-user/abl030/bin:/run/current-system/sw/bin";
+      ExecStart = "%h/cullen-assistant/scripts/ezy-weekly";
+      TimeoutStartSec = "2h";
+    };
+  };
+  systemd.user.timers.ezy-weekly = {
+    Unit.Description = "Weekday check for the weekly Ezy refresh";
+    Timer = {
+      OnCalendar = "Mon..Fri 12:30";
+      Persistent = true;
+      RandomizedDelaySec = "10m";
+    };
+    Install.WantedBy = ["timers.target"];
+  };
+
   # Dad's incoming NAS share needs doc1's private user-owned Tailscale daemon.
   # Account, host fingerprint and recovery: docs/wiki/services/dadnas.md.
   programs.ssh.matchBlocks.dadnas = {
