@@ -10,6 +10,7 @@
     ./hermes-gateway.nix
     ./agent-browser.nix
     ./cullen-wan-hourly.nix
+    ./cullen-shares.nix
     ../../modules/nixos/services/podcast.nix
   ];
 
