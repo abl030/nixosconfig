@@ -1,7 +1,7 @@
 ---
 name: alert-rca
 description: "Use when homelab alerts need RCA. Diagnose read-only."
-version: 1.0.5
+version: 1.0.6
 metadata:
   hermes:
     tags: [homelab, alerting, rca, nixosconfig, pr]
@@ -104,10 +104,11 @@ creates transient unit state, and the invoked program may update ledgers or send
 alerts. Reproduce parsing and sandbox behavior with scratch fixtures instead.
 
 For service-specific failure recipes (systemd sandbox/namespace failures,
-timer-driven oneshots, boot-time crash notifiers, kernel panics with missing
-kdump, Alloy startup/config failures, Cratedigger upstream-tip canaries and
-live-world integrity failures, HTTP 404/421, Tailscale share peers, and missing
-Kuma heartbeats), load
+timer-driven oneshots, long initial-sync heartbeat gaps, boot-time crash
+notifiers, kernel panics with missing kdump, Alloy startup/config failures,
+MariaDB connection stalls, Cratedigger upstream-tip canaries and live-world
+integrity failures, HTTP 404/421, Tailscale share peers, and missing Kuma
+heartbeats), load
 [`references/service-failure-recipes.md`](references/service-failure-recipes.md).
 
 ### 4. Check nixosconfig for the relevant config

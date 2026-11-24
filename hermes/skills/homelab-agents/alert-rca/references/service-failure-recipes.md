@@ -80,6 +80,21 @@ All probes remain read-only.
 5. For a repeat alert naming the same audit member, use the prior RCA as the hypothesis and run only four current checks: the candidate verdict in the exact invocation journal, the strict audit member, the tracked cohort classification, and `pipeline-cli show` for the source and successor. Filter the full exact-invocation journal for transaction and audit verdict lines rather than returning an unbounded fuzz transcript; do not use a small `journalctl -n` tail, which can omit the candidate disposition. Inspect freshly fetched remote source separately from production data: a newer source fix does not repair an already orphaned row, while unchanged source plus unchanged rows means the prior application fix and manual data-repair disposition still stands. Report measured persistence instead of reopening discovery.
 6. Classify a proven application mutation/provenance defect as **actionable**, not a nixosconfig config issue. State the source invariant that must be fixed and that production data needs manual repair, but do not mutate either during RCA and do not open a nixosconfig PR for an application-owned bug. Report current successor/runtime health separately so the integrity alarm is not mistaken for an outage.
 
+## Long initial-sync heartbeat gap
+
+1. When a newly added account or archival source has no heartbeat, correlate its first timer trigger with the deployment that introduced it, then inspect the active oneshot and its journal. A health endpoint backed by an `ExecStartPost` sentinel cannot become healthy until the first complete successful sync, even while useful work is progressing.
+2. Measure the destination's file count and size twice far enough apart to prove progress, and inspect the configured timeout and timer semantics. Classify a still-growing first sync with no errors and remaining timeout budget as transient initialization, not a stuck service or broken monitor; state that the monitor accurately reports that no successful baseline exists yet.
+3. Do not create a config workaround merely to suppress the initial page. Investigate further only when progress stops, the unit emits an error, the workload exceeds its bounded timeout, or later runs remain unable to write the success sentinel.
+
+## MariaDB handshake timeout after container restart
+
+1. Separate TCP acceptance from a completed database handshake. A successful `/dev/tcp/<ip>/3306` probe proves only that the socket accepted; correlate the client's timeout phase with the database journal before blaming credentials, SQL, or application health.
+2. Inspect the database container's own service journal around each failed connection for reverse-resolution warnings such as `IP address '<address>' could not be resolved`, and compare their delay with the client's greeting/read timeout. Use read-only container-scoped access (`sudo systemctl -M <machine>`, `sudo journalctl -M <machine>`, or `nsenter` against the machine leader) when ordinary machine transport lacks permission.
+3. Check the latest scheduled retry and the direct application endpoint separately. Report a recovered deep probe and a healthy pooled application connection as current runtime state, but retain a config classification when an unnecessary resolver dependency can reproduce the timeout on future restarts.
+4. Before disabling name resolution, verify every TCP grant uses a fixed numeric address rather than a hostname. For isolated nspawn database containers with numeric veth grants, set MariaDB `skip-name-resolve` in the shared constructor: reverse DNS contributes no authorization value and can block the server greeting beyond client deadlines.
+5. Search sibling database containers for the same constructor and compare their current journals, but do not claim they failed without runtime evidence. Fix the shared invariant while keeping the incident report scoped to states actually observed.
+6. Verify the Nix source parse, affected-host dry-build, and full configuration build, then inspect the realized `my.cnf` output and require the exact rendered `skip-name-resolve=true`; evaluation success alone does not prove the daemon received the intended option.
+
 ## HTTP 404
 
 1. Fetch public response headers and a short body fingerprint; a page from a different service is stronger evidence than the status code alone.
