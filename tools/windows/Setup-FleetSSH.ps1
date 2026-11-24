@@ -49,6 +49,11 @@
       time after a two-minute wait (#240). An sshd that is already installed,
       from either source, is used as-is. If the MSI cannot be fetched, it stops
       and prints manual instructions, having changed nothing.
+      With no sshd service but OpenSSH leftovers present (built-in Windows
+      capabilities and their ssh-agent, or a half-registered earlier MSI), it
+      clears those first: they make the MSI fail with 1603 (an office PC,
+      2026-11-24). If that needs a reboot it says FAIL-REBOOT-NEEDED and stops.
+      A failed msiexec prints the 'Return value 3' lines from its verbose log.
    2. Opens TCP 22. Re-enables SSH rules a previous close disabled, and ALWAYS
       ensures its own port-keyed rule: a program-scoped rule pointing at an
       sshd.exe that has since moved enumerates perfectly and permits nothing.
@@ -143,7 +148,7 @@ $ErrorActionPreference = 'Stop'
 
 # Bump on every behaviour change: it is printed in the diagnostic panel, so a
 # photo of a failure says which version produced it.
-$FleetSshVersion = '2026-11-23 (domain login names)'
+$FleetSshVersion = '2026-11-24 (clear stale OpenSSH before MSI)'
 
 # Well-known SIDs, used instead of names throughout: "Administrators" and
 # "SYSTEM" are localised, and name-based ACL code breaks on a non-English
@@ -226,6 +231,72 @@ function Test-ServiceDeletePending {
     # 1072) until every handle to it closes -- in practice, a reboot.
     param([string] $Message)
     return [bool]("$Message" -match 'marked for deletion|\b1072\b')
+}
+
+function Get-InstallerOutcome {
+    # msiexec / dism exit code -> what to do about it. 1605 = that product is
+    # not installed (already gone); 3010/1641 = done, reboot required.
+    param([int] $ExitCode)
+    switch ($ExitCode) {
+        0       { return 'ok' }
+        1605    { return 'absent' }
+        3010    { return 'reboot' }
+        1641    { return 'reboot' }
+        default { return 'fail' }
+    }
+}
+
+function Get-OpenSshCapabilityName {
+    <#
+      Installed built-in OpenSSH capabilities, from Component Based Servicing
+      package key names (CurrentState 112 = installed; the caller filters). Read
+      from the registry because Get-WindowsCapability / dism /Get-Capabilities
+      can hang the servicing stack for good (#240).
+        OpenSSH-Server-Package~31bf3856ad364e35~amd64~~10.0.26100.1
+          -> OpenSSH.Server~~~~0.0.1.0
+    #>
+    param([string[]] $PackageNames)
+    return @($PackageNames | Where-Object { $_ -match '^OpenSSH-(\w+)-Package~' } |
+        ForEach-Object { 'OpenSSH.{0}~~~~0.0.1.0' -f ($_ -replace '^OpenSSH-(\w+)-Package~.*$', '$1') } |
+        Select-Object -Unique)
+}
+
+function Select-OpenSshProductCode {
+    # Uninstall-key entries (Name = key name, DisplayName) -> MSI product codes
+    # of anything OpenSSH. Only GUID-named keys are MSI products.
+    param([object[]] $Entries)
+    return @($Entries | Where-Object {
+        $_ -and "$($_.DisplayName)" -match 'OpenSSH' -and "$($_.Name)" -match '^\{[0-9A-Fa-f-]{36}\}$'
+    } | ForEach-Object { "$($_.Name)".ToUpper() } | Select-Object -Unique)
+}
+
+function Select-MsiFailureContext {
+    <#
+      The lines of an msiexec /l*v log that say WHY it failed, short enough for
+      the photographed panel: the custom action's own error line(s), then the
+      first 'Return value 3' (the action that failed) with the few lines that
+      led up to it. The "MSI (s) (A4:0C) [10:12:13:456]: " prefix is dropped.
+    #>
+    param([string[]] $Lines, [int] $Before = 3, [int] $Max = 7)
+    $clean = @($Lines | ForEach-Object { ("$_" -replace '^MSI \(\w\) \([0-9A-Fa-f]+:[0-9A-Fa-f]+\) \[[\d:]+\]: ', '').Trim() })
+    $rv3 = -1
+    for ($i = 0; $i -lt $clean.Count; $i++) { if ($clean[$i] -match 'Return value 3') { $rv3 = $i; break } }
+    $limit = if ($rv3 -ge 0) { $rv3 } else { $clean.Count }
+    $out = @()
+    $idx  = if ($limit -gt 0) { 0..($limit - 1) } else { @() }
+    $errs = @($idx | Where-Object { $clean[$_] -match '^Error \d+\.|returned actual error code|^Product: .*Error' } |
+              Select-Object -First 2)
+    foreach ($i in $errs) { $out += $clean[$i] }
+    if ($rv3 -ge 0) {
+        $ctx = @()
+        for ($i = $rv3 - 1; $i -ge 0 -and $ctx.Count -lt $Before; $i--) {
+            if ($clean[$i] -and $errs -notcontains $i) { $ctx = @($clean[$i]) + $ctx }
+        }
+        $out += $ctx + $clean[$rv3]
+    } elseif (-not $out.Count) {
+        $out += "no 'Return value 3' in the log"
+    }
+    return @($out | Select-Object -First $Max)
 }
 
 function Get-SelfTestVerdict {
@@ -624,13 +695,50 @@ function Show-ManualInstallHelp {
     Write-Host "  3. Re-run the one-liner in an elevated PowerShell:" -ForegroundColor White
     Write-Host "       [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')" -ForegroundColor Cyan
     Write-Host ""
-    Write-Info "Nothing has been changed on this machine. Re-running is always safe."
+    if ($script:CleanupChanged) {
+        Write-Info "Old OpenSSH pieces were removed first (see above). Re-running is always safe."
+    } else {
+        Write-Info "Nothing has been changed on this machine. Re-running is always safe."
+    }
     Write-Host ""
 }
 
-function Install-OpenSSHFromMsi {
+function Invoke-Bounded {
     <#
-      Fetch and install the official Win32-OpenSSH MSI -- the only install route.
+      Run a native exe in a killable process under a hard timeout. Returns its
+      exit code, or $null if it did not finish in time. -NoKill leaves it
+      running on a timeout: killing dism or msiexec mid-change is worse than
+      walking away from it.
+    #>
+    param([string] $FilePath, [string] $Arguments, [int] $TimeoutSec, [switch] $NoKill)
+    $out = Join-Path $env:TEMP ("fleet-run-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.txt')
+    try {
+        $p = Start-Process $FilePath -ArgumentList $Arguments -NoNewWindow -PassThru -RedirectStandardOutput $out
+        $null = $p.Handle   # cache the native handle, or .ExitCode reads back empty
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            if (-not $NoKill) { try { $p.Kill() } catch {} }
+            return $null
+        }
+        return $p.ExitCode
+    } finally { Remove-Item $out -Force -ErrorAction SilentlyContinue }
+}
+
+function Get-MsiLogContext {
+    # 'Return value 3' context from an msiexec /l*v log, echoed in full and
+    # returned (cut to fit) for the panel.
+    param([string] $LogPath, [string] $Header)
+    $ctx = @()
+    try { $ctx = @(Select-MsiFailureContext -Lines @(Get-Content -LiteralPath $LogPath -ErrorAction Stop)) }
+    catch { $ctx = @("log unreadable: $($_.Exception.Message)") }
+    Write-Info "$Header -- log: $LogPath"
+    foreach ($l in $ctx) { Write-Info "  $l" }
+    return @($Header) + $ctx
+}
+
+function Get-OpenSshMsi {
+    <#
+      Fetch the official Win32-OpenSSH MSI and verify it. Returns its path, or
+      $null having changed nothing on the machine.
 
       We are already running a script fetched from GitHub as Administrator, so
       pulling Microsoft's own signed OpenSSH package from the same origin adds no
@@ -668,47 +776,201 @@ function Install-OpenSSHFromMsi {
         if (-not $task.Wait([TimeSpan]::FromSeconds($DownloadTimeoutSec))) {
             try { $wc.CancelAsync() } catch {}
             Write-Warn "Download timed out after ${DownloadTimeoutSec}s."
-            return $false
+            return $null
         }
         if ($task.IsFaulted) { throw $task.Exception.GetBaseException() }
     } catch {
         Write-Warn "Download failed: $($_.Exception.Message)"
-        return $false
+        return $null
     } finally {
         $ProgressPreference = $prevPP
         try { $wc.Dispose() } catch {}
     }
     $size = (Get-Item $msi -ErrorAction SilentlyContinue).Length
-    if (-not $size -or $size -lt 1MB) { Write-Warn "Download looks truncated ($size bytes)."; return $false }
+    if (-not $size -or $size -lt 1MB) { Write-Warn "Download looks truncated ($size bytes)."; return $null }
     Write-Ok "Downloaded $([math]::Round($size/1MB,1)) MB."
 
     $sig = Get-AuthenticodeSignature $msi
     if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
         Write-Fail "Refusing to install: MSI signature is '$($sig.Status)' from '$($sig.SignerCertificate.Subject)'."
         Remove-Item $msi -Force -ErrorAction SilentlyContinue
-        return $false
+        return $null
     }
     Write-Ok "MSI signature valid (Microsoft)."
+    return $msi
+}
 
+function Install-OpenSshMsi {
+    # Install the verified MSI, always with a verbose log so a failure can say
+    # which action broke (the panel carries it). -> $true when msiexec succeeded.
+    param([string] $Msi)
+    $log = Join-Path $env:TEMP 'fleetssh-msi-install.log'
+    Remove-Item $log -Force -ErrorAction SilentlyContinue
     # Bounded, not -Wait: msiexec blocks indefinitely if another installation
     # already holds the _MSIExecute mutex.
     Write-Info "Installing (up to ${MsiTimeoutSec}s) ..."
-    $p = Start-Process msiexec.exe -PassThru -NoNewWindow `
-            -ArgumentList '/i',"`"$msi`"",'ADDLOCAL=Server','/quiet','/norestart'
-    $null = $p.Handle
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while (-not $p.HasExited -and $sw.Elapsed.TotalSeconds -lt $MsiTimeoutSec) { Start-Sleep -Seconds 3 }
-    if (-not $p.HasExited) {
-        try { $p.Kill() } catch {}
+    $rc = Invoke-Bounded -FilePath 'msiexec.exe' -TimeoutSec $MsiTimeoutSec `
+              -Arguments "/i `"$Msi`" ADDLOCAL=Server /quiet /norestart /l*v `"$log`""
+    if ($null -eq $rc) {
         Write-Warn "msiexec did not finish within ${MsiTimeoutSec}s (another install may hold the MSI mutex)."
-        Remove-Item $msi -Force -ErrorAction SilentlyContinue
+        Remove-Item $Msi -Force -ErrorAction SilentlyContinue
         return $false
     }
-    Remove-Item $msi -Force -ErrorAction SilentlyContinue
-    if ($p.ExitCode -ne 0) { Write-Warn "msiexec exited $($p.ExitCode)."; return $false }
-    return $true
+    Remove-Item $Msi -Force -ErrorAction SilentlyContinue
+    switch (Get-InstallerOutcome $rc) {
+        'ok'     { return $true }
+        'reboot' { Write-Warn "msiexec exited ${rc}: installed, but Windows wants a reboot."; return $true }
+    }
+    Write-Warn "msiexec exited $rc."
+    $script:InstallErrorText = @(Get-MsiLogContext -LogPath $log -Header "msiexec /i exited $rc")
+    return $false
 }
 
+function Clear-StaleOpenSsh {
+    <#
+      Called only when there is NO sshd service. Anything OpenSSH still on the
+      box then is a leftover, and the MSI trips over it with 1603. An office PC
+      (Win 11 26H2, 2026-11-24): the built-in OpenSSH.Server/Client capabilities
+      still Installed, the built-in ssh-agent Running (the MSI's
+      SetPrivilegesOnSshAgent custom action returned 3), and a half-registered
+      product from an earlier failed MSI run whose cached package was gone
+      (2203/1316, SECUREREPAIR failed). Clearing all of that, plus a reboot,
+      fixed it by hand. This does the same, bounded throughout.
+
+      Returns 'clean' (nothing found), 'cleared', 'reboot', or 'fail'; error
+      lines for the panel go in $script:InstallErrorText.
+    #>
+    $sys32Ssh = Join-Path $env:SystemRoot 'System32\OpenSSH'
+    $pfSsh    = Join-Path $env:ProgramFiles 'OpenSSH'
+
+    # Survey, from the registry and the file system only: no DISM enumeration.
+    $caps = @()
+    try {
+        $cbs = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+        $pkgs = @(Get-ChildItem -LiteralPath $cbs -ErrorAction Stop | Where-Object { $_.PSChildName -like 'OpenSSH-*' } |
+                  Where-Object { (Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue).CurrentState -eq 112 } |
+                  ForEach-Object { $_.PSChildName })
+        $caps = @(Get-OpenSshCapabilityName -PackageNames $pkgs)
+    } catch { Write-Info "Could not read the servicing package list: $($_.Exception.Message)" }
+    # Files are evidence too, should the package key be unreadable.
+    if ((Test-Path (Join-Path $sys32Ssh 'sshd.exe')) -and $caps -notcontains 'OpenSSH.Server~~~~0.0.1.0') { $caps += 'OpenSSH.Server~~~~0.0.1.0' }
+    if ((Test-Path (Join-Path $sys32Ssh 'ssh-agent.exe')) -and $caps -notcontains 'OpenSSH.Client~~~~0.0.1.0') { $caps += 'OpenSSH.Client~~~~0.0.1.0' }
+
+    $entries = @()
+    foreach ($root in 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                      'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall') {
+        $entries += @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | ForEach-Object {
+            New-Object psobject -Property @{
+                Name = $_.PSChildName
+                DisplayName = (Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue).DisplayName
+            } })
+    }
+    $products = @(Select-OpenSshProductCode -Entries $entries)
+    $agent    = Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue
+    $pfLeft   = Test-Path $pfSsh
+
+    if (-not ($caps.Count -or $products.Count -or $agent -or $pfLeft)) { return 'clean' }
+    Write-Info "No sshd service, but OpenSSH leftovers that would break the MSI install:"
+    foreach ($c in $caps)     { Write-Info "  Windows capability $c (built-in, System32)" }
+    foreach ($g in $products) { Write-Info "  MSI product $g (registered, no sshd service)" }
+    if ($agent)  { Write-Info "  ssh-agent service, $($agent.Status)" }
+    if ($pfLeft) { Write-Info "  folder $pfSsh" }
+    $script:CleanupChanged = $true
+    $reboot = $false
+    $fail   = @()
+
+    # 1. The built-in ssh-agent: stopped and disabled, so nothing restarts it
+    #    while its capability goes.
+    if ($agent) {
+        if ($agent.Status -ne 'Stopped') {
+            [void](Invoke-Bounded -FilePath 'sc.exe' -Arguments 'stop ssh-agent' -TimeoutSec 20)
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            while ($sw.Elapsed.TotalSeconds -lt 20 -and
+                   (Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue).Status -notin @($null, 'Stopped')) {
+                Start-Sleep -Seconds 1
+            }
+        }
+        [void](Invoke-Bounded -FilePath 'sc.exe' -Arguments 'config ssh-agent start= disabled' -TimeoutSec 20)
+        $st = (Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue).Status
+        if ($st -and $st -ne 'Stopped') { Write-Warn "ssh-agent is still $st." } else { Write-Ok "ssh-agent stopped and disabled." }
+    }
+
+    # 2. Built-in capabilities, via dism.exe in its own process (never the DISM
+    #    cmdlets: they can hang for good). Not killed on a timeout.
+    foreach ($c in $caps) {
+        Write-Info "Removing Windows capability $c (up to ${MsiTimeoutSec}s) ..."
+        $rc = Invoke-Bounded -FilePath 'dism.exe' -TimeoutSec $MsiTimeoutSec -NoKill `
+                  -Arguments "/English /Online /Remove-Capability /CapabilityName:$c /NoRestart /Quiet"
+        if ($null -eq $rc) {
+            Write-Warn "dism is still removing $c after ${MsiTimeoutSec}s; left to finish."
+            $fail += "dism still removing $c after ${MsiTimeoutSec}s"
+            $reboot = $true
+            continue
+        }
+        switch (Get-InstallerOutcome $rc) {
+            'ok'     { Write-Ok "Removed $c." }
+            'reboot' { Write-Ok "Removed $c (reboot required)."; $reboot = $true }
+            default  { Write-Warn "dism /Remove-Capability $c exited $rc."; $fail += "dism remove $c exited $rc" }
+        }
+    }
+
+    # 3. Registered MSI products, uninstalled by product code: the cached
+    #    package can be gone, so a repair or upgrade over them fails.
+    $n = 0
+    foreach ($g in $products) {
+        $n++
+        $log = Join-Path $env:TEMP "fleetssh-msi-uninstall-$n.log"
+        Remove-Item $log -Force -ErrorAction SilentlyContinue
+        Write-Info "Uninstalling MSI product $g (up to ${MsiTimeoutSec}s) ..."
+        $rc = Invoke-Bounded -FilePath 'msiexec.exe' -TimeoutSec $MsiTimeoutSec -NoKill `
+                  -Arguments "/x $g /qn /norestart /l*v `"$log`""
+        if ($null -eq $rc) {
+            Write-Warn "msiexec /x $g did not finish within ${MsiTimeoutSec}s."
+            $fail += "msiexec /x $g timed out"
+            continue
+        }
+        switch (Get-InstallerOutcome $rc) {
+            'ok'     { Write-Ok "Uninstalled $g." }
+            'absent' { Write-Ok "$g was already gone (1605)." }
+            'reboot' { Write-Ok "Uninstalled $g (reboot required)."; $reboot = $true }
+            default  {
+                Write-Warn "msiexec /x $g exited $rc."
+                $fail += @(Get-MsiLogContext -LogPath $log -Header "msiexec /x $g exited $rc")
+            }
+        }
+    }
+
+    # 4. An ssh-agent service that outlived its capability/product (or never
+    #    had one) blocks the MSI's own. Delete it; if Windows only marks it for
+    #    deletion, that completes at the reboot, so the next run finds it gone.
+    if (-not $fail.Count -and (Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue)) {
+        [void](Invoke-Bounded -FilePath 'sc.exe' -Arguments 'delete ssh-agent' -TimeoutSec 20)
+        if (Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue) {
+            Write-Warn "ssh-agent service is still registered (pending deletion until a reboot)."
+            $reboot = $true
+        } else { Write-Ok "Removed the leftover ssh-agent service." }
+    }
+
+    if ($fail.Count) { $script:InstallErrorText = $fail; return 'fail' }
+    if ($reboot)     { return 'reboot' }
+
+    # 5. The leftover install folder, set aside (not deleted) so the MSI lays
+    #    down a clean copy. Config and host keys live in ProgramData and stay.
+    if (Test-Path $pfSsh) {
+        $aside = "OpenSSH.fleet-old-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        try {
+            Rename-Item -LiteralPath $pfSsh -NewName $aside -ErrorAction Stop
+            Write-Ok "Moved the leftover $pfSsh aside to $aside."
+        } catch {
+            Write-Warn "Could not move $pfSsh aside ($($_.Exception.Message)); a file in it is still in use."
+            return 'reboot'
+        }
+    }
+    return 'cleared'
+}
+
+$script:InstallErrorText = @()
+$script:CleanupChanged   = $false
 $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
 if ($sshdSvc) {
     Write-Ok "sshd already installed."
@@ -717,15 +979,38 @@ if ($sshdSvc) {
     $installError = 'run with -NoMsiDownload'
     if (-not $NoMsiDownload) {
         $installError = 'the OpenSSH MSI could not be downloaded or installed (see above)'
-        if (Install-OpenSSHFromMsi) {
-            $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
-            if ($sshdSvc) { Write-Ok "OpenSSH Server installed (MSI)." }
-            else { $installError = 'the MSI installed but no sshd service appeared' }
+        # Download and verify first, so a box that cannot fetch it is left untouched.
+        $msiPath = Get-OpenSshMsi
+        if ($msiPath) {
+            $cleanup = Clear-StaleOpenSsh
+            if ($cleanup -eq 'reboot') {
+                Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
+                Write-Fail "Old OpenSSH pieces are removed, but Windows needs a reboot to let go of them."
+                Write-Info "Fix: REBOOT this PC, then re-run the one-liner."
+                $ips = Get-LanIps
+                Show-FleetPanel -Result 'FAIL-REBOOT-NEEDED (reboot, then re-run)' -ErrorText $script:InstallErrorText
+                Stop-FleetSsh 1
+            }
+            if ($cleanup -eq 'fail') {
+                Remove-Item $msiPath -Force -ErrorAction SilentlyContinue
+                Write-Fail "Could not clear the old OpenSSH install; the MSI would fail over it."
+                Write-Info "Try: REBOOT, then re-run. If it fails the same way, send the photo."
+                $ips = Get-LanIps
+                Show-FleetPanel -Result 'FAIL-OPENSSH-CLEANUP (reboot, re-run, else send photo)' -ErrorText $script:InstallErrorText
+                Stop-FleetSsh 1
+            }
+            if ($cleanup -eq 'cleared') { Write-Ok "Old OpenSSH pieces cleared." }
+            if (Install-OpenSshMsi -Msi $msiPath) {
+                $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+                if ($sshdSvc) { Write-Ok "OpenSSH Server installed (MSI)." }
+                else { $installError = 'the MSI installed but no sshd service appeared' }
+            }
         }
     }
     if (-not $sshdSvc) {
         Show-ManualInstallHelp -Reason $installError
-        $ips = Get-LanIps; Show-FleetPanel -Result 'FAIL-NO-SSHD (see manual steps above)'
+        $ips = Get-LanIps
+        Show-FleetPanel -Result 'FAIL-NO-SSHD (see manual steps above)' -ErrorText $script:InstallErrorText
         Stop-FleetSsh 2
     }
 }

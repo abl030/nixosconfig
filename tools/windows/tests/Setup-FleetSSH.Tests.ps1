@@ -42,7 +42,8 @@ foreach ($f in Get-ChildItem (Join-Path $root '*.ps1')) {
 
 # ---- load only the pure helpers out of the script ---------------------------
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$null, [ref]$null)
-$want = 'Test-EntraAccount', 'Select-ThirdPartyFirewall', 'Get-SelfTestVerdict', 'Get-SshLoginName', 'Test-ServiceDeletePending', 'Get-ElevationArgs', 'Format-DiagnosticPanel'
+$want = 'Test-EntraAccount', 'Select-ThirdPartyFirewall', 'Get-SelfTestVerdict', 'Get-SshLoginName', 'Test-ServiceDeletePending', 'Get-ElevationArgs', 'Format-DiagnosticPanel',
+        'Get-InstallerOutcome', 'Get-OpenSshCapabilityName', 'Select-OpenSshProductCode', 'Select-MsiFailureContext'
 foreach ($name in $want) {
     $fn = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true) |
           Select-Object -First 1
@@ -75,6 +76,43 @@ Assert-Equal 'x' (Get-SshLoginName -AccountName 'AzureAD\x' -ComputerName 'PC' -
 Assert-Equal 'solo' (Get-SshLoginName -AccountName 'solo' -ComputerName 'PC' -Fallback 'solo') 'login: unqualified falls back'
 Assert-Equal $true  (Test-ServiceDeletePending "Service 'OpenSSH SSH Server (sshd)' cannot be configured due to the following error: The specified service has been marked for deletion") 'delete-pending: seen in the field'
 Assert-Equal $false (Test-ServiceDeletePending 'Access is denied') 'delete-pending: other errors are not'
+
+# ---- stale OpenSSH before the MSI (office PC, 2026-11-24) -------------------
+Assert-Equal 'ok'     (Get-InstallerOutcome 0)    'installer: 0 ok'
+Assert-Equal 'reboot' (Get-InstallerOutcome 3010) 'installer: 3010 reboot'
+Assert-Equal 'reboot' (Get-InstallerOutcome 1641) 'installer: 1641 reboot'
+Assert-Equal 'absent' (Get-InstallerOutcome 1605) 'installer: 1605 product already gone'
+Assert-Equal 'fail'   (Get-InstallerOutcome 1603) 'installer: 1603 fail'
+Assert-Equal @('OpenSSH.Server~~~~0.0.1.0', 'OpenSSH.Client~~~~0.0.1.0') (Get-OpenSshCapabilityName -PackageNames @(
+    'OpenSSH-Server-Package~31bf3856ad364e35~amd64~~10.0.26100.1',
+    'OpenSSH-Client-Package~31bf3856ad364e35~amd64~~10.0.26100.1',
+    'OpenSSH-Client-Package~31bf3856ad364e35~wow64~~10.0.26100.1',
+    'Microsoft-Windows-Foo-Package~31bf3856ad364e35~amd64~~10.0.1')) 'capability: CBS package names -> capability names, de-duplicated'
+Assert-Equal 0 @(Get-OpenSshCapabilityName -PackageNames @()).Count 'capability: none installed'
+$entries = @(
+    [pscustomobject]@{ Name = '{c4a3e1b2-0000-4000-8000-1234567890ab}'; DisplayName = 'OpenSSH' },
+    [pscustomobject]@{ Name = '{11111111-2222-3333-4444-555555555555}'; DisplayName = 'Some Other App' },
+    [pscustomobject]@{ Name = 'OpenSSH-NotMsi'; DisplayName = 'OpenSSH (zip)' },
+    $null)
+Assert-Equal @('{C4A3E1B2-0000-4000-8000-1234567890AB}') (Select-OpenSshProductCode -Entries $entries) 'msi product: only GUID-keyed OpenSSH entries'
+Assert-Equal 0 @(Select-OpenSshProductCode -Entries @()).Count 'msi product: none registered'
+$log = @(
+    'MSI (s) (A4:0C) [10:12:10:001]: Note: 1: 2203 2: C:\Windows\TEMP\OpenSSH-Win64-fleet.msi 3: -2147287038',
+    'MSI (s) (A4:0C) [10:12:11:002]: Doing action: SetPrivilegesOnSshAgent',
+    'Action start 10:12:11: SetPrivilegesOnSshAgent.',
+    'MSI (s) (A4:10) [10:12:12:003]: Invoking remote custom action. DLL: C:\Windows\Installer\MSI1.tmp',
+    'CustomAction SetPrivilegesOnSshAgent returned actual error code 1603 (note this may not be 100% accurate)',
+    '',
+    'Action ended 10:12:13: SetPrivilegesOnSshAgent. Return value 3.',
+    'Action ended 10:12:14: INSTALL. Return value 3.')
+Assert-Equal @(
+    'CustomAction SetPrivilegesOnSshAgent returned actual error code 1603 (note this may not be 100% accurate)',
+    'Doing action: SetPrivilegesOnSshAgent',
+    'Action start 10:12:11: SetPrivilegesOnSshAgent.',
+    'Invoking remote custom action. DLL: C:\Windows\Installer\MSI1.tmp',
+    'Action ended 10:12:13: SetPrivilegesOnSshAgent. Return value 3.') (Select-MsiFailureContext -Lines $log) 'msi log: error line, then the first Return value 3 with its lead-up, prefixes stripped'
+Assert-Equal @("no 'Return value 3' in the log") (Select-MsiFailureContext -Lines @('MSI (s) (A4:0C) [10:12:10:001]: Product: OpenSSH -- Installation completed successfully.')) 'msi log: nothing to show'
+Assert-Equal @('Return value 3.') (Select-MsiFailureContext -Lines @('Return value 3.')) 'msi log: Return value 3 on the first line'
 
 # ---- Get-SelfTestVerdict -----------------------------------------------------
 Assert-Equal 'pass'    (Get-SelfTestVerdict -ExitCode 0 -StdOut "host\fleet`r`n" -StdErr '') 'verdict: pass'
