@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
-	go.mau.fi/whatsmeow v0.0.0-20261116172437-19d61352436f
+	go.mau.fi/whatsmeow v0.0.0-20261124172153-494ae5d707ac
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.63.0
 )
@@ -14,12 +14,12 @@ require (
 	github.com/beeper/argo-go v1.1.2 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
-	github.com/elliotchance/orderedmap/v3 v3.1.1 // indirect
+	github.com/elliotchance/orderedmap/v3 v3.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/petermattis/goid v0.0.0-20261124144452-466dc414edf5 // indirect
+	github.com/petermattis/goid v0.0.0-20261125140513-578663ba5663 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.64 // indirect
