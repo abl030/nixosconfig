@@ -96,6 +96,9 @@ in {
         // {
           PrivateNetwork = true;
           BindPaths = [cfg.backupDir];
+          # SQLite's local snapshot charges file-backed pages to this cgroup. Keep
+          # the poller at 128M, but allow the growing database backup more headroom.
+          MemoryMax = "512M";
           # A run takes seconds; the headroom is for a slow share. A 2 min limit
           # killed every run for 16 nights once the copy outgrew it (see the wiki).
           TimeoutStartSec = "10min";
