@@ -6,17 +6,19 @@ run      loop: every --interval s one SNMP v2c GET of sysUpTime + every port's i
          <data-dir>/usage.sqlite. ifLastChange catches link flaps shorter than the
          interval (sysUpTime ticks coarsely on the TZ 370W, so ~±15 s).
 collect  a single sample (same as one loop iteration).
-backup   thin rows older than --keep-days to one per minute, then a consistent
-         SQLite copy into --backup-dir (atomic replace).
+backup   thin rows older than --keep-days to one per minute, snapshot the database
+         next to itself, then copy that file into --backup-dir (atomic replace).
 check    fail unless a sample landed within --max-age seconds.
+check-backup  fail unless a backup succeeded within --max-age seconds.
 
 The community comes from a dotenv credential (SNMP_COMMUNITY=...) and reaches
 net-snmp through a private snmp.conf, never argv. Reports: cullen-assistant
 scripts/wan. See docs/wiki/services/cullen-wan-usage.md.
 """
-import argparse, os, sqlite3, subprocess, sys, tempfile, time
+import argparse, os, shutil, sqlite3, subprocess, sys, tempfile, time
 
 HOST = '192.168.100.14'
+STAMP = 'backup.stamp'  # written after each successful backup; check-backup reads its age
 PORTS = range(1, 11)  # ifIndex 1..10 = X0..X7, W0, U0 on the TZ 370W
 FIELDS = 5  # ifName, in, out, oper, lastchange
 SCHEMA = '''CREATE TABLE IF NOT EXISTS samples(
@@ -110,15 +112,39 @@ def backup(a):
     with con:  # keep the first sample of each minute; counters are cumulative, so sums stay exact
         thinned = con.execute('DELETE FROM samples WHERE ts < ? AND CAST(ts AS INTEGER) % 60 >= ?',
                               (cutoff, a.interval)).rowcount
-    os.makedirs(a.backup_dir, exist_ok=True)
-    dst = os.path.join(a.backup_dir, 'usage.sqlite')
-    tmp = dst + '.tmp'
-    out = sqlite3.connect(tmp)
+    # Snapshot onto local disk, then copy the one file: SQLite's page-at-a-time writes
+    # take minutes over NFS and hold a read lock that starves the poller (see the wiki).
+    snap = a.db + '.snapshot'
+    for stale in (snap, snap + '-journal'):
+        if os.path.exists(stale):
+            os.remove(stale)
+    out = sqlite3.connect(snap)
     con.backup(out)
     n = out.execute('SELECT count(*) FROM samples').fetchone()[0]
     out.close(); con.close()
-    os.replace(tmp, dst)
+    os.makedirs(a.backup_dir, exist_ok=True)
+    dst = os.path.join(a.backup_dir, 'usage.sqlite')
+    tmp = dst + '.tmp'
+    try:
+        with open(snap, 'rb') as src, open(tmp, 'wb') as f:
+            shutil.copyfileobj(src, f, 1 << 20)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, dst)
+    finally:
+        os.remove(snap)
+    if os.path.exists(tmp + '-journal'):  # left behind by a run killed mid-copy before this fix
+        os.remove(tmp + '-journal')
+    with open(os.path.join(a.data_dir, STAMP), 'w') as f:
+        f.write(f'{time.time():.0f} {n}\n')
     print(f'thinned {thinned} rows older than {a.keep_days} d; backed up {n} rows to {dst}')
+
+
+def check_backup(a):
+    stamp = os.path.join(a.data_dir, STAMP)
+    age = time.time() - os.stat(stamp).st_mtime if os.path.exists(stamp) else float('inf')
+    print(f'last successful backup {age / 3600:.1f} h ago')
+    sys.exit(0 if age <= a.max_age else 1)
 
 
 def check(a):
@@ -130,7 +156,7 @@ def check(a):
 
 
 ap = argparse.ArgumentParser()
-ap.add_argument('cmd', choices=['run', 'collect', 'backup', 'check'])
+ap.add_argument('cmd', choices=['run', 'collect', 'backup', 'check', 'check-backup'])
 ap.add_argument('--data-dir', required=True)
 ap.add_argument('--credential')
 ap.add_argument('--snmpget', default='snmpget')
@@ -140,4 +166,4 @@ ap.add_argument('--backup-dir')
 ap.add_argument('--max-age', type=int, default=86400)
 a = ap.parse_args()
 a.db = os.path.join(a.data_dir, 'usage.sqlite')
-{'run': run, 'collect': collect, 'backup': backup, 'check': check}[a.cmd](a)
+{'run': run, 'collect': collect, 'backup': backup, 'check': check, 'check-backup': check_backup}[a.cmd](a)

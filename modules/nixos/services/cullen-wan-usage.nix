@@ -96,6 +96,9 @@ in {
         // {
           PrivateNetwork = true;
           BindPaths = [cfg.backupDir];
+          # A run takes seconds; the headroom is for a slow share. A 2 min limit
+          # killed every run for 16 nights once the copy outgrew it (see the wiki).
+          TimeoutStartSec = "10min";
           ExecStart = "${command} backup ${dataArg} --keep-days 35 --interval 10 --backup-dir ${lib.escapeShellArg cfg.backupDir}";
         };
     };
@@ -112,6 +115,15 @@ in {
       {
         name = "Cullen WAN usage collection";
         command = "${command} check ${dataArg} --max-age 86400";
+        interval = "1h";
+        intervalSecs = 4500;
+        serviceConfig.ReadOnlyPaths = [cfg.dataDir];
+      }
+      # The backup unit has no failure hook, so a stale copy is what pages. It reads
+      # the local success stamp, not the share, so a tower outage is not paged twice.
+      {
+        name = "Cullen WAN usage backup";
+        command = "${command} check-backup ${dataArg} --max-age 172800";
         interval = "1h";
         intervalSecs = 4500;
         serviceConfig.ReadOnlyPaths = [cfg.dataDir];
