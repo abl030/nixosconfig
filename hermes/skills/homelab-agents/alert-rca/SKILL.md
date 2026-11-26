@@ -104,11 +104,11 @@ creates transient unit state, and the invoked program may update ledgers or send
 alerts. Reproduce parsing and sandbox behavior with scratch fixtures instead.
 
 For service-specific failure recipes (systemd sandbox/namespace failures,
-timer-driven oneshots, long initial-sync heartbeat gaps, boot-time crash
-notifiers, kernel panics with missing kdump, Alloy startup/config failures,
-MariaDB connection stalls, Cratedigger upstream-tip canaries and live-world
-integrity failures, HTTP 404/421, Tailscale share peers, and missing Kuma
-heartbeats), load
+timer-driven oneshots, memory-cgroup OOMs, long initial-sync heartbeat gaps,
+boot-time crash notifiers, kernel panics with missing kdump, Alloy
+startup/config failures, MariaDB connection stalls, Cratedigger upstream-tip
+canaries and live-world integrity failures, HTTP 404/421, Tailscale share peers,
+and missing Kuma heartbeats), load
 [`references/service-failure-recipes.md`](references/service-failure-recipes.md).
 
 ### 4. Check nixosconfig for the relevant config
@@ -133,8 +133,10 @@ incident or proposing a PR.
 
 For other alerts, classify the alert:
 - **Config issue** — a nixosconfig change caused this (wrong port, missing
-  option, broken module). Fixable via PR.
-- **Transient** — network blip, OOM from temporary load, disk space. Often
+  option, broken module, or an undersized declarative resource limit). Fixable
+  via PR.
+- **Transient** — network blip, temporary workload spike within an otherwise
+  appropriate resource budget, or short-lived disk pressure. Often
   self-healing. No PR needed.
 - **External** — upstream service down, DNS issue, cert expiry. May need
   manual intervention but not a nixosconfig PR.

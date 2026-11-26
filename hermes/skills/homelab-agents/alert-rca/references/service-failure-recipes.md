@@ -26,6 +26,16 @@ All probes remain read-only.
 11. Before running a host dry-build for the fix, check whether activation has already restarted the same production-depth job. Do not overlap costly jobs; use parse, formatting, and evaluated-policy checks immediately, and state plainly when the full dry-build is deferred rather than competing for the host.
 12. Prefer `journalctl -u <unit>` or `_SYSTEMD_UNIT=<unit>` over host-wide grep. Aggregators such as Loki can log query strings containing the service name, recursively flooding broad searches and obscuring causal lines.
 
+## Memory-cgroup OOM
+
+1. Read the kernel `oom-kill:` line first and use `oom_memcg` / `task_memcg` to identify the exact unit and host. A low-RSS victim is not proof that the process fit: the kernel selects one task from the cgroup, while the limit covers the cgroup's aggregate anonymous memory, file-backed cache, subprocesses, and swap.
+2. Read `systemctl status <unit>`, the exact invocation journal, `systemctl cat <unit>`, and `systemctl show <unit> -p Result -p ExecMainStatus -p MemoryCurrent -p MemoryPeak -p MemorySwapPeak -p MemoryMax -p OOMPolicy -p NRestarts`. Compare `MemoryPeak` with `MemoryMax`, then check `free -h`; `CONSTRAINT_MEMCG`, a peak exactly at the unit limit, and ample host-available memory prove a unit-local cap rather than host-global exhaustion.
+3. Inspect workload size, I/O totals, and recent code/config history before choosing a fix. Snapshot, database-backup, archive, and copy jobs can charge file-backed pages near the input size even when the language runtime's resident set looks small; measure the current input and account for expected growth instead of sizing from the victim's RSS.
+4. Classify an undersized declarative limit as a config issue when the workload is expected and repeatable. Classify a one-off concurrency or input spike as transient only when the configured budget remains appropriate and later runs recover without changing the invariant.
+5. Fix the narrowest workload boundary: override the backup/batch/oneshot limit rather than raising a shared helper's limit for a lightweight long-running sibling. Retain a finite cap with headroom above the measured working set and data growth; do not remove resource isolation merely to clear the alert.
+6. Do not rerun a production oneshot during RCA when it writes snapshots, stamps, backups, or ledgers. Verify with Nix parse, evaluation of the exact service property, an affected-host dry-build, a realized generated unit, and `systemd-analyze verify`; leave execution to deployment and the next scheduled run.
+7. Report current state separately from the fix: include the failed result, next timer trigger, and whether the host itself remained healthy. Do not call the incident recovered merely because the timer is waiting for a future retry.
+
 ## Boot-time crash-notifier failure during activation
 
 1. When `switch-to-configuration` reaches activation and then reports `warning: the following units failed`, treat the named unit as the immediate upgrade root rather than blaming the candidate commit or nixpkgs. Verify `/run/current-system` and `configurationRevision` separately: activation can install the target successfully while returning non-zero because a wanted oneshot failed.
