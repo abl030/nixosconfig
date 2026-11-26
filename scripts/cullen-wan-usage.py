@@ -15,7 +15,7 @@ The community comes from a dotenv credential (SNMP_COMMUNITY=...) and reaches
 net-snmp through a private snmp.conf, never argv. Reports: cullen-assistant
 scripts/wan. See docs/wiki/services/cullen-wan-usage.md.
 """
-import argparse, os, shutil, sqlite3, subprocess, sys, tempfile, time
+import argparse, os, sqlite3, subprocess, sys, tempfile, time
 
 HOST = '192.168.100.14'
 STAMP = 'backup.stamp'  # written after each successful backup; check-backup reads its age
@@ -126,10 +126,17 @@ def backup(a):
     dst = os.path.join(a.backup_dir, 'usage.sqlite')
     tmp = dst + '.tmp'
     try:
+        # Flush every few MB: dirty NFS pages count against the unit's MemoryMax and are
+        # not throttled per cgroup, so one buffered 190 MB write gets the unit OOM-killed.
         with open(snap, 'rb') as src, open(tmp, 'wb') as f:
-            shutil.copyfileobj(src, f, 1 << 20)
-            f.flush()
-            os.fsync(f.fileno())
+            done = 0
+            while chunk := src.read(8 << 20):
+                f.write(chunk)
+                f.flush()
+                os.fsync(f.fileno())
+                os.posix_fadvise(f.fileno(), done, len(chunk), os.POSIX_FADV_DONTNEED)
+                os.posix_fadvise(src.fileno(), done, len(chunk), os.POSIX_FADV_DONTNEED)
+                done += len(chunk)
         os.replace(tmp, dst)
     finally:
         os.remove(snap)
