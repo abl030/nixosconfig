@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/mdp/qrterminal/v3 v3.2.1
-	go.mau.fi/whatsmeow v0.0.0-20261124172153-494ae5d707ac
+	go.mau.fi/whatsmeow v0.0.0-20261125185702-10b99a98616e
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.63.0
 )
@@ -34,6 +34,6 @@ require (
 	golang.org/x/text v0.44.0 // indirect
 	modernc.org/libc v1.82.13 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.13.0 // indirect
+	modernc.org/memory v1.13.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
