@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1795477838,
-        "narHash": "sha256-9zdMSQwLZjNetRIV1F0upOSFV3jWNXV3TZm/xNr/aTM=",
+        "lastModified": 1795722817,
+        "narHash": "sha256-B16y6xtwWiKaIT9KrRA18h/YoOUQ4C9P87p4jjnEcUo=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "fcb5e3adc1890db34f482f73e2449f3c57a2f423",
+        "rev": "ee3695a24ae1ccb205e4334b79799cb25c060247",
         "type": "github"
       },
       "original": {
@@ -93,11 +93,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1793299886,
-        "narHash": "sha256-tCDwRXJLLNBfBjTtwO8bOKyjEthndtUrspi7Uq7xY1I=",
+        "lastModified": 1795730755,
+        "narHash": "sha256-G2ggOptlzNVv4x6rPl4E2U94ZrOCnCi+477TECUpNC8=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "166defa51c606b3c77d45a9b29a459d1f993f357",
+        "rev": "5fd2fd37fe12c92bf5ee1a77106dfd1aa5dd0ae1",
         "type": "github"
       },
       "original": {
@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795650740,
-        "narHash": "sha256-jFSaa87bAou0olGOZVqNAQomJ+CqoH4llqb77o/Gr5Y=",
+        "lastModified": 1795790907,
+        "narHash": "sha256-9ORwHuMSU7F7KCfSDvxcPGmImM+4YEAz/vNQ56VvC90=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "842bbe0fdd68f42b3b43824b60abdd87febf59a5",
+        "rev": "6fa39430e27b888bfc141363dead04b97ad16b60",
         "type": "github"
       },
       "original": {
@@ -326,11 +326,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1795685386,
-        "narHash": "sha256-4BzpHRdWMbgT3DbW186YnMxMdX1/gVLjWr+yBGO4imI=",
+        "lastModified": 1795790491,
+        "narHash": "sha256-647VHVc0+iMu5kia7mIFk4emE1ZlJjIY2uq0wlSutvs=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "04be1bc06ba9fb3a7326679b0036bb65daaeda85",
+        "rev": "9bba163bc1d090852eccc86802eddc454df47d1b",
         "type": "github"
       },
       "original": {
@@ -367,11 +367,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795699347,
-        "narHash": "sha256-9VbfnntwEYRAyfLpxchf1+EI7efzM7hMVfPDwIBqEKg=",
+        "lastModified": 1795748630,
+        "narHash": "sha256-J1iQ1QMnkFwZFXnlPt2t3Qx7TsGjw08/0L3QMqNt+Wg=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "a3a080dad466c6352a869b48bd6d4860dab3ce94",
+        "rev": "54f903fdaaf5d5720ed36706fe75332af69eb793",
         "type": "github"
       },
       "original": {
@@ -933,11 +933,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1795648165,
-        "narHash": "sha256-NDWbSJrnYUqMGEoSbq9eke3RmF40y2IAABFj//cdvCg=",
+        "lastModified": 1795734566,
+        "narHash": "sha256-vHTkgJxYescl9sCNc6EgDyR/oWxztbrca3yhDdl+5Ng=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "b0e02795d28fdaf8f2c2c14c44ee7e8aa5318b22",
+        "rev": "83768beb75787fe3c7586cac344eb8b13970121b",
         "type": "github"
       },
       "original": {
