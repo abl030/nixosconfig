@@ -500,6 +500,21 @@
             remoteUser = "Gerlinde@cullenwines.com.au";
             tokenAccount = "work";
           };
+          # Cullen accounts@ shared mailbox (andy@ FullAccess, AutoMapping off,
+          # 2026-11-28) for supplier invoices entered via the Ezy API. Only the
+          # A/P working folders (~4.3k items / 1.1 GB of 77k / 16.5 GB): no
+          # history, Sent, or Staff and Payroll. Sync Pull + PEEK: read state on
+          # the server is never changed, so staff keep their unread markers.
+          accounts = {
+            provider = "o365";
+            remoteUser = "accounts@cullenwines.com.au";
+            tokenAccount = "work";
+            folderPatterns = [
+              "INBOX"
+              "INBOX/Accounts Payable/Current Invoices*"
+              "INBOX/Accounts Payable/Statements"
+            ];
+          };
           gmail = {
             provider = "gmail";
             remoteUser = "abl030@gmail.com";
